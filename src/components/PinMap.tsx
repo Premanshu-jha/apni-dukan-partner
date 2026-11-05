@@ -1,0 +1,74 @@
+import 'leaflet/dist/leaflet.css'
+import L from 'leaflet'
+import { useEffect, useRef } from 'react'
+
+const TILES = (import.meta.env.VITE_MAP_TILES as string | undefined) || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+
+const pin = L.divIcon({
+  className: '',
+  html: '<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#f59e0b;border:3px solid #0f1115;box-shadow:0 2px 6px rgba(0,0,0,.5)"></div>',
+  iconSize: [28, 28],
+  iconAnchor: [14, 28],
+})
+
+/**
+ * A small map with one pin the owner can drag (or tap the map to move it). Calls onMove with the new point.
+ * The pin starts where the phone's GPS put it.
+ */
+export function PinMap({
+  lat,
+  lng,
+  onMove,
+}: {
+  lat: number
+  lng: number
+  onMove: (lat: number, lng: number) => void
+}) {
+  const box = useRef<HTMLDivElement>(null)
+  const map = useRef<L.Map | null>(null)
+  const marker = useRef<L.Marker | null>(null)
+  const moved = useRef(onMove)
+  useEffect(() => {
+    moved.current = onMove
+  }, [onMove])
+
+  useEffect(() => {
+    if (!box.current || map.current) return
+    const m = L.map(box.current, { zoomControl: true, attributionControl: true }).setView([lat, lng], 18)
+    L.tileLayer(TILES, { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(m)
+    const mk = L.marker([lat, lng], { draggable: true, icon: pin, keyboard: true, title: 'Salon location' }).addTo(m)
+    mk.on('dragend', () => {
+      const p = mk.getLatLng()
+      moved.current(p.lat, p.lng)
+    })
+    m.on('click', (e: L.LeafletMouseEvent) => {
+      mk.setLatLng(e.latlng)
+      moved.current(e.latlng.lat, e.latlng.lng)
+    })
+    map.current = m
+    marker.current = mk
+    return () => {
+      m.remove()
+      map.current = null
+      marker.current = null
+    }
+    // Created once; later positions come through the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const p = marker.current?.getLatLng()
+    if (!p || (p.lat === lat && p.lng === lng)) return
+    marker.current?.setLatLng([lat, lng])
+    map.current?.setView([lat, lng])
+  }, [lat, lng])
+
+  return (
+    <div
+      ref={box}
+      role="application"
+      aria-label="Map: drag the pin to your salon's door"
+      className="h-56 w-full overflow-hidden rounded-xl border border-line"
+    />
+  )
+}
