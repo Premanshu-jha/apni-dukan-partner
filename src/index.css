@@ -1,0 +1,35 @@
+@import 'tailwindcss';
+
+/* Dark theme only. Colours are named by role so screens never hard-code a hex. */
+@theme {
+  --color-bg: #0f1115;
+  --color-surface: #181b22;
+  --color-raised: #20242d;
+  --color-line: #2a2f3a;
+  --color-ink: #e6e8ee;
+  --color-muted: #9aa1b2;
+  --color-brand: #f59e0b;
+  --color-brand-ink: #1a1203;
+  --color-good: #34d399;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
