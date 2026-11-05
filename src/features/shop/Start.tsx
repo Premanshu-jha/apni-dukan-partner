@@ -1,0 +1,92 @@
+import { useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { Navigate, useNavigate } from 'react-router'
+import { refreshSession } from '../../api/client'
+import { messageOf } from '../../api/errors'
+import { fetchMyShop, shopKeys, useMyShop } from '../../api/shop'
+import { Banner, Button, Card, Loading, Page } from '../../components/ui'
+import { formatPhone } from '../../lib/phone'
+import { useSession } from '../../store/session'
+import { Brand } from '../auth/Brand'
+import { signOutHere } from '../profile/signOut'
+
+/**
+ * Signed in, no shop yet (404 NO_SHOP): register a salon, or, for someone who works in one, show the number the
+ * owner must add.
+ */
+export function Start() {
+  const qc = useQueryClient()
+  const navigate = useNavigate()
+  const user = useSession((s) => s.user)!
+  const shop = useMyShop()
+  const [worker, setWorker] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  if (shop.isPending) return <Loading />
+  if (shop.data) return <Navigate to="/" replace />
+
+  async function checkAgain() {
+    setBusy(true)
+    setNotice(null)
+    try {
+      const mine = await fetchMyShop()
+      if (mine) {
+        // Added to a shop: a fresh token carries it.
+        await refreshSession()
+        qc.setQueryData(shopKeys.mine, mine)
+        navigate('/', { replace: true })
+      } else {
+        setNotice("You haven't been added to a salon yet.")
+      }
+    } catch (e) {
+      setNotice(messageOf(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Page>
+      <Brand subtitle={`Welcome, ${user.name ?? ''}. Let's get your salon on Apni Dukan.`} />
+      {shop.isError && <Banner tone="bad">{messageOf(shop.error)}</Banner>}
+      {!worker ? (
+        <div className="flex flex-col gap-3">
+          <Card className="flex flex-col gap-3">
+            <p className="text-lg font-semibold">I own a salon</p>
+            <p className="text-sm text-muted">
+              Register it in three short steps. Our field team visits, and then customers nearby can book you.
+            </p>
+            <Button onClick={() => navigate('/register')}>Register my salon</Button>
+          </Card>
+          <Card className="flex flex-col gap-3">
+            <p className="text-lg font-semibold">I work at a salon</p>
+            <p className="text-sm text-muted">A barber or a helper whose owner already uses Apni Dukan.</p>
+            <Button variant="secondary" onClick={() => setWorker(true)}>
+              I work at a salon
+            </Button>
+          </Card>
+        </div>
+      ) : (
+        <Card className="flex flex-col gap-3">
+          <p className="text-lg font-semibold">Ask your owner to add you</p>
+          <p className="text-muted">
+            Your owner adds this number in their Apni Dukan Partner app (Team for helpers, or a barber's profile for
+            barbers):
+          </p>
+          <p className="text-center text-2xl font-bold tracking-wide">+91 {formatPhone(user.phone)}</p>
+          {notice && <Banner tone="info">{notice}</Banner>}
+          <Button busy={busy} onClick={checkAgain}>
+            I've been added, check again
+          </Button>
+          <Button variant="ghost" onClick={() => setWorker(false)}>
+            Back
+          </Button>
+        </Card>
+      )}
+      <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
+        Sign out
+      </Button>
+    </Page>
+  )
+}
