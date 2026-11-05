@@ -1,0 +1,58 @@
+import { useQueryClient } from '@tanstack/react-query'
+import { Navigate, Outlet } from 'react-router'
+import { messageOf } from '../../api/errors'
+import { ShopContext, shopKeys, useMyShop } from '../../api/shop'
+import { Button, EmptyState, ErrorState, Loading, Page } from '../../components/ui'
+import { SUPPORT_EMAIL } from '../../lib/config'
+import { signOutHere } from '../profile/signOut'
+
+/**
+ * Every screen after sign-in goes through here: GET /shops/me decides what this person sees. No shop → the start
+ * screen; a kirana → "coming soon" and nothing else (kirana screens are never shown in this app).
+ */
+export function ShopGate() {
+  const shop = useMyShop()
+  if (shop.isPending) return <Loading label="Opening your salon…" />
+  if (shop.isError) {
+    return (
+      <Page title="Apni Dukan Partner">
+        <ErrorState message={messageOf(shop.error)} onRetry={() => shop.refetch()} />
+      </Page>
+    )
+  }
+  if (!shop.data) return <Navigate to="/start" replace />
+  if (shop.data.type !== 'SALON') return <KiranaSoon />
+  return (
+    <ShopContext.Provider value={shop.data}>
+      <Outlet />
+    </ShopContext.Provider>
+  )
+}
+
+function KiranaSoon() {
+  const qc = useQueryClient()
+  return (
+    <Page title="Apni Dukan Partner">
+      <EmptyState
+        title="Kirana partners: coming soon"
+        body="This app is for salons for now. We'll let you know when kirana shops can use it."
+        action={
+          <div className="flex flex-col gap-2">
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-brand underline">
+              {SUPPORT_EMAIL}
+            </a>
+            <Button variant="ghost" onClick={() => signOutHere(qc)}>
+              Sign out
+            </Button>
+          </div>
+        }
+      />
+    </Page>
+  )
+}
+
+/** Run after something that changes the shop (approval, joining, leaving): the gate decides again. */
+export function useRecheckShop() {
+  const qc = useQueryClient()
+  return () => qc.invalidateQueries({ queryKey: shopKeys.mine })
+}
