@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router'
-import { useInbox, useMarkRead, type InboxItem } from '../../api/notifications'
+import { INBOX_MAX_PAGES, useInbox, useMarkRead, type InboxItem } from '../../api/notifications'
 import { messageOf } from '../../api/errors'
 import { Button, EmptyState, ErrorState, Loading, Page } from '../../components/ui'
 import { dateTimeIst, minutesUntil } from '../../lib/ist'
@@ -112,6 +112,9 @@ export function Inbox() {
         <Button variant="secondary" busy={inbox.isFetchingNextPage} onClick={() => inbox.fetchNextPage()}>
           Show older
         </Button>
+      )}
+      {inbox.data && inbox.data.pages.length >= INBOX_MAX_PAGES && inbox.data.pages[inbox.data.pages.length - 1].next && (
+        <p className="text-center text-sm text-muted">Showing the latest {items.length} messages.</p>
       )}
       <p className="text-center text-xs text-muted">Messages are kept for 90 days.</p>
     </Page>

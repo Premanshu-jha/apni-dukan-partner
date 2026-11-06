@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, type RefObject } from 'react'
 import { useNavigate } from 'react-router'
 import { messageOf } from '../../api/errors'
-import { dayApi, salonKeys } from '../../api/salon'
+import { atCap, uniqueById } from '../../api/pages'
+import { HISTORY_MAX_PAGES, UPCOMING_MAX_PAGES, UPCOMING_PAGE, useHistory, useMoreAfterCap, useUpcoming } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import type { Appointment } from '../../api/types'
+import { OFFSCREEN_CHEAP, ShowMoreFooter, useShowMore } from '../../components/ShowMore'
 import { Banner, Card, Chip, EmptyState, ErrorState, Field, Loading, Page } from '../../components/ui'
 import { addDays, dateOfIst, dayLabel, isDate, todayIst } from '../../lib/ist'
 import { rupees } from '../../lib/money'
@@ -47,11 +48,57 @@ export function Bookings() {
 
 function Upcoming() {
   const navigate = useNavigate()
-  const list = useQuery({ queryKey: salonKeys.upcoming, queryFn: dayApi.upcoming, refetchInterval: 60_000 })
+  const list = useUpcoming()
+  const items = uniqueById(list.data?.pages ?? [])
+  const pager = useShowMore('upcoming', items.length, list.isFetchingNextPage)
+  // At the cap with a full last page: ask whether anything really comes after (exactly 500 left: nothing)
+  const pages = list.data?.pages ?? []
+  const last = pages[pages.length - 1]
+  const full = pages.length >= UPCOMING_MAX_PAGES && last !== undefined && last.length >= UPCOMING_PAGE
+  const afterCap = useMoreAfterCap(full ? { afterStart: last[last.length - 1].startsAt, afterId: last[last.length - 1].id } : null)
   if (list.isPending) return <Loading />
-  if (list.isError) return <ErrorState message={messageOf(list.error)} onRetry={() => list.refetch()} />
-  if (list.data.length === 0) return <EmptyState title="No bookings coming up" body="New online bookings show here and on the day board." />
-  return <Grouped list={list.data} onOpen={(a) => navigate(`/salon/day?date=${dateOfIst(a.startsAt)}`)} />
+  // Only when nothing is on screen yet: a failed "Show more" or refresh keeps the list and says so
+  if (list.isError && !list.data) return <ErrorState message={messageOf(list.error)} onRetry={() => list.refetch()} />
+  if (items.length === 0) {
+    return (
+      <>
+        {list.isRefetchError && <Banner tone="warn">Couldn't refresh the list. It may be a little out of date.</Banner>}
+        <EmptyState title="No bookings coming up" body="New online bookings show here and on the day board." />
+      </>
+    )
+  }
+  const capped = full && afterCap.data === true
+  const n = items.length
+  return (
+    <section aria-label="Bookings coming up" className="flex flex-col gap-3">
+      <p ref={pager.countRef} tabIndex={-1} className="text-sm text-muted focus:outline-none">
+        {list.hasNextPage || capped ? `The next ${n} bookings, soonest first` : `${n} ${n === 1 ? 'booking' : 'bookings'} coming up`}
+      </p>
+      <p aria-live="polite" className="sr-only">
+        {n} bookings shown
+      </p>
+      <Grouped
+        list={items}
+        listRef={pager.listRef}
+        busy={list.isFetchingNextPage}
+        onOpen={(a) => navigate(`/salon/day?date=${dateOfIst(a.startsAt)}`)}
+      />
+      {capped && (
+        <Banner tone="info">Showing the next {n} bookings. Open a day on Today to see the ones after.</Banner>
+      )}
+      <ShowMoreFooter
+        label="Show more bookings"
+        loadingLabel="Loading more bookings…"
+        more={list.hasNextPage}
+        busy={list.isFetchingNextPage}
+        failed={list.isFetchNextPageError}
+        offline={pager.offline}
+        refreshFailed={list.isRefetchError}
+        error={list.error}
+        onShowMore={() => pager.showMore(list.fetchNextPage)}
+      />
+    </section>
+  )
 }
 
 function History() {
@@ -60,7 +107,14 @@ function History() {
   const [from, setFrom] = useState(addDays(today, -6))
   const [to, setTo] = useState(today)
   const valid = isDate(from) && isDate(to) && from <= to && to <= today && to <= addDays(from, 30)
-  const list = useQuery({ queryKey: salonKeys.history(from, to), queryFn: () => dayApi.history(from, to), enabled: valid })
+  const list = useHistory(from, to, valid)
+  const items = uniqueById(list.data?.pages.map((p) => p.appointments) ?? [])
+  const pager = useShowMore(`history ${from} ${to}`, items.length, list.isFetchingNextPage)
+  // The totals cover the whole range on every page: the first page's stand
+  const totals = list.data?.pages[0]
+  const pages = list.data?.pages ?? []
+  const capped = atCap(pages.length, HISTORY_MAX_PAGES, pages[pages.length - 1]?.next != null)
+  const n = items.length
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
@@ -71,42 +125,83 @@ function History() {
         <Banner tone="warn">Pick up to 31 days, ending today or earlier.</Banner>
       ) : list.isPending ? (
         <Loading />
-      ) : list.isError ? (
+      ) : list.isError && !totals ? (
         <ErrorState message={messageOf(list.error)} onRetry={() => list.refetch()} />
       ) : (
-        <>
-          <Card className="flex flex-col gap-2">
-            <p className="text-sm text-muted">Done (at list prices)</p>
-            <p className="text-2xl font-bold">{rupees(list.data.completedPaise)}</p>
-            <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-              {Object.entries(list.data.counts).map(([status, n]) => (
-                <li key={status}>
-                  {statusText[status as keyof typeof statusText] ?? status}: <span className="font-semibold">{n}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-          {list.data.truncated && <Banner tone="info">Showing the latest 500. Pick fewer days to see all.</Banner>}
-          {list.data.appointments.length === 0 ? (
-            <EmptyState title="Nothing in these days" />
-          ) : (
-            <Grouped list={list.data.appointments} onOpen={(a) => navigate(`/salon/day?date=${dateOfIst(a.startsAt)}`)} />
-          )}
-        </>
+        totals && (
+          <>
+            <Card className="flex flex-col gap-2">
+              <p className="text-sm text-muted">Done (at list prices)</p>
+              <p className="text-2xl font-bold">{rupees(totals.completedPaise)}</p>
+              <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                {Object.entries(totals.counts).map(([status, count]) => (
+                  <li key={status}>
+                    {statusText[status as keyof typeof statusText] ?? status}: <span className="font-semibold">{count}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+            {n === 0 ? (
+              <EmptyState title="Nothing in these days" />
+            ) : (
+              <section aria-label="History" className="flex flex-col gap-3">
+                <p ref={pager.countRef} tabIndex={-1} className="text-sm text-muted focus:outline-none">
+                  {list.hasNextPage || capped ? `The latest ${n}, latest first` : `${n} ${n === 1 ? 'booking or walk-in' : 'bookings and walk-ins'}, latest first`}
+                </p>
+                <p aria-live="polite" className="sr-only">
+                  {n} shown
+                </p>
+                <Grouped
+                  list={items}
+                  listRef={pager.listRef}
+                  busy={list.isFetchingNextPage}
+                  onOpen={(a) => navigate(`/salon/day?date=${dateOfIst(a.startsAt)}`)}
+                />
+              </section>
+            )}
+            {capped && <Banner tone="info">Showing the latest {n}. Pick fewer days to see the earlier ones.</Banner>}
+            <ShowMoreFooter
+              label="Show more"
+              loadingLabel="Loading more…"
+              more={list.hasNextPage}
+              busy={list.isFetchingNextPage}
+              failed={list.isFetchNextPageError}
+              offline={pager.offline}
+              refreshFailed={list.isRefetchError}
+              error={list.error}
+              onShowMore={() => pager.showMore(list.fetchNextPage)}
+            />
+          </>
+        )
       )}
     </>
   )
 }
 
-function Grouped({ list, onOpen }: { list: Appointment[]; onOpen: (a: Appointment) => void }) {
+/**
+ * The list by day. Every loaded page is drawn (at most 500 or 1,000 cards), each card only near the screen
+ * (OFFSCREEN_CHEAP); `data-index` is the card's place in the whole list, for "Show more" focus.
+ */
+function Grouped({
+  list,
+  onOpen,
+  listRef,
+  busy,
+}: {
+  list: Appointment[]
+  onOpen: (a: Appointment) => void
+  listRef: RefObject<HTMLDivElement | null>
+  busy: boolean
+}) {
+  let index = 0
   return (
-    <div className="flex flex-col gap-4">
+    <div ref={listRef} aria-busy={busy} className="flex flex-col gap-4">
       {byDate(list).map((g) => (
         <section key={g.date} className="flex flex-col gap-2">
           <h2 className="text-sm font-semibold text-muted">{dayLabel(g.date)}</h2>
           <ul className="flex flex-col gap-2">
             {g.items.map((a) => (
-              <li key={a.id}>
+              <li key={a.id} data-index={index++} className={OFFSCREEN_CHEAP}>
                 <AppointmentCard a={a} barber={null} onOpen={() => onOpen(a)} />
               </li>
             ))}
