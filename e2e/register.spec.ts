@@ -98,3 +98,21 @@ test('location blocked: the app shows how to turn it on', async ({ page, context
   await expect(page.getByText('Location is turned off')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
 })
+
+test('a photo upload answered 503 PHOTOS_BUSY says to try again in a minute, is not repeated, and a new pick works', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  api.shop = MockApi.shopOf({ status: 'DRAFT', shopPhotoFileId: null })
+  const message = 'Lots of photos are being sent right now. Try again in a minute.'
+  api.failOnce.set('/files', { status: 503, code: 'PHOTOS_BUSY', message, retryAfter: 60 })
+  await page.goto('/register/photos')
+  const busy = page.waitForResponse((r) => r.url().includes('/api/v1/files') && r.request().method() === 'POST')
+  await page.getByLabel('Add shop front').setInputFiles({ name: 'shop.jpg', mimeType: 'image/jpeg', buffer: JPEG })
+  expect((await busy).headers()['retry-after']).toBe('60')   // as the backend sends it
+  await expect(page.getByRole('alert')).toHaveText(message)
+  await page.waitForTimeout(2500)   // longer than the SERVICE_BUSY wait: nothing is sent again by itself
+  expect(api.calls.filter((c) => c.method === 'POST' && c.path.startsWith('/api/v1/files'))).toHaveLength(1)
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
+  await page.getByLabel('Add shop front').setInputFiles({ name: 'shop.jpg', mimeType: 'image/jpeg', buffer: JPEG })
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()
+  expect(api.calls.filter((c) => c.method === 'POST' && c.path.startsWith('/api/v1/files'))).toHaveLength(2)
+})
