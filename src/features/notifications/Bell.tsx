@@ -4,7 +4,8 @@ import { useUnreadCount } from '../../api/notifications'
 /** The bell at the top of Home, with the number of unread messages. */
 export function Bell() {
   const unread = useUnreadCount().data ?? 0
-  const label = unread ? `Messages, ${unread} unread` : 'Messages'
+  // The backend counts up to 100 (NotificationStore.UNREAD_CAP): 100 means "100 or more"
+  const label = unread ? `Messages, ${unread > 99 ? 'more than 99' : unread} unread` : 'Messages'
   return (
     <Link
       to="/notifications"

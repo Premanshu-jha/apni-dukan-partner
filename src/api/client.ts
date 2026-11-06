@@ -73,7 +73,29 @@ export function refreshSession(): Promise<boolean> {
   return refreshing
 }
 
-async function send<T>(method: string, path: string, opts: Options): Promise<T> {
+/**
+ * The last answer to each read (GET), in memory only: the backend marks its answers no-store, so a shared phone keeps
+ * nothing in the browser's cache after sign-out, and the browser never asks "changed since?" by itself. The next read
+ * of the same address sends the kept ETag as If-None-Match; 304 ("nothing changed", no body) returns the kept data, so
+ * a screen refreshed every minute downloads nothing. Kept per signed-in person, at most KEPT_MAX addresses (the least
+ * recently used goes first), and forgotten on sign-out and when another person signs in.
+ */
+const kept = new Map<string, { etag: string; data: unknown }>()
+const KEPT_MAX = 200
+
+function keep(key: string, etag: string, data: unknown) {
+  kept.delete(key)
+  kept.set(key, { etag, data })
+  if (kept.size > KEPT_MAX) kept.delete(kept.keys().next().value as string)
+}
+
+// Sign-out (here, in another tab, or the backend ending the session) and a different person both forget everything
+useSession.subscribe((now, before) => {
+  if (now.generation !== before.generation || now.user?.id !== before.user?.id) kept.clear()
+})
+
+/** @param fresh ask for the whole answer: no If-None-Match, and past any cache on the way */
+async function send<T>(method: string, path: string, opts: Options, fresh = false): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json', ...opts.headers }
   const form = typeof FormData !== 'undefined' && opts.body instanceof FormData
   // A file upload: the browser sets the multipart Content-Type (with its boundary) itself.
@@ -82,6 +104,11 @@ async function send<T>(method: string, path: string, opts: Options): Promise<T> 
     const token = useSession.getState().accessToken
     if (token) headers.Authorization = `Bearer ${token}`
   }
+  // A read asks "changed since?" with the ETag of the answer kept for it (see `kept`)
+  const { generation, user } = useSession.getState()
+  const key = method === 'GET' ? `${user?.id ?? ''} ${path}` : null
+  const last = key && !fresh ? kept.get(key) : undefined
+  if (last) headers['If-None-Match'] = last.etag
   let res: Response
   try {
     res = await fetch(API_URL + path, {
@@ -89,15 +116,29 @@ async function send<T>(method: string, path: string, opts: Options): Promise<T> 
       headers,
       body: opts.body === undefined ? undefined : form ? (opts.body as FormData) : JSON.stringify(opts.body),
       signal: opts.signal,
+      ...(fresh ? { cache: 'no-store' as const } : {}),
     })
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e
     throw ApiError.network()
   }
+  // 304: nothing changed since the kept answer. Not an error, so never retried.
+  if (res.status === 304 && last && key && kept.get(key) === last) {
+    keep(key, last.etag, last.data)
+    return last.data as T
+  }
+  // A 304 with nothing kept for it (a cache or proxy on the way, or the person signed out or changed while it was on
+  // its way): ask once more for the whole answer, for whoever is signed in now
+  if (res.status === 304 && method === 'GET' && !fresh) return send<T>(method, path, opts, true)
   if (res.ok) {
     if (res.status === 204 || res.status === 202) return undefined as T
     const text = await res.text()
-    return (text ? JSON.parse(text) : undefined) as T
+    const data = (text ? JSON.parse(text) : undefined) as T
+    const etag = key ? res.headers.get('ETag') : null
+    // Not kept if the person signed out (or someone else signed in) while it was on its way
+    const now = useSession.getState()
+    if (key && etag && now.generation === generation && now.user?.id === user?.id) keep(key, etag, data)
+    return data
   }
   let body: Partial<ErrorBody> = {}
   try {
@@ -131,6 +172,8 @@ export async function api<T>(method: string, path: string, opts: Options = {}): 
       throw e
     }
     const repeatable = method === 'GET' || Boolean(opts.headers?.['Idempotency-Key'])
+    // Only SERVICE_BUSY is a short blip. 503 PHOTOS_BUSY (many photos being cleaned at once) lasts about a minute:
+    // never repeated here, its message ("Try again in a minute") goes to the screen.
     if (e.code === 'SERVICE_BUSY' && repeatable) {
       await sleep(Math.min(e.retryAfterSeconds ?? 2, 5) * 1000)
       return send<T>(method, path, opts)

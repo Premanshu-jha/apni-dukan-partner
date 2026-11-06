@@ -174,3 +174,16 @@ test('the board is per day, refreshes, and recovers from a short outage', async 
   api.addBooking({ startsAt: minutesFromNow(30), customerName: 'New Customer' })
   await expect(page.getByText('New Customer')).toBeVisible({ timeout: 40_000 })
 })
+
+test('a refresh answered 304 (nothing changed) keeps the day on screen', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  api.approvedSalon()
+  api.addBooking({ startsAt: minutesFromNow(30) })
+  await page.goto('/salon/day')
+  await expect(page.getByText('Riya Sharma')).toBeVisible()
+  // Coming back to the app re-reads the day, sending the ETag it got: the backend answers 304 with no body
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
+  await expect.poll(() => api.notModified.some((p) => p.startsWith('/api/v1/salon/day?'))).toBe(true)
+  await expect(page.getByText('Riya Sharma')).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+})

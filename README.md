@@ -218,6 +218,28 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.3.0 — 2026-11-06
+
+Needs the backend's scale PR (#31):
+
+- ETags: the API client keeps the last answer to each read in memory only (per person, at most 200 addresses), sends
+  its ETag as `If-None-Match` and shows the kept data on a 304, so the day board and the bell, re-read every 30 to 60
+  seconds, download nothing when nothing changed. Answers stay `no-store` (a shared phone keeps nothing after
+  sign-out); the memory is forgotten on sign-out, when the session ends and when another person signs in. A 304 is
+  never an error and never retried.
+- A 304 for which nothing is kept (a cache or proxy on the way, or the person signed out or changed while the
+  read was on its way) is asked once more without `If-None-Match` and past any cache, instead of becoming an error.
+- Photo uploads answered 503 `PHOTOS_BUSY` show "Lots of photos are being sent right now. Try again in a minute."
+  under the picker and are not sent again by themselves (only `SERVICE_BUSY` is a short blip worth repeating).
+- Tests: the fake backend answers ETags and 304s like the real one; end-to-end tests for a 304 refresh and a busy
+  photo upload; unit tests of the ETag memory and of PHOTOS_BUSY not being repeated.
+
+### 0.2.1 — 2026-11-06
+
+- Messages: "99+ unread" on the bell's spoken label and in the inbox once there are more than 99 (the backend now
+  counts unread up to 100, so 100 means 100 or more). The fake backend caps the count the same way; an end-to-end
+  test covers it.
+
 ### 0.2.0 — 2026-11-05
 
 Uses the backend's salon fixes (backend PR "Salon gaps found by the partner app review"; merge that first):

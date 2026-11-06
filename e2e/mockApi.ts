@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { BrowserContext, Route } from '@playwright/test'
 
 /**
@@ -6,6 +7,17 @@ import type { BrowserContext, Route } from '@playwright/test'
  * backend's codes and rules (who may do what, versions, start window, conflicts). State lives per test.
  */
 export const API = 'http://api.test'
+
+/** An ETag as Spring's ShallowEtagHeaderFilter makes it: "0" and the MD5 of the body, in quotes. */
+export function etagOf(body: string): string {
+  return `"0${createHash('md5').update(body).digest('hex')}"`
+}
+
+/** If-None-Match holds this ETag (a list, weak or strong, or *), as the filter compares them. */
+function matches(ifNoneMatch: string | undefined, etag: string): boolean {
+  if (!ifNoneMatch) return false
+  return ifNoneMatch.split(',').some((t) => t.trim() === '*' || t.trim().replace(/^W\//, '') === etag)
+}
 const IST = 5.5 * 3600_000
 const P = '/api/v1'
 
@@ -63,6 +75,8 @@ const week = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({ weekday, start: '00:00', 
 
 export class MockApi {
   user: MockUser = { id: 'u1', phone: '9848012345', name: null, email: null, emailVerified: false, admin: false }
+  /** Paths (with the query) answered 304 Not Modified, in order. */
+  notModified: string[] = []
   calls: Call[] = []
   /** The person's shop (null = 404 NO_SHOP). */
   shop: Json | null = null
@@ -84,7 +98,7 @@ export class MockApi {
   /** This person may add walk-ins (owner always). */
   walkIns = true
   /** Next answer of an action, by path suffix: a code + status, once. */
-  failOnce = new Map<string, { status: number; code: string; message: string; details?: Json }>()
+  failOnce = new Map<string, { status: number; code: string; message: string; details?: Json; retryAfter?: number }>()
   /** GET /salon/day answers 503 this many times. */
   dayDown = 0
   /** Every request fails as with no network. */
@@ -279,8 +293,20 @@ export class MockApi {
     const auth = req.headers()['authorization'] ?? null
     this.calls.push({ method, path: url.pathname + url.search, body, auth, idempotencyKey: req.headers()['idempotency-key'] ?? null, contentType })
     const p = url.pathname.replace(P, '')
-    const ok = (status: number, json?: unknown) =>
-      route.fulfill({ status, headers: { ...this.cors(), 'Content-Type': 'application/json' }, body: json === undefined ? '' : JSON.stringify(json) })
+    const ok = (status: number, json?: unknown, extra: Record<string, string> = {}) => {
+      const text = json === undefined ? '' : JSON.stringify(json)
+      // Every successful GET carries an ETag; sent back unchanged as If-None-Match, the answer is 304 with no body
+      const etag = method === 'GET' && status >= 200 && status < 300 ? etagOf(text) : null
+      if (etag && matches(req.headers()['if-none-match'], etag)) {
+        this.notModified.push(url.pathname + url.search)
+        return route.fulfill({ status: 304, headers: { ...this.cors(), ETag: etag }, body: '' })
+      }
+      return route.fulfill({
+        status,
+        headers: { ...this.cors(), 'Content-Type': 'application/json', ...(etag ? { ETag: etag } : {}), ...extra },
+        body: text,
+      })
+    }
     const fail = (status: number, code: string, message: string, details: Json = {}) => ok(status, { code, message, details })
 
     if (p.startsWith('/tiles/')) return route.fulfill({ status: 404, body: '' })
@@ -307,7 +333,8 @@ export class MockApi {
     for (const [suffix, f] of this.failOnce) {
       if (p.endsWith(suffix)) {
         this.failOnce.delete(suffix)
-        return fail(f.status, f.code, f.message, f.details ?? {})
+        // Retry-After as GlobalExceptionHandler sends it (PHOTOS_BUSY: 60)
+        return ok(f.status, { code: f.code, message: f.message, details: f.details ?? {} }, f.retryAfter ? { 'Retry-After': String(f.retryAfter) } : {})
       }
     }
 
@@ -695,8 +722,9 @@ export class MockApi {
       return ok(200, this.members)
     }
 
-    if (p === '/me/notifications') return ok(200, { items: this.inbox, unread: this.inbox.filter((i) => !i.read).length, next: null })
-    if (p === '/me/notifications/unread-count') return ok(200, { unread: this.inbox.filter((i) => !i.read).length })
+    // The backend counts unread up to 100 (NotificationStore.UNREAD_CAP)
+    if (p === '/me/notifications') return ok(200, { items: this.inbox, unread: Math.min(100, this.inbox.filter((i) => !i.read).length), next: null })
+    if (p === '/me/notifications/unread-count') return ok(200, { unread: Math.min(100, this.inbox.filter((i) => !i.read).length) })
     if (p === '/me/notifications/read') {
       const ids: string[] = body?.ids ?? []
       this.inbox.forEach((i) => {
@@ -711,7 +739,8 @@ export class MockApi {
   private cors() {
     return {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key, If-None-Match',
+      'Access-Control-Expose-Headers': 'Retry-After, ETag',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     }
   }
