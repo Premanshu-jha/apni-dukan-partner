@@ -217,3 +217,13 @@ test('a walk-in whose answer was lost is retried with the same key, and the choi
   expect(keys).toHaveLength(2)
   expect(keys[0]).toBe(keys[1])
 })
+
+test('more than 99 unread shows "99+" on the bell and in the inbox (the backend counts up to 100)', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  api.approvedSalon()
+  api.inbox = Array.from({ length: 150 }, (_, i) => ({ id: `n${i}`, type: 'SALON_NEW_BOOKING', title: 'New booking', body: 'x', url: '/salon/day', sentAt: new Date().toISOString(), read: false }))
+  await page.goto('/salon/day')
+  await expect(page.getByRole('link', { name: 'Messages, more than 99 unread' })).toBeVisible()
+  await page.goto('/notifications')
+  await expect(page.getByText('99+ unread')).toBeVisible()
+})

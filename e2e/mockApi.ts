@@ -695,8 +695,9 @@ export class MockApi {
       return ok(200, this.members)
     }
 
-    if (p === '/me/notifications') return ok(200, { items: this.inbox, unread: this.inbox.filter((i) => !i.read).length, next: null })
-    if (p === '/me/notifications/unread-count') return ok(200, { unread: this.inbox.filter((i) => !i.read).length })
+    // The backend counts unread up to 100 (NotificationStore.UNREAD_CAP)
+    if (p === '/me/notifications') return ok(200, { items: this.inbox, unread: Math.min(100, this.inbox.filter((i) => !i.read).length), next: null })
+    if (p === '/me/notifications/unread-count') return ok(200, { unread: Math.min(100, this.inbox.filter((i) => !i.read).length) })
     if (p === '/me/notifications/read') {
       const ids: string[] = body?.ids ?? []
       this.inbox.forEach((i) => {
