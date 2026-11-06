@@ -53,7 +53,7 @@ export function Inbox() {
     <Page back="/salon/day" title="Messages">
       {unread > 0 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted">{unread} unread</p>
+          <p className="text-sm text-muted">{unread > 99 ? '99+' : unread} unread</p>
           <button
             type="button"
             className="text-sm font-semibold text-brand disabled:opacity-50"
