@@ -183,6 +183,33 @@ says so. The board's "today" and the no-show time move on by themselves while th
 Walk-ins carry an `Idempotency-Key`, one per walk-in: the same key on a retry gives back the same walk-in, and a
 new key is made when the services or the barber change.
 
+### Bookings: pages, refreshes and long lists
+
+The coming-up list and the history come 100 at a time (the backend's keyset pages): "Show more" asks for everything
+after the last booking shown, sending its `startsAt` and `id` (the history: the answer's `next`) back exactly as
+received. A short page is the last; when exactly 100 were left, one more (empty) page ends the list. A failed page or
+a tap while offline keeps the list and says so; focus moves to the first new booking (or to the count when a page
+brought nothing) and the button stays focusable while loading (`aria-busy`). The history's totals cover the whole
+range on every page, so they come from the first page.
+
+Refreshing a paged list (every 60 s for coming up, and on return to the app) asks every loaded page again, one after
+the other, so the pages stay joined with nothing missing or twice. The cost stays small: each page has its own ETag,
+so an unchanged page is a 304 after one primary-key read on the backend; and at most 5 pages (500 bookings) are
+loaded for coming up and 10 (1,000) for the history, after which the screen says where to look instead (a day on
+Today, or fewer days) — only when something really comes after: coming up asks the page after the cap once to know
+(exactly 500 left: no note), the history has its `next`. We did not use TanStack's `maxPages`: it drops the first (soonest) page from the top and the
+backend has no "page before" to bring it back. Refreshing only the first page would leave a gap or a repeat at its
+end whenever a booking is added or ends.
+
+Cards are drawn only near the screen (CSS `content-visibility: auto` on each card): with up to 1,000 cards the
+browser skips laying out and painting the ones far away, but they stay in the page, so find-in-page, focus and
+screen readers reach all of them, and nothing needs measuring. A windowing library would keep fewer elements, but
+breaks those and needs fixed heights; at these sizes `content-visibility` is enough on a phone (where it isn't
+supported, the list is simply drawn in full).
+
+The inbox loads at most 10 pages of 30 (300 messages) for the same reason: a refresh after marking read asks every
+loaded page again.
+
 ### Shared phones
 
 When a session ends (sign-out here, sign-out or someone else's sign-in in another tab, or the backend refusing a
@@ -202,6 +229,11 @@ is also a customer can get a customer message on this phone: the service worker 
 
 ### Copied from the customer app
 
+Since 0.3.0 the client also keeps the last answer to each read in memory (per person, at most 200 addresses, forgotten
+on sign-out) and sends its ETag back as `If-None-Match`: the day board (every 30 s) and the coming-up list (every
+60 s) carry the backend's own tag (`"s1-…"`, from the salon's change counter) and an unchanged one is a 304 with no
+body. The tag is opaque to the app.
+
 `src/api/client.ts`, `errors.ts`, `auth.ts`, `push.ts`, `src/store/session.ts`, `src/lib/{ist,money,phone,storage,device}.ts`,
 `src/components/{ui,CodeInput,Turnstile}.tsx` and `src/features/auth/*` are copies of the customer app's, with
 the storage keys renamed (`adp.*`) and the wording changed for partners. A fix in one should go to the other until
@@ -217,6 +249,24 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 (set `shops.status` to `APPROVED`).
 
 ## Changelog
+
+### 0.4.0 — 2026-11-06
+
+Uses the backend's scale PR (apni-dukan-backend#33, "Pages (the exact contract)"; merge that first):
+
+- Bookings: coming up and the history come 100 at a time with "Show more" (keyset cursor from the last booking, or
+  the history's `next`). A failed page or an offline tap keeps the list and says so; focus moves to the first new
+  booking (or to the count); `aria-busy` while loading. The history's "pick fewer days" note is gone (paging
+  instead); its totals come from the first page and cover the whole range.
+- Refreshes ask only the loaded pages again, at most 5 (coming up) or 10 (history); see "Bookings: pages,
+  refreshes and long lists". The note at the cap shows only when more really comes after. Long lists draw only the cards near the screen (`content-visibility`).
+- The day board and the coming-up list carry the backend's own ETag (`"s1-…"`); the client's ETag memory (0.3.0)
+  treats it as opaque, so an unchanged board or page is a 304.
+- Messages: at most 10 pages (300) loaded, then "Showing the latest 300 messages."
+- A failed read is retried after the backend's `Retry-After` (503 SERVICE_BUSY: 5 s), not after 1 s.
+- Tests: the fake backend pages, orders (to the microsecond), tags and refuses cursors like the real one; end-to-end
+  journeys for ties across a page end, exactly 100, a failed and a refused page, offline, focus, refreshes as 304s,
+  the cap, the history's `next` and totals, the inbox cap; unit tests of the paging helpers and the retry delay.
 
 ### 0.3.0 — 2026-11-06
 
