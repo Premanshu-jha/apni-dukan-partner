@@ -40,6 +40,8 @@ export interface Call {
   auth: string | null
   idempotencyKey: string | null
   contentType: string | null
+  /** When it arrived (ms), to check the waits between retries. */
+  at: number
 }
 
 type Json = Record<string, unknown>
@@ -71,6 +73,25 @@ export const SERVICES = [
   { id: 'v3', name: 'Hair colour', durationMinutes: 60, pricePaise: 80000, priceIsFrom: true, active: true, sortOrder: 2, version: 0 },
 ]
 
+/** Appointments per page of the upcoming list and the history (SalonDayService.UPCOMING_PAGE, HISTORY_PAGE). */
+const PAGE = 100
+/** Messages per page of the inbox (InboxService). */
+const INBOX_PAGE = 30
+
+/**
+ * An instant's microseconds since 1970, from the backend's text ("…T04:30:00.123456Z"): the backend orders and
+ * pages by the microsecond, so the fake does too (a JavaScript Date keeps only milliseconds).
+ */
+export function micros(instant: string): number {
+  const fraction = (instant.match(/\.(\d+)Z$/)?.[1] ?? '').padEnd(6, '0').slice(0, 6)
+  return Math.floor(Date.parse(instant) / 1000) * 1_000_000 + Number(fraction)
+}
+
+/** What Spring can read as an Instant query value (ISO-8601, in UTC). */
+const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?Z$/
+/** This fake's appointment ids stand in for the backend's UUIDs: anything else is unreadable. */
+const APPOINTMENT_ID = /^a\d+$/
+
 const week = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({ weekday, start: '00:00', end: '23:45' }))
 
 export class MockApi {
@@ -99,6 +120,12 @@ export class MockApi {
   walkIns = true
   /** Next answer of an action, by path suffix: a code + status, once. */
   failOnce = new Map<string, { status: number; code: string; message: string; details?: Json; retryAfter?: number }>()
+  /** How many next-page requests of the upcoming list or the history fail with 500 (the pages shown must stay). */
+  failPages = 0
+  /** The salon's change counter (salon_versions): any change gives the day board and the upcoming list a new tag. */
+  salonVersion = 1
+  /** The Retry-After of those 503s (none when null). */
+  busyRetryAfter: number | null = null
   /** GET /salon/day answers 503 this many times. */
   dayDown = 0
   /** Every request fails as with no network. */
@@ -291,12 +318,16 @@ export class MockApi {
     const raw = req.postData()
     const body = raw && contentType?.includes('json') ? JSON.parse(raw) : undefined
     const auth = req.headers()['authorization'] ?? null
-    this.calls.push({ method, path: url.pathname + url.search, body, auth, idempotencyKey: req.headers()['idempotency-key'] ?? null, contentType })
+    this.calls.push({ method, path: url.pathname + url.search, body, auth, idempotencyKey: req.headers()['idempotency-key'] ?? null, contentType, at: Date.now() })
     const p = url.pathname.replace(P, '')
-    const ok = (status: number, json?: unknown, extra: Record<string, string> = {}) => {
+    /**
+     * Every successful GET carries an ETag: the day board and the upcoming list the backend's own ("s1-…": the
+     * salon's change counter, who asks and what was asked), every other GET EtagConfig's fingerprint of the body. Sent
+     * back unchanged as If-None-Match, the answer is 304 with no body.
+     */
+    const ok = (status: number, json?: unknown, extra: Record<string, string> = {}, ownTag?: string) => {
       const text = json === undefined ? '' : JSON.stringify(json)
-      // Every successful GET carries an ETag; sent back unchanged as If-None-Match, the answer is 304 with no body
-      const etag = method === 'GET' && status >= 200 && status < 300 ? etagOf(text) : null
+      const etag = method === 'GET' && status >= 200 && status < 300 ? (ownTag ?? etagOf(text)) : null
       if (etag && matches(req.headers()['if-none-match'], etag)) {
         this.notModified.push(url.pathname + url.search)
         return route.fulfill({ status: 304, headers: { ...this.cors(), ETag: etag }, body: '' })
@@ -494,7 +525,9 @@ export class MockApi {
     if (p === '/salon/day') {
       if (this.dayDown > 0) {
         this.dayDown--
-        return fail(503, 'SERVICE_BUSY', "We're having a short problem. Try again in a few seconds.")
+        // With Retry-After when a test sets it, as GlobalExceptionHandler sends it (5)
+        return ok(503, { code: 'SERVICE_BUSY', message: "We're having a short problem. Try again in a few seconds.", details: {} },
+          this.busyRetryAfter ? { 'Retry-After': String(this.busyRetryAfter) } : {})
       }
       const date = url.searchParams.get('date') ?? todayIst()
       const from = new Date(istInstant(date, '00:00')).getTime()
@@ -510,17 +543,65 @@ export class MockApi {
           hours: [{ start: '10:00', end: '20:00' }],
           appointments: this.appointments.filter((a) => a.staffId === s.id && onDay(a)).map((a) => this.view(a)),
         }))
-      return ok(200, { date, barbers, myStaffId: this.myStaffId })
+      const view = { date, barbers, myStaffId: this.myStaffId }
+      return ok(200, view, {}, this.salonTag(`day ${url.searchParams.get('date') ?? ''}`, view))
     }
-    if (p === '/salon/upcoming') {
-      return ok(200, this.appointments.filter((a) => a.kind === 'BOOKING' && a.status === 'CONFIRMED' && (this.seesAll() || a.staffId === this.myStaffId)).map((a) => this.view(a)))
-    }
-    if (p === '/salon/history') {
-      if (!ownerOrHelper) return notAllowed()
-      const done = this.appointments.filter((a) => a.kind !== 'BLOCK' && a.status !== 'CONFIRMED')
+    if (p === '/salon/upcoming' || p === '/salon/history') {
+      // The page asked for (AppointmentCursor.of): Spring reads both values first (one it can't read is 400
+      // BAD_REQUEST, as GlobalExceptionHandler.handleTypeMismatch; an empty one counts as not sent), then one
+      // without the other is 400 VALIDATION_FAILED naming afterId
+      const afterStart = url.searchParams.get('afterStart') || null
+      const afterId = url.searchParams.get('afterId') || null
+      const unreadable = (value: string, name: string) => fail(400, 'BAD_REQUEST', `'${value}' is not a valid value for '${name}'`)
+      if (afterStart !== null && (!INSTANT.test(afterStart) || Number.isNaN(Date.parse(afterStart)))) return unreadable(afterStart, 'afterStart')
+      if (afterId !== null && !APPOINTMENT_ID.test(afterId)) return unreadable(afterId, 'afterId')
+      if ((afterStart === null) !== (afterId === null)) {
+        return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { afterId: 'send afterStart and afterId together' })
+      }
+      const history = p === '/salon/history'
+      if (history && !ownerOrHelper) return notAllowed()
+      if (afterId !== null && this.failPages > 0) {
+        this.failPages -= 1
+        return fail(500, 'INTERNAL_ERROR', 'Something went wrong on our side.')
+      }
+      const cmpId = (x: Json, y: Json) => ((x.id as string) < (y.id as string) ? -1 : (x.id as string) > (y.id as string) ? 1 : 0)
+      const at = (a: Json) => micros(a.startsAt as string)
+      const after = afterStart === null ? null : micros(afterStart)
+      if (!history) {
+        // CONFIRMED and not over yet (running late included), starting before the end of the 31st day from today;
+        // startsAt then id ascending; 100 a page
+        const until = Date.parse(istInstant(addDays(todayIst(), 32), '00:00'))
+        const page = this.appointments
+          .filter((a) => a.kind !== 'BLOCK' && a.status === 'CONFIRMED')
+          .filter((a) => Date.parse(a.endsAt as string) > Date.now() && Date.parse(a.startsAt as string) < until)
+          .filter((a) => this.seesAll() || a.staffId === this.myStaffId)
+          .sort((x, y) => at(x) - at(y) || cmpId(x, y))
+          .filter((a) => after === null || at(a) > after || (at(a) === after && (a.id as string) > afterId!))
+          .slice(0, PAGE)
+          .map((a) => this.view(a))
+        return ok(200, page, {}, this.salonTag(`upcoming ${afterStart ?? ''}/${afterId ?? ''}`, page))
+      }
+      // History: bookings and walk-ins on the India dates from..to, startsAt descending then id ascending, 100 a
+      // page with `next`; the counts and the completed amount over the whole range on every page
+      const from = url.searchParams.get('from')!
+      const to = url.searchParams.get('to')!
+      const start = Date.parse(istInstant(from, '00:00'))
+      const end = Date.parse(istInstant(addDays(to, 1), '00:00'))
+      const inRange = this.appointments.filter(
+        (a) => a.kind !== 'BLOCK' && Date.parse(a.startsAt as string) >= start && Date.parse(a.startsAt as string) < end,
+      )
       const counts: Record<string, number> = {}
-      done.forEach((a) => (counts[a.status as string] = (counts[a.status as string] ?? 0) + 1))
-      return ok(200, { from: url.searchParams.get('from'), to: url.searchParams.get('to'), counts, completedPaise: 50000, appointments: done.map((a) => this.view(a)), truncated: false })
+      inRange.forEach((a) => (counts[a.status as string] = (counts[a.status as string] ?? 0) + 1))
+      const completedPaise = inRange
+        .filter((a) => a.status === 'COMPLETED')
+        .reduce((t, a) => t + (a.services as Json[]).reduce((u, sv) => u + (sv.pricePaise as number), 0), 0)
+      const rest = inRange
+        .sort((x, y) => at(y) - at(x) || cmpId(x, y))
+        .filter((a) => after === null || at(a) < after || (at(a) === after && (a.id as string) > afterId!))
+      const shown = rest.slice(0, PAGE)
+      const last = shown[shown.length - 1]
+      const next = rest.length > PAGE ? { afterStart: last.startsAt, afterId: last.id } : null
+      return ok(200, { from, to, counts, completedPaise, appointments: shown.map((a) => this.view(a)), truncated: next !== null, next })
     }
 
     const act = p.match(/^\/salon\/appointments\/([^/]+)\/(start|finish|no-show|undo-no-show|reassign|cancel)$/)
@@ -722,8 +803,15 @@ export class MockApi {
       return ok(200, this.members)
     }
 
-    // The backend counts unread up to 100 (NotificationStore.UNREAD_CAP)
-    if (p === '/me/notifications') return ok(200, { items: this.inbox, unread: Math.min(100, this.inbox.filter((i) => !i.read).length), next: null })
+    if (p === '/me/notifications') {
+      // Newest first, 30 a page; `next` is an opaque cursor (here "c" and the index), anything else 400 BAD_CURSOR
+      const cursor = url.searchParams.get('cursor')
+      if (cursor !== null && !/^c\d+$/.test(cursor)) return fail(400, 'BAD_CURSOR', 'This list has changed. Open it again.')
+      const from = cursor === null ? 0 : Number(cursor.slice(1))
+      const items = this.inbox.slice(from, from + INBOX_PAGE)
+      const next = from + INBOX_PAGE < this.inbox.length ? `c${from + INBOX_PAGE}` : null
+      return ok(200, { items, unread: Math.min(100, this.inbox.filter((i) => !i.read).length), next })
+    }
     if (p === '/me/notifications/unread-count') return ok(200, { unread: Math.min(100, this.inbox.filter((i) => !i.read).length) })
     if (p === '/me/notifications/read') {
       const ids: string[] = body?.ids ?? []
@@ -734,6 +822,16 @@ export class MockApi {
     }
 
     return fail(404, 'NOT_FOUND', `No mock for ${method} ${p}`)
+  }
+
+  /**
+   * The backend's own tag of the day board and the upcoming list ("s1-…"): it changes with the salon's change
+   * counter, who asks, what was asked and (here, as a stand-in for "until when time alone can't change it") the
+   * answer itself.
+   */
+  private salonTag(asked: string, answer: unknown): string {
+    const who = `${this.user.id} ${this.role} ${this.myStaffId ?? ''} ${this.walkIns}`
+    return `"s1-${createHash('md5').update(`${this.salonVersion} ${who} ${asked} ${JSON.stringify(answer)}`).digest('hex')}"`
   }
 
   private cors() {

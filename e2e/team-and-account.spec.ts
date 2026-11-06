@@ -79,7 +79,7 @@ test('the history shows totals per outcome for the owner', async ({ page, contex
   await page.getByRole('link', { name: 'Bookings' }).click()
   await expect(page.getByText('No bookings coming up')).toBeVisible()
   await page.getByRole('button', { name: 'History' }).click()
-  await expect(page.getByText('₹500')).toBeVisible()
+  await expect(page.getByText('₹200', { exact: true })).toBeVisible()   // the completed haircut, at list price
   await expect(page.getByText('No-show: 1')).toBeVisible()
   await expect(page.getByText('Ghost')).toBeVisible()
 })
