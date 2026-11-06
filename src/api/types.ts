@@ -226,8 +226,12 @@ export interface HistoryView {
   /** How many ended in each status. */
   counts: Record<string, number>
   completedPaise: number
+  /** This page: at most 100, latest first. */
   appointments: Appointment[]
+  /** Same as `next !== null` (kept by the backend for older apps). */
   truncated: boolean
+  /** The next page's cursor, sent back exactly as received; null on the last page. */
+  next: { afterStart: string; afterId: string } | null
 }
 
 export interface WalkInOption {

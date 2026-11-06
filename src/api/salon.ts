@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { api } from './client'
+import { cursorQuery, nextAfterLast, type AfterCursor } from './pages'
 import type {
   Appointment,
   ClosureView,
@@ -71,8 +72,12 @@ export const useSettings = () => useQuery({ queryKey: salonKeys.settings, queryF
 
 export const dayApi = {
   day: (date: string) => api<DayView>('GET', `${S}/day?date=${date}`),
-  upcoming: () => api<Appointment[]>('GET', `${S}/upcoming`),
-  history: (from: string, to: string) => api<HistoryView>('GET', `${S}/history?from=${from}&to=${to}`),
+  /** One page of the upcoming list; `after` is where the page before ended (null: the first page). */
+  upcoming: (after: AfterCursor | null = null) =>
+    api<Appointment[]>('GET', `${S}/upcoming${after ? `?${cursorQuery(after).slice(1)}` : ''}`),
+  /** One page of the history; `after` is the page before's `next` (null: the first page). */
+  history: (from: string, to: string, after: AfterCursor | null = null) =>
+    api<HistoryView>('GET', `${S}/history?from=${from}&to=${to}${cursorQuery(after)}`),
 
   start: (id: string, body: { code?: string; withoutCode?: boolean }) =>
     api<Appointment>('POST', `${S}/appointments/${id}/start`, { body }),
@@ -114,6 +119,62 @@ export const dayApi = {
 /** The day screen. Refreshed every 30 seconds while open, and on every return to the app. */
 export function useDay(date: string) {
   return useQuery({ queryKey: salonKeys.day(date), queryFn: () => dayApi.day(date), refetchInterval: 30_000 })
+}
+
+/** Appointments per page of the upcoming list and the history (SalonDayService.UPCOMING_PAGE, HISTORY_PAGE). */
+export const UPCOMING_PAGE = 100
+export const HISTORY_PAGE = 100
+/**
+ * At most this many pages are loaded (500 upcoming bookings, 1,000 in the history). A refresh of a paged list asks
+ * every loaded page again, one after the other (so the pages stay joined without gaps or repeats), so the cap keeps
+ * the upcoming list's minute-by-minute refresh to at most 5 small calls, each answered 304 when its page is unchanged
+ * (each page has its own ETag). Beyond the cap the screen says where to look instead.
+ */
+export const UPCOMING_MAX_PAGES = 5
+export const HISTORY_MAX_PAGES = 10
+
+/**
+ * Online bookings to come, soonest first, 100 a page ("Show more"). Refreshed every 60 seconds and on return to the
+ * app: every loaded page is asked again with its ETag (304 when unchanged).
+ */
+export function useUpcoming() {
+  return useInfiniteQuery({
+    queryKey: salonKeys.upcoming,
+    initialPageParam: null as AfterCursor | null,
+    queryFn: ({ pageParam }) => dayApi.upcoming(pageParam),
+    getNextPageParam: (last: Appointment[], all: Appointment[][]) => nextAfterLast(last, all, UPCOMING_PAGE, UPCOMING_MAX_PAGES),
+    refetchInterval: 60_000,
+  })
+}
+
+/**
+ * Whether anything comes after the capped coming-up list: the page after the last loaded booking, asked once (not
+ * polled; again when the salon's data is refreshed), only to say yes or no. Without it the note at the cap would show
+ * when exactly 500 bookings exist and nothing comes after.
+ */
+export function useMoreAfterCap(after: AfterCursor | null) {
+  return useQuery({
+    queryKey: [...salonKeys.upcoming, 'after-cap', after?.afterStart ?? null, after?.afterId ?? null],
+    queryFn: () => dayApi.upcoming(after),
+    enabled: after !== null,
+    select: (page: Appointment[]) => page.length > 0,
+  })
+}
+
+/**
+ * The history of a range of days, latest first, 100 a page with the backend's `next`. The totals are on every page
+ * (the screen takes them from the first). Not polled: re-read on return to the app once a minute old.
+ */
+export function useHistory(from: string, to: string, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: salonKeys.history(from, to),
+    initialPageParam: null as AfterCursor | null,
+    queryFn: ({ pageParam }) => dayApi.history(from, to, pageParam),
+    getNextPageParam: (last: HistoryView, all: HistoryView[]) =>
+      all.length >= HISTORY_MAX_PAGES ? undefined : (last.next ?? undefined),
+    enabled,
+    staleTime: 60_000,
+  })
 }
 
 export const usePause = () => useQuery({ queryKey: salonKeys.pause, queryFn: dayApi.pause })
