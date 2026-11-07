@@ -60,14 +60,16 @@ there, and reviews walk the list against the code.
 
 - **Unit tests** (`src/**/*.test.ts`): role rules, the token's shop, registration checks, rupees to paise, weekly
   hours, break and leave times in India time, pause ends, grouping by date, which message links may open, photo
-  sizes, plus the copied API client, session and India-time tests.
+  sizes, the second shift, plus the copied API client, session and India-time tests. `Today.test.tsx` draws a
+  2,000-appointment day and counts card draws (a refresh with one change draws one card; nothing redraws on a timer).
 - **End-to-end tests** (`e2e/`): Playwright on a phone-sized Chromium, against `e2e/mockApi.ts`, a fake backend whose
   answers follow the backend's records, rules and error codes (who may do what, versions, the start window,
   conflicts). `.env.e2e` points the app and the map tiles at it, so tests never reach the internet. Journeys:
   registration end to end, a sent-back draft, a blocked location, the gate for every shop state and role, starting
   with and without the code, no-show and undo, reassign, salon cancel, walk-ins (double tap, busy barber, no
   access), breaks with bookings in the way, leave, closed days, pause, setup with stale saves, Team, messages,
-  leaving, sign-out, and an expired session in two tabs. A failed run in CI keeps its traces.
+  leaving, sign-out, an expired session in two tabs, bookings opened from lists (`&open=`), hours that strand a
+  booking, and a 2,000-booking day. A failed run in CI keeps its traces.
 
 ## Screens
 
@@ -193,7 +195,17 @@ note. The day also says which barber profile is the caller's (`myStaffId`): a ba
 (even when walk-in access shows him everyone), and his "Add break" is always for himself. Every action in the appointment sheet locks its buttons while it runs and reloads the day afterwards,
 whatever the answer, because a refusal usually means someone else (the customer, another staff member) changed it
 first. If a refresh no longer has the open appointment on that day (the customer moved it), the sheet stays and
-says so. The board's "today" and the no-show time move on by themselves while the screen is open.
+says so. The board's "today" and the no-show time move on by themselves while the screen is open: the date by a
+timer at India midnight (and a check when the app comes back to the front), the no-show time by a clock inside the
+sheet only. A link `/salon/day?date=…&open=<id>` (Bookings, the "in the way" lists) opens that appointment once the
+day is read, or says it isn't on that day any more.
+
+Big salons (50 barbers, 2,000 bookings a day): with more than 6 barbers the board opens on the first barber's column
+("Everyone" is a tap away), because one barber's day is a few dozen cards. Cards are memoised (`AppointmentCard`, one
+stable handler) and their times are worked out once per appointment object; a refresh keeps the objects of unchanged
+appointments (TanStack Query's structural sharing and the delta merge), so only changed cards are drawn again.
+Off-screen cards skip layout and paint (`content-visibility: auto`). Virtualising the list was not needed for that and
+would break find-in-page and the browser's own scrolling.
 
 Walk-ins carry an `Idempotency-Key`, one per walk-in: the same key on a retry gives back the same walk-in, and a
 new key is made when the services or the barber change.
@@ -354,6 +366,13 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 - A refresh answered 409 `TRY_AGAIN` (another tab or request swapped the same token first) uses the newer token that
   was saved and retries the call once; never a loop.
 - Dependabot (npm and GitHub Actions, weekly) and `npm audit --audit-level=high` in CI.
+- Barbers' hours and services: a change refused with 409 `BOOKINGS_IN_THE_WAY` lists the bookings in the way, each a
+  link that opens it on its day's board. "Add a second shift" starts after the first shift (a shift to 8 PM is split
+  with an hour's break) instead of overlapping it.
+- Bookings: a tap opens the day's board with that booking open (`&open=<id>`); a booking no longer on that day says so.
+- The day board for big salons: no 30-second redraw (the date changes at midnight), memoised cards with times worked
+  out once, cheap off-screen cards, and one barber's column first when there are more than 6. A test draws 2,000.
+- CI: the build job's checkout keeps no token (`persist-credentials: false`), like the other jobs.
 - Tests: end-to-end delete account (barber, helper refused, owner), headers, install icons and offline page; unit
   tests of the service worker, the update offer and the 409 refresh.
 - Tests: the fake backend's day deltas (a seq per answer and date, full on a setup change or an unknown cursor, a
