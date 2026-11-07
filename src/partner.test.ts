@@ -53,9 +53,9 @@ describe('the sign-in token', () => {
 
 describe('what each role may do', () => {
   it('gives the owner everything, helpers the day without owner-only screens, barbers their own work', () => {
-    expect(can('OWNER')).toMatchObject({ editSetup: true, closures: true, team: true, leave: true, leaveShop: false })
-    expect(can('HELPER')).toMatchObject({ editSetup: false, seeSetup: true, cancel: true, closures: false, team: false, leaveShop: true })
-    expect(can('BARBER')).toMatchObject({ seeSetup: false, cancel: false, reassign: false, startWithoutCode: false, callCustomer: false })
+    expect(can('OWNER')).toMatchObject({ editSetup: true, closures: true, team: true, leave: true, leaveShop: false, deleteAccount: false })
+    expect(can('HELPER')).toMatchObject({ editSetup: false, seeSetup: true, cancel: true, closures: false, team: false, leaveShop: true, deleteAccount: true })
+    expect(can('BARBER')).toMatchObject({ seeSetup: false, cancel: false, reassign: false, startWithoutCode: false, callCustomer: false, deleteAccount: true })
   })
 
   it('shows barbers no Salon tab', () => {
@@ -191,6 +191,9 @@ describe('messages', () => {
   it('opens only this app’s pages from a message', () => {
     expect(safePath('/salon/day?date=2026-11-06')).toBe('/salon/day?date=2026-11-06')
     expect(safePath('/shops/me')).toBe('/')
+    // "A shop for you" (SHOP_HANDOVER_REQUEST): the hand-over requests, with or without a shop
+    expect(safePath('/handover')).toBe('/handover')
+    expect(safePath('/handover/../evil')).toBeNull()
     expect(safePath('/bookings/b1')).toBeNull()
     expect(safePath('//evil.example')).toBeNull()
     expect(safePath(null)).toBeNull()
@@ -217,5 +220,18 @@ describe("a barber's own breaks", () => {
     expect(blockRange('BREAK', f)).toHaveProperty('error')
     expect(blockRange('BREAK', { ...f, to: '14:00' })).toHaveProperty('startAt')
     expect(blockRange('BREAK', { ...f, own: false })).toHaveProperty('startAt')
+  })
+})
+
+describe('hand-over requests gone meanwhile', async () => {
+  const { goneText } = await import('./features/shop/ownership')
+  it('says why for each details.status of 409 HANDOVER_GONE', () => {
+    expect(goneText('CANCELLED')).toBe('The owner cancelled this request.')
+    expect(goneText('EXPIRED')).toMatch(/ran out/)
+    expect(goneText('CLOSED')).toMatch(/closed/)
+    expect(goneText('OWNER_CHANGED')).toMatch(/different owner/)
+    expect(goneText('ACCEPTED')).toMatch(/already accepted/)
+    expect(goneText('DECLINED')).toMatch(/already declined/)
+    expect(goneText('CHANGED')).toBe("This hand-over request isn't open any more.")
   })
 })

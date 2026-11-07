@@ -175,15 +175,17 @@ test('the board is per day, refreshes, and recovers from a short outage', async 
   await expect(page.getByText('New Customer')).toBeVisible({ timeout: 40_000 })
 })
 
-test('a refresh answered 304 (nothing changed) keeps the day on screen', async ({ page, context, api }) => {
+test('a refresh with nothing changed keeps the day on screen (an empty delta)', async ({ page, context, api }) => {
   await signedIn(context, api)
   api.approvedSalon()
   api.addBooking({ startsAt: minutesFromNow(30) })
   await page.goto('/salon/day')
   await expect(page.getByText('Riya Sharma')).toBeVisible()
-  // Coming back to the app re-reads the day, sending the ETag it got: the backend answers 304 with no body
+  // Coming back to the app re-reads the day: only what changed since the last answer (nothing); the whole-day read's
+  // ETag and 304 are in day-delta.spec
   await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
-  await expect.poll(() => api.notModified.some((p) => p.startsWith('/api/v1/salon/day?'))).toBe(true)
+  await expect.poll(() => api.deltas.length).toBe(1)
+  expect(api.deltas[0]).toMatchObject({ changed: [], removed: [] })
   await expect(page.getByText('Riya Sharma')).toBeVisible()
   await expect(page.getByRole('alert')).toHaveCount(0)
 })

@@ -83,3 +83,75 @@ test('the history shows totals per outcome for the owner', async ({ page, contex
   await expect(page.getByText('No-show: 1')).toBeVisible()
   await expect(page.getByText('Ghost')).toBeVisible()
 })
+
+test('a barber deletes their account with the SMS code: signed out, "Your account has been deleted."', async ({ page, context, api }) => {
+  await atSalon(page, context, api, 'BARBER')
+  await page.getByRole('link', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'Delete my account' }).click()
+  await expect(page.getByText(/This can't be undone\. You leave Shine Unisex Salon/)).toBeVisible()
+  await page.getByRole('button', { name: /^Send code to \+91/ }).click()
+  await page.getByLabel('SMS code').fill('111111')
+  await page.getByRole('button', { name: 'Delete my account' }).click()
+  await expect(page.getByText('That code is not correct')).toBeVisible()
+
+  await page.getByLabel('SMS code').fill('123456')
+  await page.getByRole('button', { name: 'Delete my account' }).click()
+  await expect(page).toHaveURL(/\/signin$/)
+  await expect(page.getByText('Your account has been deleted.')).toBeVisible()
+  expect(api.calls.filter((c) => c.path.startsWith('/api/v1/auth/me/delete')).map((c) => [c.path, c.body])).toEqual([
+    ['/api/v1/auth/me/delete-code', undefined],
+    ['/api/v1/auth/me/delete', { code: '111111' }],
+    ['/api/v1/auth/me/delete', { code: '123456' }],
+  ])
+  // Nothing of the old session comes back
+  await page.goto('/salon/day')
+  await expect(page).toHaveURL(/\/signin$/)
+})
+
+test('a helper with a booking starting within the hour is told to wait (BOOKING_SOON); a booking pause (BOOKING_BLOCKED) too', async ({ page, context, api }) => {
+  await atSalon(page, context, api, 'HELPER')
+  api.failOnce.set('/auth/me/delete-code', {
+    status: 409,
+    code: 'BOOKING_SOON',
+    message: "You have a booking starting within the hour or in progress (AD-1234). Cancel it or wait until it's over, then delete your account.",
+  })
+  await page.goto('/profile/delete')
+  await page.getByRole('button', { name: /^Send code to \+91/ }).click()
+  await expect(page.getByText(/You have a booking starting within the hour or in progress \(AD-1234\)/)).toBeVisible()
+  await expect(page.getByLabel('SMS code')).toBeHidden()
+
+  // Later: the code is sent, but a booking pause from no-shows refuses the deletion (the code still works afterwards)
+  await page.getByRole('button', { name: /^Send code to \+91/ }).click()
+  api.failOnce.set('/auth/me/delete', {
+    status: 409,
+    code: 'BOOKING_BLOCKED',
+    message: 'You can delete your account after your booking pause ends on 14 Nov.',
+  })
+  await page.getByLabel('SMS code').fill('123456')
+  await page.getByRole('button', { name: 'Delete my account' }).click()
+  await expect(page.getByText('You can delete your account after your booking pause ends on 14 Nov.')).toBeVisible()
+  await expect(page).toHaveURL(/\/profile\/delete$/)
+  await page.getByRole('button', { name: 'Keep my account' }).click()
+  await expect(page).toHaveURL(/\/more$/)
+})
+
+test('the owner has no delete: "close or hand over your shop first", on More and on the screen itself', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  await page.getByRole('link', { name: 'More' }).click()
+  await expect(page.getByText('To delete your account, close or hand over your shop first.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Delete my account' })).toBeHidden()
+  await page.goto('/profile/delete')
+  await expect(page.getByText('Close or hand over your shop first. Then you can delete your account.')).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Send code/ })).toBeHidden()
+  expect(api.calls.some((c) => c.path.startsWith('/api/v1/auth/me/delete'))).toBe(false)
+})
+
+test('made the owner meanwhile: the backend refuses (SHOP_OWNER) and the screen follows', async ({ page, context, api }) => {
+  await atSalon(page, context, api, 'HELPER')
+  await page.goto('/profile/delete')
+  await expect(page.getByRole('button', { name: /^Send code to \+91/ })).toBeVisible()
+  api.role = 'OWNER'
+  api.shop = { ...api.shop!, myRole: 'OWNER' }
+  await page.getByRole('button', { name: /^Send code to \+91/ }).click()
+  await expect(page.getByText('Close or hand over your shop first. Then you can delete your account.')).toBeVisible()
+})

@@ -167,6 +167,13 @@ describe('api client: ETags (the last answer of each read, kept in memory)', () 
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 
+  it('keeps nothing for a read with keep: false (a day board delta), and sends no If-None-Match for it', async () => {
+    backend({ '/day?since=1': { full: false } })
+    await api('GET', '/day?since=1', { keep: false })
+    await api('GET', '/day?since=1', { keep: false })
+    expect(sent.map((x) => x.ifNoneMatch)).toEqual([undefined, undefined])
+  })
+
   it('takes the new answer when it changed, and keeps nothing for writes', async () => {
     const answers: Record<string, unknown> = { '/a': { name: 'Gupta' } }
     backend(answers)
@@ -287,5 +294,92 @@ describe('api client: ETags (the last answer of each read, kept in memory)', () 
     await api('GET', '/p0')
     await api('GET', '/p1')
     expect(sent.map((s) => s.ifNoneMatch !== undefined)).toEqual([true, false])
+  })
+})
+
+describe('api client: a refresh answered 409 TRY_AGAIN (another tab or request swapped the same token first)', () => {
+  const refreshBodies: string[] = []
+  beforeEach(() => {
+    localStorage.clear()
+    refreshBodies.length = 0
+    useSession.getState().signIn(tokens(1))
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  /** The backend: refresh answers by token; the call works only with access-8. */
+  function backend(refresh: (token: string) => Response) {
+    return vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+      if (String(url).endsWith('/auth/refresh')) {
+        const token = JSON.parse(String(init?.body)).refreshToken as string
+        refreshBodies.push(token)
+        return refresh(token)
+      }
+      const auth = (init?.headers as Record<string, string>)?.Authorization
+      return auth === 'Bearer access-8' ? json(200, { ok: true }) : json(401, { code: 'TOKEN_EXPIRED', message: 'x' })
+    })
+  }
+  const tryAgain = () => json(409, { code: 'TRY_AGAIN', message: 'This sign-in was just renewed by another request. Use the newest one.' })
+  const otherTabSaves = (token: string) => localStorage.setItem('adp.session', JSON.stringify({ refreshToken: token, user }))
+
+  it('uses the pair the other tab saved, then retries the call once with it', async () => {
+    backend((token) => {
+      if (token === 'refresh-1') {
+        otherTabSaves('refresh-7')
+        return tryAgain()
+      }
+      return token === 'refresh-7' ? json(200, tokens(8)) : json(401, { code: 'INVALID_REFRESH_TOKEN', message: 'x' })
+    })
+    await expect(api('GET', '/a')).resolves.toEqual({ ok: true })
+    expect(refreshBodies).toEqual(['refresh-1', 'refresh-7'])
+    expect(useSession.getState()).toMatchObject({ status: 'signedIn', accessToken: 'access-8', refreshToken: 'refresh-8' })
+  })
+
+  it('waits a moment for the other tab to save its pair, then uses it', async () => {
+    vi.useFakeTimers()
+    backend((token) => (token === 'refresh-7' ? json(200, tokens(8)) : tryAgain()))
+    const call = api('GET', '/a')
+    await vi.advanceTimersByTimeAsync(500)
+    expect(refreshBodies).toEqual(['refresh-1'])
+    otherTabSaves('refresh-7')
+    await vi.advanceTimersByTimeAsync(500)
+    await expect(call).resolves.toEqual({ ok: true })
+    expect(refreshBodies).toEqual(['refresh-1', 'refresh-7'])
+  })
+
+  it('nothing newer saved: keeps the session, fails this call, and never loops', async () => {
+    vi.useFakeTimers()
+    backend(() => tryAgain())
+    const call = api('GET', '/a').catch((e: unknown) => e)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(await call).toBeInstanceOf(ApiError)
+    expect(refreshBodies).toEqual(['refresh-1'])
+    expect(useSession.getState().status).toBe('signedIn')
+    expect(JSON.parse(localStorage.getItem('adp.session')!).refreshToken).toBe('refresh-1')
+  })
+
+  it('a second 409 with the newer token ends there: two refreshes, still signed in', async () => {
+    backend((token) => {
+      if (token === 'refresh-1') otherTabSaves('refresh-7')
+      return tryAgain()
+    })
+    await expect(api('GET', '/a')).rejects.toBeInstanceOf(ApiError)
+    expect(refreshBodies).toEqual(['refresh-1', 'refresh-7'])
+    expect(useSession.getState().status).toBe('signedIn')
+  })
+
+  it('the newer token refused (401): signed out, as any refused refresh', async () => {
+    backend((token) => {
+      if (token === 'refresh-1') {
+        otherTabSaves('refresh-7')
+        return tryAgain()
+      }
+      return json(401, { code: 'INVALID_REFRESH_TOKEN', message: 'Sign in again.' })
+    })
+    await expect(api('GET', '/a')).rejects.toBeInstanceOf(ApiError)
+    expect(refreshBodies).toEqual(['refresh-1', 'refresh-7'])
+    expect(useSession.getState().status).toBe('signedOut')
   })
 })

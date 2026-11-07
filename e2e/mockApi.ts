@@ -94,6 +94,15 @@ const APPOINTMENT_ID = /^a\d+$/
 
 const week = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({ weekday, start: '00:00', end: '23:45' }))
 
+/** PhoneNumbers.normalize: a 10-digit Indian mobile number (with +91, 0, spaces or dashes), else null. */
+function normalizeMockPhone(input: unknown): string | null {
+  if (typeof input !== 'string') return null
+  let d = input.replace(/\D/g, '')
+  if (d.length === 12 && d.startsWith('91')) d = d.slice(2)
+  else if (d.length === 11 && d.startsWith('0')) d = d.slice(1)
+  return /^[6-9]\d{9}$/.test(d) ? d : null
+}
+
 export class MockApi {
   user: MockUser = { id: 'u1', phone: '9848012345', name: null, email: null, emailVerified: false, admin: false }
   /** Paths (with the query) answered 304 Not Modified, in order. */
@@ -126,14 +135,41 @@ export class MockApi {
   salonVersion = 1
   /** The Retry-After of those 503s (none when null). */
   busyRetryAfter: number | null = null
+  /** Answers held back: url part → milliseconds (see attach). */
+  slow = new Map<string, number>()
+  /** Page reads of the coming-up list (not its since= calls) answer 500 this many times. */
+  failUpcomingPages = 0
+  /** The next file call is refused as if its token were from before a hand-over (403 SHOP_REQUIRED). */
+  staleFileTokenOnce = false
+  /** POST /auth/refresh answers 503 this many times. */
+  refreshDown = 0
   /** GET /salon/day answers 503 this many times. */
   dayDown = 0
+  /** Each seq given out by GET /salon/day, with the board that answer showed (see the day board). */
+  daySeqs = new Map<string, { date: string; setupVersion: number; who: string; board: Map<string, string> }>()
+  private seqN = 0
+  /** Each `since` answer: the ids changed and removed, or full (the whole day came back). */
+  deltas: { since: string; changed?: string[]; removed?: string[]; full?: boolean }[] = []
+  /** Each coming-up list `since` answer (as `deltas` for the day board). */
+  upcomingDeltas: { since: string; changed?: string[]; removed?: string[]; full?: boolean }[] = []
+  /** The next coming-up `since` answer is full: true. */
+  wholeUpcomingNext = false
+  /** The next `since` answer is the whole day (e.g. the cursor is older than an hour, or more than 300 rows changed). */
+  wholeDayNext = false
+  private setups: string[] = []
   /** Every request fails as with no network. */
   offline = false
   /** GET /shops/me answers 503 this many times. */
   shopDown = 0
   /** Helpers added from the other side: "check again" finds a shop. */
   addedToShop: Json | null = null
+  /** The shop this owner closed (a retried close answers it again, as ShopOwnershipService.close). */
+  closedShop: Json | null = null
+  /** The owner's waiting hand-over request (GET /shops/me/handover), and how many were asked today (5 a day). */
+  ownHandover: Json | null = null
+  handoverAsks = 0
+  /** Hand-over requests made to this person's phone: the answer of GET /me/handover plus the shop each would give. */
+  incoming: Array<{ view: Json; shop: Json; status: string }> = []
   private n = 0
   private accessValid = new Set<string>()
   refreshTokens = new Map<string, 'live' | 'rotated'>()
@@ -239,6 +275,19 @@ export class MockApi {
     }
   }
 
+  /** The owner of another shop asks this person (by phone) to take it over (ShopOwnershipService.requestHandover). */
+  offerHandover(over: Json = {}): Json {
+    const shop = MockApi.shopOf({ id: 'shop9', shopCode: 10777, name: 'Royal Cuts', ownerName: 'Suresh Rao', area: 'Sector 18', status: 'APPROVED', type: 'SALON', ...over })
+    const now = Date.now()
+    const view = {
+      id: `h${++this.n}`, shopId: shop.id, shopCode: shop.shopCode, shopName: shop.name, type: shop.type, area: shop.area,
+      city: shop.city, ownerName: shop.ownerName, createdAt: new Date(now - 3600_000).toISOString(), expiresAt: new Date(now + 6 * 86400_000).toISOString(),
+    }
+    this.incoming.push({ view, shop, status: 'PENDING' })
+    this.inbox.unshift({ id: `n${++this.n}`, type: 'SHOP_HANDOVER_REQUEST', title: 'A shop for you', body: `The owner of ${shop.name as string} wants to hand the shop over to you. Open Apni Dukan to accept or decline.`, url: '/handover', sentAt: new Date().toISOString(), read: false })
+    return view
+  }
+
   /** A saved session for the app to pick up (as if the person signed in earlier). */
   savedSession(): string {
     const refresh = `refresh-saved-${++this.n}`
@@ -262,8 +311,24 @@ export class MockApi {
     }
   }
 
+  /** The shop the access token names (its "shop" claim), or null. */
+  static tokenShopOf(auth: string | null): string | null {
+    const part = auth?.replace('Bearer ', '').split('.')[1]
+    if (!part) return null
+    try {
+      return (JSON.parse(Buffer.from(part, 'base64url').toString()).shop as string | undefined) ?? null
+    } catch {
+      return null
+    }
+  }
+
   async attach(context: BrowserContext) {
     await context.route(`${API}/**`, async (route) => {
+      if (this.offline) return route.abort('internetdisconnected')
+      // A test can hold answers to some addresses (path with query, by substring) for a while
+      for (const [part, ms] of this.slow) {
+        if (route.request().url().includes(part)) await new Promise((r) => setTimeout(r, ms))
+      }
       if (this.offline) return route.abort('internetdisconnected')
       try {
         await this.handle(route)
@@ -349,6 +414,10 @@ export class MockApi {
       const state = this.refreshTokens.get(body.refreshToken)
       if (state === 'rotated') return fail(401, 'REFRESH_TOKEN_REUSED', 'For your safety you were signed out everywhere. Sign in again.')
       if (state !== 'live') return fail(401, 'INVALID_REFRESH_TOKEN', 'Sign in again.')
+      if (this.refreshDown > 0) {
+        this.refreshDown--
+        return fail(503, 'SERVICE_BUSY', "We're having a short problem. Try again in a few seconds.")
+      }
       this.refreshTokens.set(body.refreshToken, 'rotated')
       return ok(200, this.tokens())
     }
@@ -369,6 +438,7 @@ export class MockApi {
       }
     }
 
+    if (p === '/auth/me' && method === 'GET') return ok(200, this.user)
     if (p === '/auth/me' && method === 'PATCH') {
       this.user = { ...this.user, name: body.name }
       return ok(200, this.user)
@@ -380,6 +450,20 @@ export class MockApi {
       return ok(200, this.user)
     }
     if (p === '/auth/logout-all') return ok(204)
+    // Deleting the account (AuthService.sendDeleteCode / deleteAccount): an owner is refused first; a booking soon or
+    // a booking pause come through failOnce, as SalonAccountDeletion.checkCanDelete answers them
+    const ownerRefused = () =>
+      fail(409, 'SHOP_OWNER', 'You own a shop on Apni Dukan. Close it or hand it over before deleting your account.')
+    if (p === '/auth/me/delete-code') return this.shop && this.role === 'OWNER' ? ownerRefused() : ok(202)
+    if (p === '/auth/me/delete') {
+      if (body.code !== '123456') return fail(400, 'WRONG_CODE', 'That code is not correct', { attemptsLeft: 4 })
+      if (this.shop && this.role === 'OWNER') return ownerRefused()
+      // Left the shop, every device signed out
+      this.shop = null
+      this.accessValid.clear()
+      this.refreshTokens.clear()
+      return ok(204)
+    }
     if (p === '/push/public-key') return ok(200, { publicKey: null })
 
     // ---------- the shop ----------
@@ -437,6 +521,88 @@ export class MockApi {
       this.members = this.members.filter((m) => m.userId !== helper[1])
       return ok(200, [])
     }
+    // ---------- closing and handing over (ShopOwnershipService) ----------
+    const SAME_ANSWER = "If that number has an Apni Dukan account, they'll see your request."
+    const shopOwnerOnly = () => fail(403, 'OWNER_ONLY', 'Only the shop owner can do this.')
+    const noShop = () => fail(404, 'NO_SHOP', "You haven't registered or joined a shop yet.")
+    const shopChanged = () => fail(409, 'SHOP_CHANGED', 'Someone else saved changes to this shop. Reload and try again.')
+    if (p === '/shops/me/close' && method === 'POST') {
+      if (typeof body?.version !== 'number') return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { version: 'must not be null' })
+      if (typeof body.reason === 'string' && body.reason.length > 200) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { reason: 'size must be between 0 and 200' })
+      // No membership: a retry of a close that worked (a lost reply) answers the closed shop again
+      if (!this.shop) return this.closedShop ? ok(200, this.closedShop) : noShop()
+      if (this.role !== 'OWNER') return shopOwnerOnly()
+      if (body.version !== this.shop.version) return shopChanged()
+      const reason = typeof body.reason === 'string' && body.reason.trim() ? body.reason.trim() : null
+      if (reason !== null && reason.length < 2) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { reason: 'must be 2 to 200 characters' })
+      const closed = { ...this.shop, status: 'CLOSED', statusReason: reason, version: (this.shop.version as number) + 1 }
+      // Every upcoming online booking cancelled, each customer told (one statement for all)
+      for (const a of this.appointments) {
+        if (a.kind === 'BOOKING' && a.status === 'CONFIRMED' && Date.parse(a.startsAt as string) > Date.now()) {
+          Object.assign(a, { status: 'CANCELLED_BY_SALON', cancelReason: 'The salon has closed.' })
+        }
+      }
+      this.ownHandover = null
+      this.closedShop = closed
+      // Everyone's membership ends, the owner's too (who keeps their sessions)
+      this.shop = null
+      this.members = []
+      this.myStaffId = null
+      return ok(200, closed)
+    }
+    if (p === '/shops/me/handover') {
+      if (!this.shop) return noShop()
+      if (this.role !== 'OWNER') return shopOwnerOnly()
+      if (method === 'GET') {
+        if (this.ownHandover && Date.parse(this.ownHandover.expiresAt as string) <= Date.now()) this.ownHandover = null
+        return this.ownHandover ? ok(200, this.ownHandover) : fail(404, 'NO_HANDOVER', 'No hand-over request is waiting.')
+      }
+      if (method === 'DELETE') {
+        this.ownHandover = null
+        return ok(204)
+      }
+      // POST: the phone is read first, then the day's count (a refused try counts too), then version, own number, one waiting
+      const phone = normalizeMockPhone(body?.phone)
+      if (!phone) return fail(400, 'INVALID_PHONE', 'Enter a 10-digit Indian mobile number')
+      if (++this.handoverAsks > 5) {
+        return ok(429, { code: 'TOO_MANY_REQUESTS', message: 'Too many hand-over requests today. Try again tomorrow.', details: {} }, { 'Retry-After': '3600' })
+      }
+      if (body.version !== this.shop.version) return shopChanged()
+      if (phone === this.user.phone) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { phone: 'is your own number' })
+      if (this.ownHandover) return fail(409, 'HANDOVER_PENDING', 'You already asked someone to take over this shop. Cancel that request first.')
+      const now = Date.now()
+      this.ownHandover = { id: `h${++this.n}`, phone, createdAt: new Date(now).toISOString(), expiresAt: new Date(now + 7 * 86400_000).toISOString() }
+      // The same answer whether or not the number has an account
+      return ok(202, { message: SAME_ANSWER, handover: this.ownHandover })
+    }
+    if (p === '/me/handover' && method === 'GET') {
+      return ok(200, this.incoming.filter((h) => h.status === 'PENDING' && Date.parse(h.view.expiresAt as string) > Date.now()).map((h) => h.view))
+    }
+    const answer = p.match(/^\/me\/handover\/([^/]+)\/(accept|decline)$/)
+    if (answer && method === 'POST') {
+      const h = this.incoming.find((x) => x.view.id === answer[1])
+      if (!h) return fail(404, 'HANDOVER_NOT_FOUND', 'No such hand-over request.')
+      const gone = (status: string) => fail(409, 'HANDOVER_GONE', "This hand-over request isn't open any more.", { status })
+      if (answer[2] === 'accept' && (!this.user.emailVerified || !this.user.name)) {
+        return fail(403, 'PROFILE_INCOMPLETE', 'Add your email and name first.', { missing: [!this.user.emailVerified && 'email', !this.user.name && 'name'].filter(Boolean) })
+      }
+      if (h.status !== 'PENDING') return gone(h.status)
+      if (Date.parse(h.view.expiresAt as string) <= Date.now()) return gone('EXPIRED')
+      if (answer[2] === 'decline') {
+        h.status = 'DECLINED'
+        return ok(204)
+      }
+      if (this.shop && this.shop.id !== h.shop.id) return fail(409, 'ALREADY_IN_A_SHOP', 'You work in another shop. Leave it first, then accept.')
+      h.status = 'ACCEPTED'
+      // A helper or barber of this shop is promoted (a barber's own sign-in on his profile goes); anyone else joins as owner
+      this.shop = { ...h.shop, myRole: 'OWNER' }
+      this.role = 'OWNER'
+      this.myStaffId = null
+      this.walkIns = true
+      this.inbox.unshift({ id: `n${++this.n}`, type: 'SHOP_HANDOVER_DONE', title: 'The shop is yours', body: `You now own ${h.shop.name as string} on Apni Dukan. Check its details and photos.`, url: '/shops/me', sentAt: new Date().toISOString(), read: false })
+      return ok(200, this.shop)
+    }
+
     if (p === '/shops/me/leave') {
       if (this.role === 'OWNER') return fail(409, 'OWNER_CANT_LEAVE', "The owner can't leave the shop.")
       this.shop = null
@@ -444,8 +610,13 @@ export class MockApi {
     }
 
     // ---------- files ----------
+    // Files act for the token's shop only while the database agrees (a token from before a hand-over, closing or
+    // removal: 403 SHOP_REQUIRED)
+    if (p.startsWith('/files') && (!this.shop || MockApi.tokenShopOf(auth) !== this.shop.id || this.staleFileTokenOnce)) {
+      this.staleFileTokenOnce = false
+      return fail(403, 'SHOP_REQUIRED', 'Register or join a shop first.')
+    }
     if (p === '/files' && method === 'POST') {
-      if (!MockApi.tokenHasShop(auth)) return fail(403, 'SHOP_REQUIRED', 'Register or join a shop first.')
       if (!contentType?.startsWith('multipart/form-data')) return fail(400, 'VALIDATION_FAILED', 'Send a file.')
       const f = { id: `f${++this.n}`, purpose: url.searchParams.get('purpose'), contentType: 'image/jpeg', sizeBytes: 1000, originalName: 'x.jpg', createdAt: new Date().toISOString(), duplicate: false }
       this.files.push(f)
@@ -533,7 +704,9 @@ export class MockApi {
       const from = new Date(istInstant(date, '00:00')).getTime()
       const to = from + 86400_000
       const onDay = (a: Json) => a.status !== 'REMOVED' && Date.parse(a.startsAt as string) < to && Date.parse(a.endsAt as string) > from
-      // Active barbers, plus switched-off ones who had something that day (as the backend does)
+      // Active barbers, plus switched-off ones who had something that day (as the backend does); each column by
+      // start, then id (AppointmentStore.forDay)
+      const byStart = (x: Json, y: Json) => micros(x.startsAt as string) - micros(y.startsAt as string) || ((x.id as string) < (y.id as string) ? -1 : 1)
       const barbers = this.staff
         .filter((s) => s.active || this.appointments.some((a) => a.staffId === s.id && onDay(a)))
         .filter((s) => this.seesAll() || s.id === this.myStaffId)
@@ -541,10 +714,67 @@ export class MockApi {
           staffId: s.id,
           name: s.name,
           hours: [{ start: '10:00', end: '20:00' }],
-          appointments: this.appointments.filter((a) => a.staffId === s.id && onDay(a)).map((a) => this.view(a)),
+          appointments: this.appointments.filter((a) => a.staffId === s.id && onDay(a)).sort(byStart).map((a) => this.view(a)),
         }))
-      const view = { date, barbers, myStaffId: this.myStaffId }
-      return ok(200, view, {}, this.salonTag(`day ${url.searchParams.get('date') ?? ''}`, view))
+      const setupVersion = this.setupVersion()
+      const board = new Map<string, string>()
+      barbers.forEach((c) => (c.appointments as Json[]).forEach((a) => board.set(a.id as string, JSON.stringify(a))))
+      const seq = `q${++this.seqN}-${date}`
+      // The cursor carries its date, the setup, who asked and what that answer showed (the real one: transaction
+      // numbers and the time; the outcome is the same: what changed on this board since)
+      const cursor = { date, setupVersion, who: this.who(), board }
+      this.daySeqs.set(seq, cursor)
+      const since = url.searchParams.get('since')
+      if (since !== null) {
+        const before = this.daySeqs.get(since)
+        // SalonDayService.deltaPossible: a cursor not ours (or older than an hour: forgotten), another date, the setup
+        // changed, or someone else asking: the whole day, full: true. No ETag of ours on these answers.
+        if (before && before.date === date && before.setupVersion === setupVersion && before.who === cursor.who && !this.wholeDayNext) {
+          const changed = barbers
+            .flatMap((c) => c.appointments as Json[])
+            .filter((a) => before.board.get(a.id as string) !== JSON.stringify(a))
+          const removed = [...before.board.keys()].filter((id) => !board.has(id))
+          this.deltas.push({ since, changed: changed.map((a) => a.id as string), removed })
+          return ok(200, { date, barbers: null, myStaffId: this.myStaffId, full: false, seq, setupVersion, changed, removed })
+        }
+        this.wholeDayNext = false
+        this.deltas.push({ since, full: true })
+        return ok(200, { date, barbers, myStaffId: this.myStaffId, full: true, seq, setupVersion, changed: null, removed: null })
+      }
+      const view = { date, barbers, myStaffId: this.myStaffId, full: true, seq, setupVersion, changed: null, removed: null }
+      // The tag is about the board, not the seq (the same board answers 304 while nothing changed)
+      return ok(200, view, {}, this.salonTag(`day ${url.searchParams.get('date') ?? ''}`, { date, barbers, myStaffId: this.myStaffId }))
+    }
+    if (p === '/salon/upcoming' && url.searchParams.has('since')) {
+      // SalonDayService.upcomingChanges: the whole list (all its pages) as this caller sees it, compared with what the
+      // list looked like when that seq was given out
+      const until = Date.parse(istInstant(addDays(todayIst(), 32), '00:00'))
+      const now = new Map<string, string>()
+      this.appointments
+        .filter((a) => a.kind !== 'BLOCK' && a.status === 'CONFIRMED')
+        .filter((a) => Date.parse(a.endsAt as string) > Date.now() && Date.parse(a.startsAt as string) < until)
+        .filter((a) => this.seesAll() || a.staffId === this.myStaffId)
+        .sort((x, y) => micros(x.startsAt as string) - micros(y.startsAt as string) || ((x.id as string) < (y.id as string) ? -1 : 1))
+        .forEach((a) => now.set(a.id as string, JSON.stringify(this.view(a))))
+      const setupVersion = this.setupVersion()
+      const seq = `u${++this.seqN}-${todayIst()}`
+      const cursor = { date: todayIst(), setupVersion, who: this.who(), board: now }
+      this.daySeqs.set(seq, cursor)
+      const before = this.daySeqs.get(url.searchParams.get('since')!)
+      // Not ours ("start"), another India day, the setup changed, someone else: full (load the pages again)
+      if (!before || before.date !== cursor.date || before.setupVersion !== setupVersion || before.who !== cursor.who || this.wholeUpcomingNext) {
+        this.wholeUpcomingNext = false
+        this.upcomingDeltas.push({ since: url.searchParams.get('since')!, full: true })
+        return ok(200, { full: true, seq, setupVersion, changed: null, removed: null })
+      }
+      const changed = [...now.entries()].filter(([id, json]) => before.board.get(id) !== json).map(([, json]) => JSON.parse(json))
+      const removed = [...before.board.keys()].filter((id) => !now.has(id))
+      this.upcomingDeltas.push({ since: url.searchParams.get('since')!, changed: changed.map((a: Json) => a.id as string), removed })
+      return ok(200, { full: false, seq, setupVersion, changed, removed })
+    }
+    if (p === '/salon/upcoming' && this.failUpcomingPages > 0) {
+      this.failUpcomingPages--
+      return fail(500, 'INTERNAL_ERROR', 'Something went wrong on our side.')
     }
     if (p === '/salon/upcoming' || p === '/salon/history') {
       // The page asked for (AppointmentCursor.of): Spring reads both values first (one it can't read is 400
@@ -601,7 +831,9 @@ export class MockApi {
       const shown = rest.slice(0, PAGE)
       const last = shown[shown.length - 1]
       const next = rest.length > PAGE ? { afterStart: last.startsAt, afterId: last.id } : null
-      return ok(200, { from, to, counts, completedPaise, appointments: shown.map((a) => this.view(a)), truncated: next !== null, next })
+      // The totals on the first page only (null on later pages)
+      const first = afterId === null
+      return ok(200, { from, to, counts: first ? counts : null, completedPaise: first ? completedPaise : null, appointments: shown.map((a) => this.view(a)), truncated: next !== null, next })
     }
 
     const act = p.match(/^\/salon\/appointments\/([^/]+)\/(start|finish|no-show|undo-no-show|reassign|cancel)$/)
@@ -829,6 +1061,17 @@ export class MockApi {
    * counter, who asks, what was asked and (here, as a stand-in for "until when time alone can't change it") the
    * answer itself.
    */
+  /** The salon's setup counter: barbers, their hours and services, services, settings, who works there or may add walk-ins. */
+  private setupVersion(): number {
+    const now = JSON.stringify([this.staff, this.services, this.settings, this.members])
+    if (this.setups[this.setups.length - 1] !== now) this.setups.push(now)
+    return this.setups.length
+  }
+
+  private who(): string {
+    return `${this.user.id} ${this.role} ${this.myStaffId ?? ''} ${this.walkIns}`
+  }
+
   private salonTag(asked: string, answer: unknown): string {
     const who = `${this.user.id} ${this.role} ${this.myStaffId ?? ''} ${this.walkIns}`
     return `"s1-${createHash('md5').update(`${this.salonVersion} ${who} ${asked} ${JSON.stringify(answer)}`).digest('hex')}"`
