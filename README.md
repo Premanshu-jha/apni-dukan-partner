@@ -201,7 +201,7 @@ sheet only. A link `/salon/day?date=…&open=<id>` (Bookings, the "in the way" l
 day is read, or says it isn't on that day any more.
 
 Big salons (50 barbers, 2,000 bookings a day): with more than 6 barbers the board opens on the first barber's column
-("Everyone" is a tap away), because one barber's day is a few dozen cards. Cards are memoised (`AppointmentCard`, one
+with a booking or walk-in that day ("Everyone" if nobody has one, and a tap away), because one barber's day is a few dozen cards. Cards are memoised (`AppointmentCard`, one
 stable handler) and their times are worked out once per appointment object; a refresh keeps the objects of unchanged
 appointments (TanStack Query's structural sharing and the delta merge), so only changed cards are drawn again.
 Off-screen cards skip layout and paint (`content-visibility: auto`). Virtualising the list was not needed for that and
@@ -367,8 +367,9 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
   was saved and retries the call once; never a loop.
 - Dependabot (npm and GitHub Actions, weekly) and `npm audit --audit-level=high` in CI.
 - Barbers' hours and services: a change refused with 409 `BOOKINGS_IN_THE_WAY` lists the bookings in the way, each a
-  link that opens it on its day's board. "Add a second shift" starts after the first shift (a shift to 8 PM is split
-  with an hour's break) instead of overlapping it.
+  link that opens it on its day's board. "Add a second shift" starts an hour after the first (10:00–14:00, then 15:00–20:00; a shift to
+  8 PM is split with an hour's break), never overlapping it. The barbers list shows "Invited: +91 …" while a
+  barber's invitation waits; cancelling it from Team clears it there at once.
 - Bookings: a tap opens the day's board with that booking open (`&open=<id>`); a booking no longer on that day says so.
 - The day board for big salons: no 30-second redraw (the date changes at midnight), memoised cards with times worked
   out once, cheap off-screen cards, and one barber's column first when there are more than 6. A test draws 2,000.
