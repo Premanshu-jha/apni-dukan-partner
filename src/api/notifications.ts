@@ -27,6 +27,14 @@ export const inboxKeys = {
   unread: ['inbox', 'unread'] as const,
 }
 
+/**
+ * At most this many pages of 30 are loaded (300 messages; the backend keeps 90 days). A refresh of the list (marking
+ * read, a push, coming back to the app) asks every loaded page again, one after the other, so the cap bounds both
+ * the memory and each refresh to 10 small calls (each answered 304 when unchanged). TanStack's own `maxPages` would
+ * drop the newest page from the top instead, and the backend has no "page before" to fetch it back.
+ */
+export const INBOX_MAX_PAGES = 10
+
 export function useInbox() {
   return useInfiniteQuery({
     queryKey: inboxKeys.list,
@@ -36,7 +44,7 @@ export function useInbox() {
         `/api/v1/me/notifications?app=${APP}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
       ),
     initialPageParam: null as string | null,
-    getNextPageParam: (last) => last.next,
+    getNextPageParam: (last, all) => (all.length >= INBOX_MAX_PAGES ? undefined : last.next),
   })
 }
 

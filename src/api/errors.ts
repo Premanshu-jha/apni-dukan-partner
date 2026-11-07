@@ -21,6 +21,16 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * How long TanStack Query waits before trying a failed read again: what the backend asked for in Retry-After when it
+ * sent one (SERVICE_BUSY: 5 s; at most 30 s), else 1 s, 2 s, 4 s… up to 30 s. The client has already waited and tried
+ * once more for SERVICE_BUSY, so a busy backend gets a call every 5 s at most, never a burst.
+ */
+export function retryDelay(attempt: number, error: unknown): number {
+  if (error instanceof ApiError && error.retryAfterSeconds) return Math.min(error.retryAfterSeconds, 30) * 1000
+  return Math.min(1000 * 2 ** attempt, 30_000)
+}
+
 export function isApiError(e: unknown, code?: string): e is ApiError {
   return e instanceof ApiError && (code === undefined || e.code === code)
 }
