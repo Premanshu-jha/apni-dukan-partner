@@ -1,4 +1,4 @@
-import { useState, type RefObject } from 'react'
+import { useCallback, useState, type RefObject } from 'react'
 import { useNavigate } from 'react-router'
 import { messageOf } from '../../api/errors'
 import { atCap, uniqueById } from '../../api/pages'
@@ -10,7 +10,7 @@ import { Banner, Button, Card, Chip, EmptyState, ErrorState, Field, Loading, Pag
 import { addDays, dateOfIst, dayLabel, isDate, todayIst } from '../../lib/ist'
 import { rupees } from '../../lib/money'
 import { can } from '../../lib/roles'
-import { AppointmentCard } from './Today'
+import { AppointmentCard, dayLink } from './Today'
 import { statusText } from './status'
 
 /** Groups appointments by India date, keeping their order. */
@@ -46,8 +46,14 @@ export function Bookings() {
   )
 }
 
-function Upcoming() {
+/** Opens the appointment on its day's board (one function for every card, so the memoised cards aren't drawn again). */
+function useOpenOnBoard() {
   const navigate = useNavigate()
+  return useCallback((a: Appointment) => navigate(dayLink(a)), [navigate])
+}
+
+function Upcoming() {
+  const openOnBoard = useOpenOnBoard()
   const list = useUpcoming()
   // Only what changed, every minute and on return to the app (once the pages are on screen)
   // On while anything is listed, also after a failed reload (that is when the next poll matters most)
@@ -92,7 +98,7 @@ function Upcoming() {
         list={items}
         listRef={pager.listRef}
         busy={list.isFetchingNextPage}
-        onOpen={(a) => navigate(`/salon/day?date=${dateOfIst(a.startsAt)}`)}
+        onOpen={openOnBoard}
       />
       {capped && (
         <Banner tone="info">Showing the next {n} bookings. Open a day on Today to see the ones after.</Banner>
@@ -114,7 +120,7 @@ function Upcoming() {
 }
 
 function History() {
-  const navigate = useNavigate()
+  const openOnBoard = useOpenOnBoard()
   const today = todayIst()
   const [from, setFrom] = useState(addDays(today, -6))
   const [to, setTo] = useState(today)
@@ -167,7 +173,7 @@ function History() {
                   list={items}
                   listRef={pager.listRef}
                   busy={list.isFetchingNextPage}
-                  onOpen={(a) => navigate(`/salon/day?date=${dateOfIst(a.startsAt)}`)}
+                  onOpen={openOnBoard}
                 />
               </section>
             )}
@@ -214,7 +220,7 @@ function Grouped({
           <ul className="flex flex-col gap-2">
             {g.items.map((a) => (
               <li key={a.id} data-index={index++} className={OFFSCREEN_CHEAP}>
-                <AppointmentCard a={a} barber={null} onOpen={() => onOpen(a)} />
+                <AppointmentCard a={a} barber={null} onOpen={onOpen} />
               </li>
             ))}
           </ul>
