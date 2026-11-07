@@ -77,7 +77,7 @@ export function HandOver() {
     <Page back={shop.status === 'DRAFT' ? '/register' : '/more'} title={`Hand over ${shop.name}`}>
       <p className="text-muted">
         Give {shop.name} to someone else, such as a new owner or a family member. They see your request when they sign in to
-        Apni Dukan Partner with their number. When they accept, they become the owner and you leave the shop (you're
+        Clozest Partner with their number. When they accept, they become the owner and you leave the shop (you're
         signed out of it). Its details, photos, bookings and team stay as they are.
       </p>
       {sent && <Banner tone="info">{sent}</Banner>}
@@ -117,7 +117,7 @@ export function HandOver() {
       )}
       <p className="text-sm text-muted">
         Closing the shop instead?{' '}
-        <Link to="/shop/close" className="text-brand underline">
+        <Link to="/shop/close" className="text-link underline">
           Close {shop.name}
         </Link>
       </p>

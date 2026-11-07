@@ -65,7 +65,7 @@ test('a new owner’s checklist leads through barbers, skills and hours', async 
 
   await page.getByLabel('His mobile number').fill('90000 00009')
   await page.getByRole('button', { name: 'Invite him to sign in' }).click()
-  await expect(page.getByText("Invitation sent. He'll see it in Apni Dukan when he signs in with this number.")).toBeVisible()
+  await expect(page.getByText("Invitation sent. He'll see it in Clozest when he signs in with this number.")).toBeVisible()
   await expect(page.getByText('Invited: +91 90000 00009, waiting for him to accept', { exact: false })).toBeVisible()
   expect(api.calls.find((c) => c.path.endsWith('/login'))!.body).toEqual({ phone: '9000000009' })
 

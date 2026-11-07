@@ -75,7 +75,7 @@ export function CloseShop() {
       </Banner>
       <p className="text-sm text-muted">
         Want someone else to run it instead?{' '}
-        <Link to="/shop/handover" className="text-brand underline">
+        <Link to="/shop/handover" className="text-link underline">
           Hand over the shop
         </Link>{' '}
         keeps its bookings, team and listing.

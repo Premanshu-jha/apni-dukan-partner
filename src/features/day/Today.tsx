@@ -186,7 +186,7 @@ export function Today() {
           body={rights.editSetup ? 'Add your barbers and their hours to start taking bookings.' : 'The owner hasn’t added barbers yet.'}
           action={
             rights.editSetup ? (
-              <Link to="/setup/staff" className="text-brand underline">
+              <Link to="/setup/staff" className="text-link underline">
                 Add barbers
               </Link>
             ) : undefined
@@ -391,7 +391,7 @@ function SetupChecklist() {
               <span aria-hidden className={i.done ? 'text-good' : 'text-muted'}>
                 {i.done ? '✓' : '○'}
               </span>
-              <span className={i.done ? 'text-muted line-through' : 'text-brand underline'}>{i.text}</span>
+              <span className={i.done ? 'text-muted line-through' : 'text-link underline'}>{i.text}</span>
               <span className="sr-only">{i.done ? '(done)' : '(to do)'}</span>
             </Link>
           </li>

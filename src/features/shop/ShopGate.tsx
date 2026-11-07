@@ -16,7 +16,7 @@ export function ShopGate() {
   // A failed re-check keeps the shop it already had (and whatever is on screen); only a first load shows the error.
   if (shop.isError && shop.data === undefined) {
     return (
-      <Page title="Apni Dukan Partner">
+      <Page title="Clozest Partner">
         <ErrorState message={messageOf(shop.error)} onRetry={() => shop.refetch()} />
       </Page>
     )
@@ -34,13 +34,13 @@ export function ShopGate() {
 function KiranaSoon() {
   const qc = useQueryClient()
   return (
-    <Page title="Apni Dukan Partner">
+    <Page title="Clozest Partner">
       <EmptyState
         title="Kirana partners: coming soon"
         body="This app is for salons for now. We'll let you know when kirana shops can use it."
         action={
           <div className="flex flex-col gap-2">
-            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-brand underline">
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-link underline">
               {SUPPORT_EMAIL}
             </a>
             <Button variant="ghost" onClick={() => signOutHere(qc)}>

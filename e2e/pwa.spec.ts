@@ -22,7 +22,7 @@ test('the built site sends the security headers (as Caddy does on Railway)', asy
 test('installable: the manifest lists PNG icons (192, 512, maskable) that load, and the iPhone icon', async ({ page }) => {
   await page.goto('/signin')
   const manifest = await (await page.request.get('/manifest.webmanifest')).json()
-  expect(manifest).toMatchObject({ id: '/', start_url: '/', scope: '/', display: 'standalone', theme_color: '#0f1115' })
+  expect(manifest).toMatchObject({ id: '/', start_url: '/', scope: '/', display: 'standalone', theme_color: '#0b1220' })
   const icons = manifest.icons as Array<{ src: string; sizes: string; type: string; purpose: string }>
   expect(icons).toEqual(
     expect.arrayContaining([

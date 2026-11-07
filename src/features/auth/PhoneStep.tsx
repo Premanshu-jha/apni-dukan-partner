@@ -64,7 +64,7 @@ export function PhoneStep() {
       </form>
       <p className="mt-2 text-center text-sm text-muted">
         Lost your phone number?{' '}
-        <Link to="/signin/recover" className="text-brand underline">
+        <Link to="/signin/recover" className="text-link underline">
           Recover with your email
         </Link>
       </p>

@@ -1,6 +1,6 @@
-# Apni Dukan — partner app
+# Clozest — partner app
 
-The app salons use to run their day on Apni Dukan: register the salon, set up services and barbers, and work the
+The app salons use to run their day on Clozest: register the salon, set up services and barbers, and work the
 day's bookings and walk-ins. It is a phone-first web app (it can be added to the home screen) and talks only to
 [apni-dukan-backend](https://github.com/Premanshu-jha/apni-dukan-backend).
 
@@ -312,7 +312,7 @@ Railway) and checks every header on the app, a deep link, `sw.js`, the manifest 
 
 ### Installing and offline
 
-`public/manifest.webmanifest` ("Apni Dukan Partner", short "AD Partner") lists the SVG icon and PNGs (192, 512,
+`public/manifest.webmanifest` ("Clozest Partner", short "Clozest Pro") lists the SVG icon and PNGs (192, 512,
 maskable 512) plus `apple-touch-icon.png` for iPhone, all made from `public/icon.svg` by `npm run icons` (sharp);
 commit the PNGs after changing the SVG. `public/sw.js` keeps a small offline page (`offline.html`, its CSS and the
 icon): opening the app without a connection shows "You're offline" with "Try again". Nothing else is cached. A new
@@ -360,7 +360,7 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
   sign-in once and reads again (uploads send once more).
 - A 202 answer's body is read (the hand-over request's message).
 - Installable everywhere: PNG icons (192, 512, maskable) and the iPhone icon from `icon.svg` (`npm run icons`), a
-  complete manifest named "Apni Dukan Partner"; an offline page when opened without a connection; a new version waits
+  complete manifest named "Clozest Partner"; an offline page when opened without a connection; a new version waits
   for "New version available — Reload" instead of switching silently. The service worker is registered also where
   push isn't offered.
 - A refresh answered 409 `TRY_AGAIN` (another tab or request swapped the same token first) uses the newer token that

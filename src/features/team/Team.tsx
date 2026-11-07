@@ -111,7 +111,7 @@ export function Team() {
         <p className="font-semibold">Invite a helper</p>
         <p className="text-sm text-muted">
           A helper runs the day with you: walk-ins, starting bookings, breaks. They join when they accept your
-          invitation in Apni Dukan, signed in with this number. For a barber, invite him on his page under Salon ›
+          invitation in Clozest, signed in with this number. For a barber, invite him on his page under Salon ›
           Barbers instead.
         </p>
         <Field id="helper-phone" label="Helper's mobile number" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />

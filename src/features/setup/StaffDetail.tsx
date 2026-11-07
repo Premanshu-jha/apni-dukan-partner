@@ -91,7 +91,7 @@ export function BookingsInTheWay({ list }: { list: InTheWay[] | null }) {
       <ul className="flex flex-col gap-1 text-sm">
         {list.map((a) => (
           <li key={a.id}>
-            <Link className="text-brand underline" to={dayLink(a)}>
+            <Link className="text-link underline" to={dayLink(a)}>
               {dateTimeIst(a.startsAt)}–{timeIst(a.endsAt)}
             </Link>
           </li>
@@ -160,7 +160,7 @@ function Login({ s, edit }: { s: Staff; edit: boolean }) {
         <p className="font-medium">His own sign-in</p>
         <p className="text-sm text-muted">
           With a sign-in he opens this app with his phone number and sees his own bookings. You invite his number; he
-          accepts in Apni Dukan. {s.invitedPhone ? `Invited: +91 ${formatPhone(s.invitedPhone)}, waiting for him to accept` : loginText(s.loginPhone)}.
+          accepts in Clozest. {s.invitedPhone ? `Invited: +91 ${formatPhone(s.invitedPhone)}, waiting for him to accept` : loginText(s.loginPhone)}.
         </p>
       </div>
       {edit &&
@@ -178,7 +178,7 @@ function Login({ s, edit }: { s: Staff; edit: boolean }) {
             <Button
               busy={busy}
               disabled={!normalized}
-              onClick={() => run(() => setupApi.linkLogin(s.id, normalized!), "Invitation sent. He'll see it in Apni Dukan when he signs in with this number.")}
+              onClick={() => run(() => setupApi.linkLogin(s.id, normalized!), "Invitation sent. He'll see it in Clozest when he signs in with this number.")}
             >
               Invite him to sign in
             </Button>
@@ -308,7 +308,7 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
       <div className="flex items-center justify-between">
         <p className="font-medium">Weekly hours</p>
         {edit && week[1].length > 0 && (
-          <button type="button" className="text-sm text-brand underline" onClick={copyMonday}>
+          <button type="button" className="text-sm text-link underline" onClick={copyMonday}>
             Copy Monday to Tue–Sat
           </button>
         )}
@@ -322,7 +322,7 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
               {edit && week[d].length < 2 && (
                 <button
                   type="button"
-                  className="text-sm text-brand underline"
+                  className="text-sm text-link underline"
                   onClick={() => setWeek({ ...week, [d]: withSecondShift(week[d]) })}
                 >
                   {week[d].length ? 'Add a second shift' : 'Add hours'}

@@ -68,7 +68,7 @@ export function DeleteAccount() {
     return (
       <Page back={back} title="Delete account">
         <Banner tone="warn">Close or hand over your shop first. Then you can delete your account.</Banner>
-        <Link to="/shop/handover" className="flex min-h-12 items-center justify-center rounded-xl border border-line text-brand">
+        <Link to="/shop/handover" className="flex min-h-12 items-center justify-center rounded-xl border border-line text-link">
           Hand over {shop.name}
         </Link>
         <Link to="/shop/close" className="flex min-h-12 items-center justify-center rounded-xl border border-line text-bad">

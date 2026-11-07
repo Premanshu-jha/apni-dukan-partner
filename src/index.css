@@ -1,19 +1,27 @@
 @import 'tailwindcss';
 
-/* Dark theme only. Colours are named by role so screens never hard-code a hex. */
+/* Dark theme only (Clozest blue on deep navy). Colours are named by role so screens never hard-code a hex;
+   src/theme.test.ts checks the main pairs meet WCAG AA. */
 @theme {
-  --color-bg: #0f1115;
-  --color-surface: #181b22;
-  --color-raised: #20242d;
-  --color-line: #2a2f3a;
-  --color-ink: #e6e8ee;
-  --color-muted: #9aa1b2;
-  --color-brand: #f59e0b;
-  --color-brand-ink: #1a1203;
-  --color-good: #34d399;
+  --color-bg: #0b1220;
+  --color-surface: #111a2e;
+  --color-raised: #16213a;
+  --color-line: #22304d;
+  --color-ink: #e8eef9;
+  --color-muted: #9aa8c2;
+  /* Electric blue: buttons, borders, focus rings, the selected tab's tint. White text on it passes AA. */
+  --color-brand: #2b66f6;
+  --color-brand-ink: #ffffff;
+  /* The brand blue made light enough to read as text (links, selected tab) on the navy surfaces. */
+  --color-link: #6e9bff;
+  /* Sky blue for highlights (the app name's second word, key times). */
+  --color-accent: #7fb2ff;
+  --color-good: #3ddc97;
   --color-warn: #fbbf24;
-  --color-bad: #f87171;
-  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --color-bad: #ff7b7b;
+  /* Behind dialogs and full-screen photos. */
+  --color-scrim: #03060d;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 html,
