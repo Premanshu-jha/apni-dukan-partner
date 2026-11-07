@@ -227,3 +227,14 @@ test('more than 99 unread shows "99+" on the bell and in the inbox (the backend 
   await page.goto('/notifications')
   await expect(page.getByText('99+ unread')).toBeVisible()
 })
+
+test('sign-in from a network that must wait: 429 TRY_LATER says for how long', async ({ page, api }) => {
+  api.otpTryLater = 240
+  await page.goto('/signin')
+  await page.getByLabel('Mobile number').fill('98480 12345')
+  await page.getByRole('button', { name: 'Send code' }).click()
+  await expect(page.getByText('Too many tries from this network. Try again in 4 minutes.')).toBeVisible()
+  // Later, the same number gets its code
+  await page.getByRole('button', { name: 'Send code' }).click()
+  await expect(page.getByLabel('Code')).toBeVisible()
+})

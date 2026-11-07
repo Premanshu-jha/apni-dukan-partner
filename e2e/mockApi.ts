@@ -157,6 +157,8 @@ export class MockApi {
   /** The next `since` answer is the whole day (e.g. the cursor is older than an hour, or more than 300 rows changed). */
   wholeDayNext = false
   private setups: string[] = []
+  /** The next code request answers 429 TRY_LATER with this Retry-After (seconds), once. */
+  otpTryLater: number | null = null
   /** Every request fails as with no network. */
   offline = false
   /** GET /shops/me answers 503 this many times. */
@@ -432,6 +434,12 @@ export class MockApi {
     if (p.startsWith('/tiles/')) return route.fulfill({ status: 404, body: '' })
 
     // ---------- sign-in (public) ----------
+    // OtpService: past the all-network numbers, a network that never signed this number in waits (429 TRY_LATER)
+    if (p === '/auth/otp/send' && this.otpTryLater !== null) {
+      const wait = this.otpTryLater
+      this.otpTryLater = null
+      return ok(429, { code: 'TRY_LATER', message: "Many tries for this number today. For its owner's safety, wait a little and try again.", details: {} }, { 'Retry-After': String(wait) })
+    }
     if (p === '/auth/otp/send') return ok(202)
     if (p === '/auth/otp/verify') return body.code === '123456' ? ok(200, this.tokens()) : fail(400, 'WRONG_CODE', 'That code is not right. 4 tries left.')
     if (p === '/auth/refresh') {

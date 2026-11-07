@@ -373,6 +373,9 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 - The day board for big salons: no 30-second redraw (the date changes at midnight), memoised cards with times worked
   out once, cheap off-screen cards, and one barber's column first when there are more than 6. A test draws 2,000.
 - CI: the build job's checkout keeps no token (`persist-credentials: false`), like the other jobs.
+- Sign-in codes: 429 `TRY_LATER` (a network that must wait, backend #34's OTP back-off) shows "Too many tries from
+  this network. Try again in N minutes." from `Retry-After`; `LOCKED_FOR_TODAY` (now only the guessing network) keeps
+  the backend's words.
 - Tests: an unchanged bell poll and message list are 304s and change nothing on screen (`inbox-etag.spec`).
 - Helpers and barbers join by invitation (backend #34, "Helpers and barbers join by invitation"): Team's "Send
   invitation" shows the backend's neutral answer and a "Waiting for an answer" list with Cancel; a barber's page
