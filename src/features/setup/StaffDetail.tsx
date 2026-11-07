@@ -1,15 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
-import { useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { isApiError, messageOf } from '../../api/errors'
 import { setupApi, useServices, useStaff, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
 import { fileApi, useShop } from '../../api/shop'
-import type { Shift, Staff } from '../../api/types'
+import type { InTheWay, Shift, Staff } from '../../api/types'
 import { PhotoPicker } from '../../components/PhotoPicker'
 import { Banner, Button, Card, EmptyState, ErrorState, Field, Loading, Page, Switch } from '../../components/ui'
-import { clock12, weekdayName } from '../../lib/ist'
+import { clock12, dateTimeIst, timeIst, weekdayName } from '../../lib/ist'
 import { normalizePhone } from '../../lib/phone'
 import { can } from '../../lib/roles'
+import { dayLink } from '../day/Today'
 import { loginText } from './Staff'
 
 /** Every change on this page reloads the barber list, so the next change sends the newest version. */
@@ -54,10 +55,13 @@ function useSaver() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
+  // New hours or services that would strand upcoming bookings (409 BOOKINGS_IN_THE_WAY lists them)
+  const [inTheWay, setInTheWay] = useState<InTheWay[] | null>(null)
   async function run(call: () => Promise<unknown>, message = 'Saved.') {
     setBusy(true)
     setError(null)
     setSaved(null)
+    setInTheWay(null)
     try {
       await call()
       setSaved(message)
@@ -65,12 +69,36 @@ function useSaver() {
       setError(
         isApiError(e, 'STAFF_CHANGED') ? 'Someone changed this barber meanwhile. The page now shows the latest; try again.' : messageOf(e),
       )
+      if (isApiError(e, 'BOOKINGS_IN_THE_WAY')) {
+        const list = e.details.appointments
+        setInTheWay(Array.isArray(list) ? (list as InTheWay[]) : [])
+      }
     } finally {
       setBusy(false)
       await after()
     }
   }
-  return { busy, error, saved, run }
+  return { busy, error, saved, inTheWay, run }
+}
+
+/** The bookings a change would strand, each a link that opens it on its day's board (to give to another barber or cancel). */
+export function BookingsInTheWay({ list }: { list: InTheWay[] | null }) {
+  if (!list || list.length === 0) return null
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-warn/50 p-3">
+      <p className="font-semibold">{list.length === 1 ? '1 booking is in the way' : `${list.length} bookings are in the way`}</p>
+      <p className="text-sm text-muted">Give these to another barber or cancel them on the day board, then save again.</p>
+      <ul className="flex flex-col gap-1 text-sm">
+        {list.map((a) => (
+          <li key={a.id}>
+            <Link className="text-brand underline" to={dayLink(a)}>
+              {dateTimeIst(a.startsAt)}–{timeIst(a.endsAt)}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
 }
 
 function NameAndActive({ s, edit }: { s: Staff; edit: boolean }) {
@@ -156,7 +184,7 @@ function Login({ s, edit }: { s: Staff; edit: boolean }) {
 function Skills({ s, edit }: { s: Staff; edit: boolean }) {
   const services = useServices()
   const [picked, setPicked] = useState<string[]>(s.serviceIds)
-  const { busy, error, saved, run } = useSaver()
+  const { busy, error, saved, inTheWay, run } = useSaver()
   const changed = picked.length !== s.serviceIds.length || picked.some((p) => !s.serviceIds.includes(p))
   const list = services.data?.filter((v) => v.active || s.serviceIds.includes(v.id)) ?? []
   return (
@@ -191,6 +219,7 @@ function Skills({ s, edit }: { s: Staff; edit: boolean }) {
         </Button>
       )}
       {error && <Banner tone="bad">{error}</Banner>}
+      <BookingsInTheWay list={inTheWay} />
       {saved && !error && <Banner tone="good">{saved}</Banner>}
     </Card>
   )
@@ -206,6 +235,36 @@ export function toWeek(hours: Shift[]): Week {
 
 export function fromWeek(w: Week): Shift[] {
   return Object.entries(w).flatMap(([d, shifts]) => shifts.map((x) => ({ weekday: Number(d), start: x.start, end: x.end })))
+}
+
+/** Where "Add hours" starts a day, and the usual closing time. */
+const DAY_START = '10:00'
+const CLOSING = '20:00'
+
+const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
+const toTime = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+
+/**
+ * The day after "Add hours" (10:00–20:00) or "Add a second shift": the new shift starts where the first one ends (till
+ * closing). When the first already runs to closing (or later), it is cut at its middle and the second starts an hour
+ * after (a lunch break), so 10:00–20:00 becomes 10:00–15:00 and 16:00–20:00. Either way nothing overlaps; the owner
+ * adjusts the times after.
+ */
+export function withSecondShift(day: Array<{ start: string; end: string }>): Array<{ start: string; end: string }> {
+  const [first] = day
+  if (!first) return [{ start: DAY_START, end: CLOSING }]
+  const start = toMin(first.start)
+  const end = toMin(first.end)
+  if (first.end < CLOSING) return [first, { start: first.end, end: CLOSING }]
+  // Cut at the middle (15-minute steps), keeping at least an hour on each side of the hour's break
+  const middle = Math.floor((start + end) / 2 / 15) * 15
+  if (middle - start >= 60 && end - (middle + 60) >= 60) {
+    return [{ ...first, end: toTime(middle) }, { start: toTime(middle + 60), end: first.end }]
+  }
+  // Too short to cut: after it if the day has an hour left, else before it; a shift of the whole day leaves no room
+  if (end <= 23 * 60) return [first, { start: first.end, end: toTime(Math.min(end + 4 * 60, 24 * 60)) }]
+  if (start >= 60) return [{ start: toTime(Math.max(0, start - 4 * 60)), end: first.start }, first]
+  return day
 }
 
 /** Problems with a week before sending: end after start, 15-minute steps, shifts in a day not overlapping. */
@@ -226,7 +285,7 @@ export function checkWeek(w: Week): string | null {
 
 function Hours({ s, edit }: { s: Staff; edit: boolean }) {
   const [week, setWeek] = useState<Week>(() => toWeek(s.hours))
-  const { busy, error, saved, run } = useSaver()
+  const { busy, error, saved, inTheWay, run } = useSaver()
   const problem = checkWeek(week)
   const changed = JSON.stringify(fromWeek(week)) !== JSON.stringify(fromWeek(toWeek(s.hours)))
   const setShift = (d: number, i: number, k: 'start' | 'end', v: string) =>
@@ -255,7 +314,7 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
                 <button
                   type="button"
                   className="text-sm text-brand underline"
-                  onClick={() => setWeek({ ...week, [d]: [...week[d], week[d].length ? { start: '16:00', end: '20:00' } : { start: '10:00', end: '20:00' }] })}
+                  onClick={() => setWeek({ ...week, [d]: withSecondShift(week[d]) })}
                 >
                   {week[d].length ? 'Add a second shift' : 'Add hours'}
                 </button>
@@ -304,6 +363,7 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
         </Button>
       )}
       {error && <Banner tone="bad">{error}</Banner>}
+      <BookingsInTheWay list={inTheWay} />
       {saved && !error && <Banner tone="good">{saved}</Banner>}
     </Card>
   )
