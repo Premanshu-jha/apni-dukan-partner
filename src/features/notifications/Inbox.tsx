@@ -24,14 +24,33 @@ const icons: Record<string, string> = {
   SHOP_NOT_APPROVED: '!',
   SHOP_SUSPENDED: '!',
   SHOP_REINSTATED: '✓',
+  SHOP_HANDOVER_REQUEST: '⇄',
+  SHOP_HANDOVER_ACCEPTED: '⇄',
+  SHOP_HANDOVER_DECLINED: '✕',
+  SHOP_HANDOVER_DONE: '✓',
+  SHOP_INVITE: '＋',
+  SHOP_INVITE_ACCEPTED: '✓',
+  SHOP_INVITE_DECLINED: '✕',
 }
 
-const alarming = new Set(['SALON_BOOKING_CANCELLED', 'SALON_CANCELLED_BY_SALON', 'SALON_WALK_IN_CANCELLED', 'SHOP_NOT_APPROVED', 'SHOP_SUSPENDED'])
+const alarming = new Set([
+  'SALON_BOOKING_CANCELLED',
+  'SALON_CANCELLED_BY_SALON',
+  'SALON_WALK_IN_CANCELLED',
+  'SHOP_NOT_APPROVED',
+  'SHOP_SUSPENDED',
+  'SHOP_HANDOVER_DECLINED',
+  'SHOP_INVITE_DECLINED',
+])
 
-/** Only this app's own pages are opened from a message: the day board, or the start for shop news. */
+/**
+ * Only this app's own pages are opened from a message: the day board, the start for shop news, or the hand-over
+ * requests ("A shop for you": /handover), invitations to join a shop (/invites).
+ */
 export function safePath(url: string | null): string | null {
   if (!url || !url.startsWith('/') || url.startsWith('//')) return null
   if (url.startsWith('/salon/')) return url
+  if (url === '/handover' || url === '/invites') return url
   if (url.startsWith('/shops/')) return '/'
   return null
 }

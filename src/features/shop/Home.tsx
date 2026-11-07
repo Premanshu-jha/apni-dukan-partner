@@ -1,8 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { Navigate, useNavigate } from 'react-router'
+import { Link, Navigate, useNavigate } from 'react-router'
 import { useShop } from '../../api/shop'
 import { Button, Card, EmptyState, Page } from '../../components/ui'
 import { signOutHere } from '../profile/signOut'
+import { HandoverOffers } from './HandoverOffers'
+import { InviteOffers } from './InviteOffers'
 import { useRecheckShop } from './ShopGate'
 
 /** Where "/" goes: registration for a draft owner, a wait screen for staff of a salon not live yet, else today. */
@@ -21,6 +23,8 @@ function NotLiveYet() {
   const recheck = useRecheckShop()
   return (
     <Page title={shop.name}>
+      <HandoverOffers />
+      <InviteOffers />
       <EmptyState
         title="Your salon isn't live yet"
         body={`${shop.ownerName} has registered ${shop.name}. Once our field team approves it, you'll see the day's bookings here.`}
@@ -29,6 +33,9 @@ function NotLiveYet() {
       <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
         Sign out
       </Button>
+      <Link to="/profile/delete" className="py-2 text-center text-sm text-bad underline">
+        Delete my account
+      </Link>
     </Page>
   )
 }

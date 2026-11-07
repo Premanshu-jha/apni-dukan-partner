@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { fieldError, messageOf } from '../../api/errors'
-import { salonKeys, setupApi, useStaff } from '../../api/salon'
+import { setupApi, useStaff, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import { Banner, Button, EmptyState, ErrorState, Field, Loading, Page, Pill, Sheet } from '../../components/ui'
 import { weekdayName } from '../../lib/ist'
@@ -71,7 +71,7 @@ function AddStaff({ onClose }: { onClose: () => void }) {
     setError(null)
     try {
       const s = await setupApi.addStaff(name.trim())
-      await qc.invalidateQueries({ queryKey: salonKeys.all })
+      refreshSalonWork(qc, SETUP_KEYS)
       navigate(`/setup/staff/${s.id}`)
     } catch (e) {
       setError(e)

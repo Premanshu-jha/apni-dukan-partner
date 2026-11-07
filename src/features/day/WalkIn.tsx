@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { ApiError, explain, isApiError, messageOf } from '../../api/errors'
-import { dayApi, salonKeys, useServices } from '../../api/salon'
+import { dayApi, useServices, refreshSalonWork } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import { Banner, Button, Card, EmptyState, ErrorState, Field, Loading, Page } from '../../components/ui'
 import { clock12 } from '../../lib/ist'
@@ -67,7 +67,7 @@ export function WalkIn() {
     setError(null)
     try {
       await dayApi.addWalkIn(key.current, { serviceIds: picked, staffId, name: name.trim() || null })
-      await qc.invalidateQueries({ queryKey: salonKeys.all })
+      refreshSalonWork(qc)
       navigate('/salon/day', { replace: true })
     } catch (e) {
       setError(explain(e))
