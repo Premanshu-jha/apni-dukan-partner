@@ -373,6 +373,7 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 - The day board for big salons: no 30-second redraw (the date changes at midnight), memoised cards with times worked
   out once, cheap off-screen cards, and one barber's column first when there are more than 6. A test draws 2,000.
 - CI: the build job's checkout keeps no token (`persist-credentials: false`), like the other jobs.
+- Tests: an unchanged bell poll and message list are 304s and change nothing on screen (`inbox-etag.spec`).
 - Tests: end-to-end delete account (barber, helper refused, owner), headers, install icons and offline page; unit
   tests of the service worker, the update offer and the 409 refresh.
 - Tests: the fake backend's day deltas (a seq per answer and date, full on a setup change or an unknown cursor, a
