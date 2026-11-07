@@ -18,5 +18,7 @@ export function can(role: ShopRole) {
     team: owner,
     callCustomer: ownerOrHelper,
     leaveShop: !owner,
+    // The backend refuses an owner (SHOP_OWNER): the shop is closed or handed over first
+    deleteAccount: !owner,
   }
 }

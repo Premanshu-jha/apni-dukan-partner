@@ -1,6 +1,9 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { api } from './client'
-import { cursorQuery, nextAfterLast, type AfterCursor } from './pages'
+import { loadDay } from './dayBoard'
+import { applyUpcoming, pageOf, type UpcomingChanges, type UpcomingPage } from './upcomingList'
+import { cursorQuery, type AfterCursor } from './pages'
 import type {
   Appointment,
   ClosureView,
@@ -25,6 +28,12 @@ export const salonKeys = {
   day: (date: string) => ['salon', 'day', date] as const,
   days: ['salon', 'day'] as const,
   upcoming: ['salon', 'upcoming'] as const,
+  /** The `seq` of the coming-up list's last delta (or of its first page), for the next `since=`; null: no deltas. */
+  upcomingSeq: ['salon', 'upcoming-seq'] as const,
+  /** The seq of a load of the coming-up list still running (it becomes `upcomingSeq` once every page is in). */
+  upcomingPendingSeq: ['salon', 'upcoming-pending-seq'] as const,
+  /** The 60-second poll of the coming-up list's deltas. */
+  upcomingPoll: ['salon', 'upcoming-poll'] as const,
   history: (from: string, to: string) => ['salon', 'history', from, to] as const,
   closures: ['salon', 'closures'] as const,
   pause: ['salon', 'pause'] as const,
@@ -71,10 +80,20 @@ export const useSettings = () => useQuery({ queryKey: salonKeys.settings, queryF
 // ---------- the day's work ----------
 
 export const dayApi = {
+  /** The whole day (the full form: ETag and 304). */
   day: (date: string) => api<DayView>('GET', `${S}/day?date=${date}`),
+  /** Only what changed on this date since `seq` (exactly as received); never kept for If-None-Match. */
+  dayChanges: (date: string, seq: string) =>
+    api<DayView>('GET', `${S}/day?date=${date}&since=${encodeURIComponent(seq)}`, { keep: false }),
   /** One page of the upcoming list; `after` is where the page before ended (null: the first page). */
   upcoming: (after: AfterCursor | null = null) =>
     api<Appointment[]>('GET', `${S}/upcoming${after ? `?${cursorQuery(after).slice(1)}` : ''}`),
+  /**
+   * What changed on the coming-up list since `seq` ("start" for a first `seq`). An older backend ignores `since` and
+   * answers the first page (an array): then there are no deltas.
+   */
+  upcomingChanges: (since: string) =>
+    api<UpcomingChanges | Appointment[]>('GET', `${S}/upcoming?since=${encodeURIComponent(since)}`, { keep: false }),
   /** One page of the history; `after` is the page before's `next` (null: the first page). */
   history: (from: string, to: string, after: AfterCursor | null = null) =>
     api<HistoryView>('GET', `${S}/history?from=${from}&to=${to}${cursorQuery(after)}`),
@@ -116,9 +135,27 @@ export const dayApi = {
     api<Member[]>('PUT', `${S}/members/${userId}/walk-in-access`, { body: { allowed } }),
 }
 
-/** The day screen. Refreshed every 30 seconds while open, and on every return to the app. */
+/**
+ * The day screen. Refreshed every 30 seconds while open, and on every return to the app: the first read of a date is the
+ * whole day, every refresh after only what changed since (see dayBoard.ts). Only the date in view is held: opening
+ * another date forgets the boards of dates no screen shows, so paging through days doesn't pile up whole days.
+ */
 export function useDay(date: string) {
-  return useQuery({ queryKey: salonKeys.day(date), queryFn: () => dayApi.day(date), refetchInterval: 30_000 })
+  const qc = useQueryClient()
+  const day = useQuery({
+    queryKey: salonKeys.day(date),
+    queryFn: () =>
+      loadDay(date, qc.getQueryData<DayView>(salonKeys.day(date)), { full: dayApi.day, since: dayApi.dayChanges }),
+    refetchInterval: 30_000,
+  })
+  // After useQuery's own effects (declared above), so the screen has already moved off the date it showed before
+  useEffect(() => {
+    qc.removeQueries({
+      queryKey: salonKeys.days,
+      predicate: (q) => q.queryKey[2] !== date && q.getObserversCount() === 0,
+    })
+  }, [qc, date])
+  return day
 }
 
 /** Appointments per page of the upcoming list and the history (SalonDayService.UPCOMING_PAGE, HISTORY_PAGE). */
@@ -134,18 +171,114 @@ export const UPCOMING_MAX_PAGES = 5
 export const HISTORY_MAX_PAGES = 10
 
 /**
- * Online bookings to come, soonest first, 100 a page ("Show more"). Refreshed every 60 seconds and on return to the
- * app: every loaded page is asked again with its ETag (304 when unchanged).
+ * Online bookings to come, soonest first, 100 a page ("Show more"), each page kept with its keyset cursor. Before the
+ * first page a `seq` is asked for (`since=start`), so nothing written while the pages load is missed; the list is then
+ * kept up to date by `useUpcomingPoll` (deltas), not by asking every page again. A whole reload (`full: true`, or an
+ * older backend without deltas) asks every loaded page again, each with its ETag (304 when unchanged).
  */
 export function useUpcoming() {
-  return useInfiniteQuery({
+  const qc = useQueryClient()
+  const list = useInfiniteQuery({
     queryKey: salonKeys.upcoming,
     initialPageParam: null as AfterCursor | null,
-    queryFn: ({ pageParam }) => dayApi.upcoming(pageParam),
-    getNextPageParam: (last: Appointment[], all: Appointment[][]) => nextAfterLast(last, all, UPCOMING_PAGE, UPCOMING_MAX_PAGES),
+    queryFn: async ({ pageParam }) => {
+      if (pageParam === null) {
+        const first = await dayApi.upcomingChanges('start')
+        // The new seq counts only once every page of this load is in (see below); until then there is none, so a
+        // load that fails leaves the next poll (or Try again) to load the pages again, not to ask a delta from a seq
+        // whose list was never shown
+        qc.setQueryData(salonKeys.upcomingSeq, null)
+        qc.setQueryData<PendingSeq>(salonKeys.upcomingPendingSeq, { seq: Array.isArray(first) ? null : first.seq, at: Date.now() })
+      }
+      return pageOf(await dayApi.upcoming(pageParam), UPCOMING_PAGE)
+    },
+    getNextPageParam: (last: UpcomingPage, all: UpcomingPage[]) =>
+      all.length >= UPCOMING_MAX_PAGES ? undefined : (last.next ?? undefined),
+    // Kept fresh by the deltas below, not by reloading every page
+    refetchOnWindowFocus: false,
+  })
+  // The load's pages all came (TanStack updates the data once, after the last page): its seq is the one to go on from
+  useEffect(() => {
+    const pending = qc.getQueryData<PendingSeq>(salonKeys.upcomingPendingSeq)
+    if (!pending || list.isFetching || list.dataUpdatedAt < pending.at) return
+    qc.setQueryData(salonKeys.upcomingSeq, pending.seq)
+    qc.setQueryData(salonKeys.upcomingPendingSeq, null)
+  }, [qc, list.dataUpdatedAt, list.isFetching])
+  return list
+}
+
+/** A load's seq (`since=start`, null from an older backend) and when it was asked, until its pages are all in. */
+interface PendingSeq {
+  seq: string | null
+  at: number
+}
+
+/**
+ * The coming-up list's poll: every 60 seconds and on return to the app, only what changed since the last `seq`,
+ * applied to the loaded pages (see upcomingList.ts). `full: true`, no `seq` (an older backend) or a list not loaded:
+ * every loaded page is asked again. A failed poll keeps the list and its `seq`.
+ */
+export function useUpcomingPoll(enabled: boolean) {
+  const qc = useQueryClient()
+  return useQuery({
+    queryKey: salonKeys.upcomingPoll,
+    queryFn: async () => {
+      const seq = qc.getQueryData<string | null>(salonKeys.upcomingSeq)
+      const reload = () => qc.refetchQueries({ queryKey: salonKeys.upcoming, exact: true })
+      // A page read in flight ("Show more", a reload) was started with the pages as they are and puts them back when
+      // it ends: a delta applied now would be lost with its seq already moved on, and a reload would cut it short.
+      // Skip this tick (same seq next time).
+      const loading = () => qc.isFetching({ queryKey: salonKeys.upcoming, exact: true }) > 0
+      if (loading()) return Date.now()
+      if (!seq) {
+        await reload()
+        return Date.now()
+      }
+      const answer = await dayApi.upcomingChanges(seq)
+      if (Array.isArray(answer)) {
+        qc.setQueryData(salonKeys.upcomingSeq, null)
+        await reload()
+      } else if (answer.full) {
+        // The reload's first page asks for its own seq (since=start), which counts only once every page is in; if a
+        // page fails there is no seq, so the next poll (or Try again) loads the pages again
+        await reload()
+      } else if (!loading()) {
+        qc.setQueryData<{ pages: UpcomingPage[]; pageParams: unknown[] }>(salonKeys.upcoming, (data) =>
+          data ? { ...data, pages: applyUpcoming(data.pages, answer) } : data,
+        )
+        qc.setQueryData(salonKeys.upcomingSeq, answer.seq)
+      }
+      return Date.now()
+    },
+    enabled,
+    // Not when the screen opens (the pages were just read): every 60 seconds, and on every return to the app
+    initialData: 0,
+    initialDataUpdatedAt: () => Date.now(),
+    staleTime: 60_000,
     refetchInterval: 60_000,
+    refetchOnWindowFocus: 'always',
+    retry: false,
   })
 }
+
+/**
+ * After a change to the salon's day (an action here, or a message about a booking): only what it can affect is read
+ * again. The day board in view asks for its delta; the coming-up list, when open, polls its delta once (not every
+ * page); the history and the after-the-cap check are marked out of date and read when next shown. `also`: the other
+ * queries the change touches (closed days, the setup).
+ */
+export function refreshSalonWork(qc: QueryClient, also: QueryKey[] = []) {
+  for (const key of also) void qc.invalidateQueries({ queryKey: key })
+  void qc.invalidateQueries({ queryKey: salonKeys.days })
+  void qc.invalidateQueries({ queryKey: ['salon', 'history'], refetchType: 'none' })
+  void qc.invalidateQueries({ queryKey: ['salon', 'upcoming-after-cap'], refetchType: 'none' })
+  const poll = qc.getQueryCache().find({ queryKey: salonKeys.upcomingPoll, exact: true })
+  if (poll && poll.getObserversCount() > 0) void qc.refetchQueries({ queryKey: salonKeys.upcomingPoll, exact: true })
+  else void qc.invalidateQueries({ queryKey: salonKeys.upcoming, exact: true, refetchType: 'none' })
+}
+
+/** The setup's queries (barbers, services, booking rules, who may add walk-ins): a setup change reads them again. */
+export const SETUP_KEYS: QueryKey[] = [salonKeys.services, salonKeys.staff, salonKeys.settings, salonKeys.members]
 
 /**
  * Whether anything comes after the capped coming-up list: the page after the last loaded booking, asked once (not
@@ -154,7 +287,7 @@ export function useUpcoming() {
  */
 export function useMoreAfterCap(after: AfterCursor | null) {
   return useQuery({
-    queryKey: [...salonKeys.upcoming, 'after-cap', after?.afterStart ?? null, after?.afterId ?? null],
+    queryKey: ['salon', 'upcoming-after-cap', after?.afterStart ?? null, after?.afterId ?? null],
     queryFn: () => dayApi.upcoming(after),
     enabled: after !== null,
     select: (page: Appointment[]) => page.length > 0,

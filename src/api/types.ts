@@ -28,7 +28,8 @@ export interface ErrorBody {
 
 // ---------- the shop ----------
 
-export type ShopStatus = 'DRAFT' | 'PENDING_VISIT' | 'APPROVED' | 'SUSPENDED'
+/** CLOSED: its owner closed it for good (seen in the answer to closing; after that the owner has no shop). */
+export type ShopStatus = 'DRAFT' | 'PENDING_VISIT' | 'APPROVED' | 'SUSPENDED' | 'CLOSED'
 export type ShopType = 'KIRANA' | 'SALON'
 export type ShopRole = 'OWNER' | 'HELPER' | 'BARBER'
 
@@ -218,14 +219,25 @@ export interface DayView {
   barbers: BarberColumn[]
   /** The caller's own barber profile (a barber), so the app knows which column is his; null for owner and helpers. */
   myStaffId: string | null
+  /** True: `barbers` is the whole day. False (a delta, `?since=`): `barbers` is null, see `changed` and `removed`. */
+  full?: boolean
+  /** Send back exactly as received as `since` for the same date: only what changed after this answer. */
+  seq?: string
+  /** The salon's setup this answer was made under (for information: a change makes the next delta a whole day). */
+  setupVersion?: number
+  /** A delta's new or changed appointments, in the order written: replace by id, or add to the `staffId` column. */
+  changed?: Appointment[] | null
+  /** A delta's ids no longer on this board (moved to another day or barber, a removed block): drop them if shown. */
+  removed?: string[] | null
 }
 
 export interface HistoryView {
   from: string
   to: string
-  /** How many ended in each status. */
-  counts: Record<string, number>
-  completedPaise: number
+  /** How many ended in each status (the whole range): on the first page only, null on later pages. */
+  counts: Record<string, number> | null
+  /** The first page only, like `counts`. */
+  completedPaise: number | null
   /** This page: at most 100, latest first. */
   appointments: Appointment[]
   /** Same as `next !== null` (kept by the backend for older apps). */
@@ -260,4 +272,36 @@ export interface InTheWay {
   staffId: string
   startsAt: string
   endsAt: string
+}
+
+// ---------- handing a shop over ----------
+
+/** The owner's waiting hand-over request (GET /shops/me/handover). */
+export interface HandoverView {
+  id: string
+  /** The 10-digit number asked. */
+  phone: string
+  createdAt: string
+  /** It runs out 7 days after it was made. */
+  expiresAt: string
+}
+
+/** POST /shops/me/handover: 202. `message` is the same whether or not the number has an account. */
+export interface HandoverRequested {
+  message: string
+  handover: HandoverView
+}
+
+/** A request waiting for the signed-in person's phone (GET /me/handover). */
+export interface IncomingHandover {
+  id: string
+  shopId: string
+  shopCode: number
+  shopName: string
+  type: ShopType
+  area: string
+  city: string
+  ownerName: string
+  createdAt: string
+  expiresAt: string
 }
