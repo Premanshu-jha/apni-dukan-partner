@@ -14,11 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Audit dependencies (high and critical fail the build)
+        run: npm audit --audit-level=high
       - name: Type-check
         run: npm run typecheck
       - name: Lint
@@ -52,6 +56,36 @@ jobs:
           name: e2e-traces
           path: test-results/
           retention-days: 7
+
+  headers:
+    # The production server as Railway runs it (Caddy with this repo's Caddyfile, the build at /app/dist) must send
+    # the security headers on every page
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build as for production
+        run: npm run build
+        env:
+          VITE_API_URL: https://api.example.com
+          VITE_TURNSTILE_SITE_KEY: test-site-key
+      - name: Start Caddy with the Caddyfile
+        run: |
+          docker run -d --name caddy -p 8080:8080 -e PORT=8080 \
+            -v "$PWD/Caddyfile:/Caddyfile:ro" -v "$PWD/dist:/app/dist:ro" \
+            caddy:2 caddy run --config /Caddyfile --adapter caddyfile
+          for i in $(seq 1 30); do curl -fs http://localhost:8080/health && break; sleep 1; done
+      - name: Check the headers
+        run: node scripts/check-headers.mjs http://localhost:8080
+      - name: Caddy's log
+        if: failure()
+        run: docker logs caddy
 
   secrets:
     runs-on: ubuntu-latest
