@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { explain, isApiError, messageOf } from '../../api/errors'
-import { dayApi, salonKeys } from '../../api/salon'
+import { dayApi, salonKeys, refreshSalonWork } from '../../api/salon'
 import type { InTheWay } from '../../api/types'
 import { AHEAD_DAYS } from './Today'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
@@ -32,7 +32,7 @@ export function Closures() {
       }
     } finally {
       setBusy(null)
-      await qc.invalidateQueries({ queryKey: salonKeys.all })
+      refreshSalonWork(qc, [salonKeys.closures])
     }
   }
 

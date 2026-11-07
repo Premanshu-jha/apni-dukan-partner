@@ -11,6 +11,7 @@ import { rupees } from '../../lib/money'
 import { can } from '../../lib/roles'
 import { Bell } from '../notifications/Bell'
 import { NotificationsPrompt } from '../profile/Notifications'
+import { HandoverOffers } from '../shop/HandoverOffers'
 import { WaitingForVisit } from '../shop/Home'
 import { AppointmentSheet } from './AppointmentSheet'
 import { PauseControl } from './Pause'
@@ -82,6 +83,8 @@ export function Today() {
         </Banner>
       )}
       {waiting && <WaitingForVisit />}
+      {/* A request to take over a shop (this one, as its helper or barber, or another) */}
+      {shop.myRole !== 'OWNER' && <HandoverOffers />}
       {!suspended && <NotificationsPrompt />}
       {shop.myRole === 'OWNER' && <SetupChecklist />}
       {!suspended && !waiting && rights.pause && <PauseControl />}

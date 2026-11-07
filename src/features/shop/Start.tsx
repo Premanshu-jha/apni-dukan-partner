@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router'
+import { useEffect, useState } from 'react'
+import { Link, Navigate, useNavigate } from 'react-router'
 import { refreshSession } from '../../api/client'
 import { messageOf } from '../../api/errors'
 import { fetchMyShop, shopKeys, useMyShop } from '../../api/shop'
@@ -9,6 +9,8 @@ import { formatPhone } from '../../lib/phone'
 import { useSession } from '../../store/session'
 import { Brand } from '../auth/Brand'
 import { signOutHere } from '../profile/signOut'
+import { HandoverOffers } from './HandoverOffers'
+import { closedNotice, forgetClosed, startNotice } from './ownership'
 
 /**
  * Signed in, no shop yet (404 NO_SHOP): register a salon, or, for someone who works in one, show the number the
@@ -22,9 +24,13 @@ export function Start() {
   const [worker, setWorker] = useState(false)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  // Just closed a shop (CloseShop): say so while this screen is open, once
+  const [closed] = useState(closedNotice)
+  const [note] = useState(startNotice)
+  useEffect(() => forgetClosed(), [])
 
   if (shop.isPending) return <Loading />
-  if (shop.data) return <Navigate to="/" replace />
+  if (shop.data && shop.data.status !== 'CLOSED') return <Navigate to="/" replace />
 
   async function checkAgain() {
     setBusy(true)
@@ -49,7 +55,15 @@ export function Start() {
   return (
     <Page>
       <Brand subtitle={`Welcome, ${user.name ?? ''}. Let's get your salon on Apni Dukan.`} />
+      {closed && (
+        <Banner tone="info">
+          {closed} is closed. Its upcoming bookings were cancelled and the customers told. You can register a new salon,
+          or delete your account below.
+        </Banner>
+      )}
+      {note && <Banner tone="info">{note}</Banner>}
       {shop.isError && <Banner tone="bad">{messageOf(shop.error)}</Banner>}
+      <HandoverOffers />
       {!worker ? (
         <div className="flex flex-col gap-3">
           <Card className="flex flex-col gap-3">
@@ -87,6 +101,9 @@ export function Start() {
       <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
         Sign out
       </Button>
+      <Link to="/profile/delete" className="py-2 text-center text-sm text-bad underline">
+        Delete my account
+      </Link>
     </Page>
   )
 }

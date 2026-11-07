@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
 import { useParams } from 'react-router'
 import { isApiError, messageOf } from '../../api/errors'
-import { salonKeys, setupApi, useServices, useStaff } from '../../api/salon'
+import { setupApi, useServices, useStaff, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
 import { fileApi, useShop } from '../../api/shop'
 import type { Shift, Staff } from '../../api/types'
 import { PhotoPicker } from '../../components/PhotoPicker'
@@ -15,7 +15,7 @@ import { loginText } from './Staff'
 /** Every change on this page reloads the barber list, so the next change sends the newest version. */
 function useAfterChange() {
   const qc = useQueryClient()
-  return () => qc.invalidateQueries({ queryKey: salonKeys.all })
+  return () => refreshSalonWork(qc, SETUP_KEYS)
 }
 
 /** One barber: name and on/off, photo, his sign-in, the services he does and his weekly hours. */

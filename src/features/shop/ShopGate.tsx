@@ -21,7 +21,8 @@ export function ShopGate() {
       </Page>
     )
   }
-  if (!shop.data) return <Navigate to="/start" replace />
+  // CLOSED is seen only in the answer to closing (the owner has no shop after it): the same as none
+  if (!shop.data || shop.data.status === 'CLOSED') return <Navigate to="/start" replace />
   if (shop.data.type !== 'SALON') return <KiranaSoon />
   return (
     <ShopContext.Provider value={shop.data}>

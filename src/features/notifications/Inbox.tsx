@@ -24,14 +24,29 @@ const icons: Record<string, string> = {
   SHOP_NOT_APPROVED: '!',
   SHOP_SUSPENDED: '!',
   SHOP_REINSTATED: '✓',
+  SHOP_HANDOVER_REQUEST: '⇄',
+  SHOP_HANDOVER_ACCEPTED: '⇄',
+  SHOP_HANDOVER_DECLINED: '✕',
+  SHOP_HANDOVER_DONE: '✓',
 }
 
-const alarming = new Set(['SALON_BOOKING_CANCELLED', 'SALON_CANCELLED_BY_SALON', 'SALON_WALK_IN_CANCELLED', 'SHOP_NOT_APPROVED', 'SHOP_SUSPENDED'])
+const alarming = new Set([
+  'SALON_BOOKING_CANCELLED',
+  'SALON_CANCELLED_BY_SALON',
+  'SALON_WALK_IN_CANCELLED',
+  'SHOP_NOT_APPROVED',
+  'SHOP_SUSPENDED',
+  'SHOP_HANDOVER_DECLINED',
+])
 
-/** Only this app's own pages are opened from a message: the day board, or the start for shop news. */
+/**
+ * Only this app's own pages are opened from a message: the day board, the start for shop news, or the hand-over
+ * requests ("A shop for you": /handover).
+ */
 export function safePath(url: string | null): string | null {
   if (!url || !url.startsWith('/') || url.startsWith('//')) return null
   if (url.startsWith('/salon/')) return url
+  if (url === '/handover') return url
   if (url.startsWith('/shops/')) return '/'
   return null
 }

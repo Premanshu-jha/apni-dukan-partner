@@ -63,6 +63,7 @@ export function ShowMoreFooter({
   refreshFailed,
   error,
   onShowMore,
+  onRetryRefresh,
 }: {
   label: string
   loadingLabel: string
@@ -73,6 +74,8 @@ export function ShowMoreFooter({
   refreshFailed: boolean
   error: unknown
   onShowMore: () => void
+  /** Offered with a failed refresh: try the refresh again. */
+  onRetryRefresh?: () => void
 }) {
   const network = error instanceof ApiError && error.code === 'NETWORK'
   return (
@@ -87,6 +90,11 @@ export function ShowMoreFooter({
                 : `Couldn't load more. Tap ${label} to try again.`
               : "Couldn't refresh the list. It may be a little out of date."}
         </p>
+      )}
+      {refreshFailed && !failed && !offline && onRetryRefresh && (
+        <Button variant="secondary" onClick={onRetryRefresh}>
+          Try again
+        </Button>
       )}
       {more && (
         // aria-busy, not disabled: a disabled button would drop the keyboard focus while it loads

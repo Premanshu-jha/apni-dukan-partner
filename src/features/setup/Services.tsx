@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
-import { salonKeys, setupApi, useServices, type ServiceIn } from '../../api/salon'
+import { salonKeys, setupApi, useServices, type ServiceIn, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import type { ServiceItem } from '../../api/types'
 import { Banner, Button, EmptyState, ErrorState, Field, Loading, Page, Pill, Sheet, Switch } from '../../components/ui'
@@ -52,7 +52,7 @@ export function Services() {
       setError(messageOf(e))
     } finally {
       setBusyId(null)
-      await qc.invalidateQueries({ queryKey: salonKeys.all })
+      refreshSalonWork(qc, SETUP_KEYS)
     }
   }
 
@@ -131,7 +131,7 @@ function ServiceSheet({ service, onClose }: { service: ServiceItem | null; onClo
     try {
       if (service) await setupApi.updateService(service.id, service.version, body)
       else await setupApi.addService(body)
-      await qc.invalidateQueries({ queryKey: salonKeys.all })
+      refreshSalonWork(qc, SETUP_KEYS)
       onClose()
     } catch (e) {
       setError(e)

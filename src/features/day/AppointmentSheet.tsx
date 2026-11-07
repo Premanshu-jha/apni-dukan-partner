@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { explain, isApiError } from '../../api/errors'
-import { dayApi, salonKeys, useStaff } from '../../api/salon'
+import { dayApi, useStaff, refreshSalonWork } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import type { Appointment, BarberColumn } from '../../api/types'
 import { CodeInput } from '../../components/CodeInput'
@@ -67,7 +67,7 @@ export function AppointmentSheet({
     } finally {
       setBusy(false)
       // Whatever happened, show the day as the backend has it now.
-      void qc.invalidateQueries({ queryKey: salonKeys.all })
+      refreshSalonWork(qc)
     }
   }
 
