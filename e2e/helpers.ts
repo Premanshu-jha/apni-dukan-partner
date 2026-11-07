@@ -1,13 +1,27 @@
 import { test as base, expect, type BrowserContext, type Page } from '@playwright/test'
 import { MockApi, type Role } from './mockApi'
 
-/** Every test gets its own fake backend, attached to the browser context. */
-export const test = base.extend<{ api: MockApi }>({
+/**
+ * Every test gets its own fake backend, attached to the browser context, and fails if the page's
+ * Content-Security-Policy blocked anything (`vite preview` sends the production headers, so the tests run under it).
+ */
+export const test = base.extend<{ api: MockApi; cspClean: void }>({
   api: async ({ context }, use) => {
     const api = new MockApi()
     await api.attach(context)
     await use(api)
   },
+  cspClean: [
+    async ({ context }, use) => {
+      const blocked: string[] = []
+      context.on('console', (m) => {
+        if (/Content Security Policy/i.test(m.text())) blocked.push(m.text())
+      })
+      await use()
+      expect(blocked, 'blocked by the Content-Security-Policy').toEqual([])
+    },
+    { auto: true },
+  ],
 })
 export { expect }
 

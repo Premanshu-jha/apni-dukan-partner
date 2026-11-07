@@ -21,7 +21,9 @@ function soonestFirst(api: MockApi) {
 }
 
 const cards = (page: Page) => page.locator('[data-index]')
-const upcomingCalls = (api: MockApi) => api.calls.filter((c) => c.path.startsWith('/api/v1/salon/upcoming'))
+/** The coming-up list's page reads (not its `since=` calls). */
+const upcomingCalls = (api: MockApi) => api.calls.filter((c) => c.path.startsWith('/api/v1/salon/upcoming') && !c.path.includes('since='))
+const sinceCalls = (api: MockApi) => api.calls.filter((c) => c.path.startsWith('/api/v1/salon/upcoming?since='))
 
 async function openBookings(page: Page) {
   await page.getByRole('link', { name: 'Bookings' }).click()
@@ -106,21 +108,30 @@ test('offline: "Show more" says so at once and asks nothing; back online it load
   await expect(cards(page)).toHaveCount(150)
 })
 
-test('a refresh asks again only the pages on screen, each answered 304 ("s1-" tag) when unchanged', async ({ page, context, api }) => {
+test('a refresh asks only what changed; reopening asks again only the pages on screen, each 304 ("s1-" tag) when unchanged', async ({ page, context, api }) => {
   bookings(api, 150, addDays(todayIst(), 1))
   await atSalon(page, context, api)
-  // The day board's own tag: coming back to the app gets a 304 and keeps the board
+  // The day board: coming back to the app asks only what changed (nothing) and keeps the board (its 304 is in day-delta.spec)
   await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
-  await expect.poll(() => api.notModified.some((p) => p.startsWith('/api/v1/salon/day'))).toBe(true)
+  await expect.poll(() => api.deltas.length).toBe(1)
+  expect(api.deltas[0]).toMatchObject({ changed: [], removed: [] })
   await openBookings(page)
   await page.getByRole('button', { name: 'Show more bookings' }).click()
   await expect(cards(page)).toHaveCount(150)
   const before = upcomingCalls(api).length
+  // Coming back to the app: one delta call, no page asked again
   await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
+  await expect.poll(() => api.upcomingDeltas.filter((d) => !d.full).length).toBe(1)
+  expect(api.upcomingDeltas.at(-1)).toMatchObject({ changed: [], removed: [] })
+  await page.waitForTimeout(500)
+  expect(upcomingCalls(api).length - before).toBe(0)
+  // Reopening the list: a new seq first, then the two loaded pages again, each a 304
+  await page.getByRole('link', { name: 'Today' }).click()
+  await openBookings(page)
   await expect.poll(() => api.notModified.filter((p) => p.startsWith('/api/v1/salon/upcoming')).length).toBe(2)
-  // Two pages loaded, two asked again: no third
   await page.waitForTimeout(500)
   expect(upcomingCalls(api).length - before).toBe(2)
+  expect(sinceCalls(api).at(-1)!.path).toBe('/api/v1/salon/upcoming?since=start')
   await expect(cards(page)).toHaveCount(150)
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
@@ -171,8 +182,52 @@ test('a refresh with two pages loaded, after bookings were added, cancelled and 
   await expect
     .poll(async () => (await page.locator('[data-index] button').evaluateAll((els) => els.map((e) => e.textContent?.match(/Customer (\d+|new)/)?.[0]))))
     .toEqual(expected)
-  // The two loaded pages asked again, no more
-  expect(upcomingCalls(api).length - before).toBe(2)
+  // Only what changed came (one call): the new one and the moved ones in changed, the cancelled one in removed
+  expect(upcomingCalls(api).length - before).toBe(0)
+  const delta = api.upcomingDeltas.at(-1)!
+  expect(delta.removed).toEqual([order[10].id])
+  expect(delta.changed).toEqual(expect.arrayContaining([order[120].id, order[5].id]))
+  expect(delta.changed).toHaveLength(3)
+})
+
+test('coming up, more pages on the backend: a booking after the loaded end waits for Show more; a setup change reloads the pages', async ({ page, context, api }) => {
+  const day = addDays(todayIst(), 1)
+  bookings(api, 150, day)
+  await atSalon(page, context, api)
+  await openBookings(page)
+  await expect(cards(page)).toHaveCount(100)
+  api.addBooking({ startsAt: istInstant(day, '00:00'), customerName: 'Customer early' })
+  const late = api.addBooking({ startsAt: istInstant(day, '23:00'), customerName: 'Customer late' })
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
+  await expect(page.getByText('Customer early')).toBeVisible()
+  expect(api.upcomingDeltas.at(-1)!.changed).toContain(late.id)
+  await expect(cards(page)).toHaveCount(101)
+  await expect(page.getByText('Customer late')).toHaveCount(0)
+  // Show more goes on from where the first answer ended: nothing missing or twice
+  await page.getByRole('button', { name: 'Show more bookings' }).click()
+  await expect(cards(page)).toHaveCount(152)
+  await expect(page.getByText('Customer late')).toBeVisible()
+
+  const before = upcomingCalls(api).length
+  api.staff[0].name = 'Ravi K'
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
+  await expect.poll(() => upcomingCalls(api).length - before).toBe(2)
+  expect(api.upcomingDeltas.at(-1)!.full).toBe(true)
+  await expect(cards(page)).toHaveCount(152)
+})
+
+test('coming up for a barber: his own bookings only; one given to another barber leaves his list', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  api.approvedSalon('BARBER')
+  const mine = api.addBooking({ startsAt: istInstant(addDays(todayIst(), 1), '10:00'), staffId: 'st2', customerName: 'Mine Meena' })
+  await page.goto('/salon/bookings')
+  await expect(page.getByText('Mine Meena')).toBeVisible()
+  api.addBooking({ startsAt: istInstant(addDays(todayIst(), 1), '11:00'), staffId: 'st1', customerName: 'Other Om' })
+  mine.staffId = 'st1'
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
+  await expect(page.getByText('Mine Meena')).toHaveCount(0)
+  expect(api.upcomingDeltas.at(-1)).toMatchObject({ changed: [], removed: [mine.id] })
+  await expect(page.getByText('Other Om')).toHaveCount(0)
 })
 
 test('a failed refresh keeps the bookings with "Couldn\'t refresh the list"', async ({ page, context, api }) => {
@@ -186,6 +241,13 @@ test('a failed refresh keeps the bookings with "Couldn\'t refresh the list"', as
   await expect(page.getByRole('alert')).toContainText("Couldn't refresh the list. It may be a little out of date.", { timeout: 15_000 })
   await expect(cards(page)).toHaveCount(150)
   api.offline = false
+  // The next refresh goes on from the same seq: what changed meanwhile comes
+  const seq = sinceCalls(api).filter((c) => !c.path.endsWith('since=start')).at(-1)?.path ?? null
+  api.addBooking({ startsAt: istInstant(addDays(todayIst(), 1), '00:00'), customerName: 'Customer meanwhile' })
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
+  await expect(page.getByText('Customer meanwhile')).toBeVisible()
+  if (seq) expect(sinceCalls(api).at(-1)!.path).toBe(seq)
+  await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
 test('messages: a refresh with every page loaded asks those 10 pages again, no more', async ({ page, context, api }) => {
@@ -307,4 +369,98 @@ test('messages: 30 a page, at most 300 kept on screen, then a note', async ({ pa
   }
   await expect(page.getByText('Showing the latest 300 messages.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Show older' })).toBeHidden()
+})
+
+test('a delta arriving while "Show more" loads is not lost: that tick is skipped and the next one carries the cancel', async ({ page, context, api }) => {
+  const day = addDays(todayIst(), 1)
+  bookings(api, 150, day)
+  await atSalon(page, context, api)
+  await openBookings(page)
+  await expect(cards(page)).toHaveCount(100)
+  const order = soonestFirst(api)
+  api.slow.set('afterId=', 1500)
+  await page.getByRole('button', { name: 'Show more bookings' }).click()
+  // Cancelled by its customer while the next page loads, and the app comes back to the front meanwhile
+  order[3].status = 'CANCELLED_BY_CUSTOMER'
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
+  await expect(cards(page)).toHaveCount(150)
+  api.slow.clear()
+  // No delta was taken during the load (the seq didn't move); the next refresh brings the cancel
+  expect(api.upcomingDeltas.filter((d) => !d.full)).toHaveLength(0)
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
+  await expect(cards(page)).toHaveCount(149)
+  expect(api.upcomingDeltas.at(-1)!.removed).toEqual([order[3].id])
+  await expect(page.getByText(order[3].customerName as string, { exact: true })).toHaveCount(0)
+})
+
+test('a full reload that fails keeps polling: "Try again" brings the list up to date', async ({ page, context, api }) => {
+  test.setTimeout(60_000)
+  const day = addDays(todayIst(), 1)
+  bookings(api, 150, day)
+  await atSalon(page, context, api)
+  await openBookings(page)
+  await page.getByRole('button', { name: 'Show more bookings' }).click()
+  await expect(cards(page)).toHaveCount(150)
+  // The setup changed (full: true), and the pages can't be read
+  api.staff[0].name = 'Ravi K'
+  api.failUpcomingPages = 20
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
+  await expect(page.getByText("Couldn't refresh the list. It may be a little out of date.")).toBeVisible({ timeout: 20_000 })
+  await expect(cards(page)).toHaveCount(150)
+  api.failUpcomingPages = 0
+  api.addBooking({ startsAt: istInstant(day, '00:00'), customerName: 'Customer back' })
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByText('Customer back')).toBeVisible()
+  await expect(cards(page)).toHaveCount(151)
+  await expect(page.getByText("Couldn't refresh the list.")).toHaveCount(0)
+})
+
+test('a booking message while the list is open asks one delta, not every page again', async ({ page, context, api }) => {
+  const day = addDays(todayIst(), 1)
+  bookings(api, 150, day)
+  await atSalon(page, context, api)
+  await openBookings(page)
+  await page.getByRole('button', { name: 'Show more bookings' }).click()
+  await expect(cards(page)).toHaveCount(150)
+  await page.waitForTimeout(300)
+  const pagesBefore = upcomingCalls(api).length
+  const sinceBefore = sinceCalls(api).length
+  const all = api.calls.length
+  api.addBooking({ startsAt: istInstant(day, '00:00'), customerName: 'Customer pushed' })
+  // What the service worker posts to the open app when a push arrives
+  await page.evaluate(() =>
+    navigator.serviceWorker.dispatchEvent(new MessageEvent('message', { data: { kind: 'push', type: 'SALON_NEW_BOOKING' } })),
+  )
+  await expect(page.getByText('Customer pushed')).toBeVisible()
+  await page.waitForTimeout(800)
+  expect(upcomingCalls(api).length - pagesBefore).toBe(0)
+  expect(sinceCalls(api).length - sinceBefore).toBe(1)
+  // Besides that one delta: only the messages' own reads (the bell), nothing else of the salon
+  const others = api.calls.slice(all).filter((c) => !c.path.startsWith('/api/v1/salon/upcoming?since=') && !c.path.startsWith('/api/v1/me/notifications'))
+  expect(others.map((c) => c.path)).toEqual([])
+})
+
+test('a full reload whose first page fails: Try again loads the pages again, so the changes behind full: true come', async ({ page, context, api }) => {
+  test.setTimeout(60_000)
+  const day = addDays(todayIst(), 1)
+  bookings(api, 150, day)
+  await atSalon(page, context, api)
+  await openBookings(page)
+  await page.getByRole('button', { name: 'Show more bookings' }).click()
+  await expect(cards(page)).toHaveCount(150)
+  const order = soonestFirst(api)
+  // A setup change and a cancel together (full: true); the reload's since=start works, its first page doesn't
+  api.staff[0].name = 'Ravi K'
+  order[3].status = 'CANCELLED_BY_CUSTOMER'
+  api.failUpcomingPages = 3 // the first page and its two retries
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
+  await expect(page.getByText("Couldn't refresh the list. It may be a little out of date.")).toBeVisible({ timeout: 20_000 })
+  await expect(cards(page)).toHaveCount(150)
+  const pagesBefore = upcomingCalls(api).length
+  await page.getByRole('button', { name: 'Try again' }).click()
+  // The pages again (not a delta from the seq of the load that failed), and the cancel shows
+  await expect(cards(page)).toHaveCount(149)
+  await expect(page.getByText(order[3].customerName as string, { exact: true })).toHaveCount(0)
+  expect(upcomingCalls(api).length - pagesBefore).toBe(2)
+  await expect(page.getByText("Couldn't refresh the list.")).toHaveCount(0)
 })
