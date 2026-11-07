@@ -1,0 +1,41 @@
+# How Railway serves this app. Railway builds it with Railpack, which sees a Vite site (no start script) and serves
+# dist/ with Caddy. This file replaces Railpack's default Caddyfile: the same settings, plus the security headers the
+# build wrote to dist/security-headers.caddy (from security-headers.ts and the build's variables).
+# CI starts Caddy with this file and the build at /app/dist too, and checks the headers (scripts/check-headers.mjs).
+
+{
+	admin off
+	persist_config off
+	auto_https off
+
+	log {
+		format json
+	}
+
+	servers {
+		trusted_proxies static private_ranges 100.0.0.0/8 # trust Railway's proxy
+	}
+}
+
+# Railway sets PORT
+:{$PORT:80} {
+	log {
+		format json
+	}
+
+	respond /health 200
+
+	header -Server
+	import /app/dist/security-headers.caddy
+
+	root * /app/dist
+
+	file_server {
+		hide .git .env* security-headers.caddy
+	}
+
+	encode gzip zstd
+
+	# Files as they are, else the single-page app (its router shows "Page not found")
+	try_files {path} {path}.html {path}/index.html /index.html
+}
