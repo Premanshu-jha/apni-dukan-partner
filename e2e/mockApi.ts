@@ -113,8 +113,8 @@ export class MockApi {
   role: Role = 'OWNER'
   services: Json[] = SERVICES.map((s) => ({ ...s, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' }))
   staff: Json[] = [
-    { id: 'st1', name: 'Ravi', active: true, serviceIds: ['v1', 'v2', 'v3'], hours: week, loginPhone: null, photoFileId: null, version: 0 },
-    { id: 'st2', name: 'Imran', active: true, serviceIds: ['v1', 'v2'], hours: week, loginPhone: '9000000002', photoFileId: null, version: 0 },
+    { id: 'st1', name: 'Ravi', active: true, serviceIds: ['v1', 'v2', 'v3'], hours: week, loginPhone: null, photoFileId: null, version: 0, invitedPhone: null },
+    { id: 'st2', name: 'Imran', active: true, serviceIds: ['v1', 'v2'], hours: week, loginPhone: '9000000002', photoFileId: null, version: 0, invitedPhone: null },
   ]
   settings: Json = { minLeadMinutes: 30, maxDaysAhead: 14, version: null, updatedAt: null }
   appointments: Json[] = []
@@ -170,7 +170,18 @@ export class MockApi {
   handoverAsks = 0
   /** Hand-over requests made to this person's phone: the answer of GET /me/handover plus the shop each would give. */
   incoming: Array<{ view: Json; shop: Json; status: string }> = []
+  /** This shop's invitations (ShopInvitesService): helpers and barbers, by the phone typed. */
+  shopInvites: Json[] = []
+  /** Invitations made to this person's phone (GET /me/invites) plus the shop each would join. */
+  incomingInvites: Array<{ view: Json; shop: Json; status: string; staffId: string | null }> = []
   private n = 0
+  /**
+   * The bell's and the inbox first page's own ETag, as NotificationsController sends it ("n1-…": the person's inbox
+   * version and the app): it moves whenever their list changes.
+   */
+  inboxTag(what: string): string {
+    return `"n1-${etagOf(JSON.stringify(this.inbox) + what).replace(/"/g, '')}"`
+  }
   private accessValid = new Set<string>()
   refreshTokens = new Map<string, 'live' | 'rotated'>()
 
@@ -285,6 +296,19 @@ export class MockApi {
     }
     this.incoming.push({ view, shop, status: 'PENDING' })
     this.inbox.unshift({ id: `n${++this.n}`, type: 'SHOP_HANDOVER_REQUEST', title: 'A shop for you', body: `The owner of ${shop.name as string} wants to hand the shop over to you. Open Apni Dukan to accept or decline.`, url: '/handover', sentAt: new Date().toISOString(), read: false })
+    return view
+  }
+
+  /** Another shop's owner invites this person's phone (ShopInvitesService.inviteHelper / inviteBarber). */
+  offerInvite(role: 'HELPER' | 'BARBER' = 'HELPER', over: Json = {}): Json {
+    const shop = MockApi.shopOf({ id: 'shop8', shopCode: 10555, name: 'Style Point', ownerName: 'Anil Gupta', area: 'Sector 15', status: 'APPROVED', type: 'SALON', ...over })
+    const now = Date.now()
+    const view = {
+      id: `i${++this.n}`, shopId: shop.id, shopCode: shop.shopCode, shopName: shop.name, type: shop.type, area: shop.area,
+      city: shop.city, role, createdAt: new Date(now - 3600_000).toISOString(), expiresAt: new Date(now + 6 * 86400_000).toISOString(),
+    }
+    this.incomingInvites.push({ view, shop, status: 'PENDING', staffId: role === 'BARBER' ? 'st2' : null })
+    this.inbox.unshift({ id: `n${++this.n}`, type: 'SHOP_INVITE', title: `An invitation to join ${shop.name as string}`, body: `${shop.name as string} (${shop.area as string}) invited you to join as a ${role === 'BARBER' ? 'barber' : 'helper'}. Open Apni Dukan to accept or decline.`, url: '/invites', sentAt: new Date().toISOString(), read: false })
     return view
   }
 
@@ -511,10 +535,62 @@ export class MockApi {
       this.shop = { ...this.shop, status: 'PENDING_VISIT', statusReason: null, version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
     }
+    // ---------- invitations (ShopInvitesService): the same answer for any number; nobody joins until they accept ----------
+    const INVITE_ANSWER = "Invitation sent. They'll see it in Apni Dukan when they sign in with this number."
     if (p === '/shops/me/helpers' && method === 'POST') {
-      if (this.members.some((m) => m.phone === body.phone)) return fail(409, 'ALREADY_IN_A_SHOP', 'This person already works in a shop.')
-      this.members.push({ userId: `u${++this.n}`, name: null, phone: body.phone, role: 'HELPER', staffId: null, walkInAccess: false })
-      return ok(200, this.members.map((m) => ({ userId: m.userId, name: m.name, phone: m.phone, role: m.role, joinedAt: '2026-11-01T00:00:00Z' })))
+      if (this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can do this.')
+      const phone = normalizeMockPhone(body?.phone)
+      if (!phone) return fail(400, 'INVALID_PHONE', 'Enter a valid 10-digit Indian mobile number')
+      if (phone === this.user.phone) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { phone: 'is your own number' })
+      const same = this.shopInvites.find((v) => v.phone === phone)
+      if (same) return ok(202, { message: INVITE_ANSWER, invite: same })
+      if (this.members.some((m) => m.phone === phone)) return fail(409, 'ALREADY_A_MEMBER', 'This number already works in your shop.')
+      const helpers = this.members.filter((m) => m.role === 'HELPER').length + this.shopInvites.filter((v) => v.role === 'HELPER').length
+      if (helpers >= 10) return fail(409, 'TOO_MANY_HELPERS', 'A shop can have up to 10 helpers, counting invitations still waiting. Remove or cancel one first.')
+      const invite = { id: `i${++this.n}`, phone, role: 'HELPER', staffId: null, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 7 * 86400_000).toISOString() }
+      this.shopInvites.push(invite)
+      return ok(202, { message: INVITE_ANSWER, invite })
+    }
+    if (p === '/shops/me/invites' && method === 'GET') {
+      if (this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can do this.')
+      return ok(200, this.shopInvites)
+    }
+    const shopInvite = p.match(/^\/shops\/me\/invites\/([^/]+)$/)
+    if (shopInvite && method === 'DELETE') {
+      const v = this.shopInvites.find((x) => x.id === shopInvite[1])
+      if (!v) return fail(404, 'INVITE_NOT_FOUND', 'No such invitation.')
+      this.shopInvites = this.shopInvites.filter((x) => x !== v)
+      const s = this.staff.find((x) => x.id === v.staffId)
+      if (s) Object.assign(s, { invitedPhone: null, version: (s.version as number) + 1 })
+      return ok(204)
+    }
+    if (p === '/me/invites' && method === 'GET') {
+      return ok(200, this.incomingInvites.filter((v) => v.status === 'PENDING' && Date.parse(v.view.expiresAt as string) > Date.now()).map((v) => v.view))
+    }
+    const inviteAnswer = p.match(/^\/me\/invites\/([^/]+)\/(accept|decline)$/)
+    if (inviteAnswer && method === 'POST') {
+      const v = this.incomingInvites.find((x) => x.view.id === inviteAnswer[1])
+      if (!v) return fail(404, 'INVITE_NOT_FOUND', 'No such invitation.')
+      const gone = (status: string) => fail(409, 'INVITE_GONE', "This invitation isn't open any more.", { status })
+      if (v.status !== 'PENDING') return gone(v.status)
+      if (Date.parse(v.view.expiresAt as string) <= Date.now()) return gone('EXPIRED')
+      if (inviteAnswer[2] === 'decline') {
+        v.status = 'DECLINED'
+        return ok(204)
+      }
+      if (this.shop) return fail(409, 'ALREADY_IN_A_SHOP', 'You work in another shop. Leave it first, then accept.')
+      v.status = 'ACCEPTED'
+      const role = v.view.role as Role
+      this.shop = { ...v.shop, myRole: role }
+      this.role = role
+      this.myStaffId = role === 'BARBER' ? v.staffId : null
+      this.walkIns = false
+      this.members = [
+        { userId: 'u1', name: this.user.name, phone: this.user.phone, role, staffId: this.myStaffId, walkInAccess: false },
+        { userId: 'u0', name: v.shop.ownerName, phone: '9000000001', role: 'OWNER', staffId: null, walkInAccess: true },
+      ]
+      if (role === 'BARBER') this.staff[1].loginPhone = this.user.phone
+      return ok(200, this.shop)
     }
     const helper = p.match(/^\/shops\/me\/helpers\/([^/]+)$/)
     if (helper && method === 'DELETE') {
@@ -652,7 +728,7 @@ export class MockApi {
       return ok(200, s)
     }
     // Barbers' sign-in phones are for the owner only (SalonSetupService)
-    if (p === '/salon/staff' && method === 'GET') return ok(200, owner ? this.staff : this.staff.map((s) => ({ ...s, loginPhone: null })))
+    if (p === '/salon/staff' && method === 'GET') return ok(200, owner ? this.staff : this.staff.map((s) => ({ ...s, loginPhone: null, invitedPhone: null })))
     if (p === '/salon/staff' && method === 'POST') {
       if (!owner) return ownerOnly()
       const s = { id: `st${++this.n}`, name: body.name, active: true, serviceIds: [], hours: [], loginPhone: null, photoFileId: null, version: 0 }
@@ -666,7 +742,23 @@ export class MockApi {
       if (!s) return fail(404, 'STAFF_NOT_FOUND', 'No such barber.')
       const bump = () => Object.assign(s, { version: (s.version as number) + 1 })
       if (st[2] === '/login') {
-        s.loginPhone = method === 'DELETE' ? null : body.phone
+        // A sign-in is an invitation now (SalonSetupService.linkLogin): loginPhone stays null until he accepts
+        if (method === 'DELETE') {
+          s.loginPhone = null
+          s.invitedPhone = null
+          this.shopInvites = this.shopInvites.filter((v) => v.staffId !== s.id)
+          return ok(200, bump())
+        }
+        const phone = normalizeMockPhone(body?.phone)
+        if (!phone) return fail(400, 'INVALID_PHONE', 'Enter a valid 10-digit Indian mobile number')
+        if (phone === this.user.phone) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { phone: 'is your own number' })
+        if (this.members.some((m) => m.phone === phone)) return fail(409, 'ALREADY_A_MEMBER', 'This number already works in your shop.')
+        if (this.shopInvites.some((v) => v.phone === phone && v.staffId !== s.id)) {
+          return fail(409, 'INVITE_PENDING', 'This number already has an invitation to your shop waiting. Cancel it first.')
+        }
+        this.shopInvites = this.shopInvites.filter((v) => v.staffId !== s.id)
+        this.shopInvites.push({ id: `i${++this.n}`, phone, role: 'BARBER', staffId: s.id, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 7 * 86400_000).toISOString() })
+        s.invitedPhone = phone
         return ok(200, bump())
       }
       if (st[2] === '/photo') {
@@ -1059,9 +1151,9 @@ export class MockApi {
       const from = cursor === null ? 0 : Number(cursor.slice(1))
       const items = this.inbox.slice(from, from + INBOX_PAGE)
       const next = from + INBOX_PAGE < this.inbox.length ? `c${from + INBOX_PAGE}` : null
-      return ok(200, { items, unread: Math.min(100, this.inbox.filter((i) => !i.read).length), next })
+      return ok(200, { items, unread: Math.min(100, this.inbox.filter((i) => !i.read).length), next }, {}, cursor === null ? this.inboxTag('list') : undefined)
     }
-    if (p === '/me/notifications/unread-count') return ok(200, { unread: Math.min(100, this.inbox.filter((i) => !i.read).length) })
+    if (p === '/me/notifications/unread-count') return ok(200, { unread: Math.min(100, this.inbox.filter((i) => !i.read).length) }, {}, this.inboxTag('count'))
     if (p === '/me/notifications/read') {
       const ids: string[] = body?.ids ?? []
       this.inbox.forEach((i) => {

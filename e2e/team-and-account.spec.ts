@@ -1,14 +1,19 @@
 import { addDays, todayIst } from './mockApi'
 import { atSalon, expect, signedIn, test } from './helpers'
 
-test('the owner adds a helper, gives walk-in access and removes the helper', async ({ page, context, api }) => {
+test('the owner invites a helper, gives walk-in access and removes the helper', async ({ page, context, api }) => {
   await atSalon(page, context, api)
   await page.getByRole('link', { name: 'More' }).click()
   await page.getByRole('link', { name: 'Team and walk-in access' }).click()
   await page.getByLabel("Helper's mobile number").fill('+91 99999 00001')
-  await page.getByRole('button', { name: 'Add helper' }).click()
-  await expect(page.getByText('+91 99999 00001')).toBeVisible()
+  await page.getByRole('button', { name: 'Send invitation' }).click()
+  await expect(page.getByText("Invitation sent. They'll see it in Apni Dukan")).toBeVisible()
   expect(api.calls.find((c) => c.path === '/api/v1/shops/me/helpers')!.body).toEqual({ phone: '9999900001' })
+  // They accept on their phone: the helper is in the team
+  api.shopInvites = []
+  api.members.push({ userId: 'u7', name: null, phone: '9999900001', role: 'HELPER', staffId: null, walkInAccess: false })
+  await page.reload()
+  await expect(page.getByText('+91 99999 00001')).toBeVisible()
 
   await page.getByRole('switch', { name: /can add walk-ins/ }).click()
   await expect(page.getByRole('switch', { name: /can add walk-ins/ })).toHaveAttribute('aria-checked', 'true')
@@ -18,8 +23,8 @@ test('the owner adds a helper, gives walk-in access and removes the helper', asy
   await expect(page.getByText('+91 99999 00001')).toBeHidden()
 
   await page.getByLabel("Helper's mobile number").fill('9848012345')
-  await page.getByRole('button', { name: 'Add helper' }).click()
-  await expect(page.getByText('This person already works in a shop.')).toBeVisible()
+  await page.getByRole('button', { name: 'Send invitation' }).click()
+  await expect(page.getByText('That number is your own number.')).toBeVisible()
 })
 
 test('messages: the salon’s news, opened on the right day', async ({ page, context, api }) => {

@@ -9,8 +9,8 @@ One app for everyone in a salon, each seeing only their part:
 | Role | How they get in | What they see |
 | --- | --- | --- |
 | Owner | Registers the salon here | Everything: setup, the day board, breaks and leave, closed days, pause, Team |
-| Helper | The owner adds their number in Team | The day board and its actions, breaks, pause; setup to look at, not change |
-| Barber | The owner gives him a sign-in on his barber page | His own bookings and his own breaks (everyone's day if the owner gave him walk-in access) |
+| Helper | The owner invites their number in Team; they accept | The day board and its actions, breaks, pause; setup to look at, not change |
+| Barber | The owner invites his number on his barber page; he accepts | His own bookings and his own breaks (everyone's day if the owner gave him walk-in access) |
 
 v1 is for salons only. Someone whose shop is a kirana sees "Kirana partners: coming soon" and nothing else; no
 kirana screen exists in this app. Customers use [apni-dukan-customer](https://github.com/Premanshu-jha/apni-dukan-customer);
@@ -374,6 +374,13 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
   out once, cheap off-screen cards, and one barber's column first when there are more than 6. A test draws 2,000.
 - CI: the build job's checkout keeps no token (`persist-credentials: false`), like the other jobs.
 - Tests: an unchanged bell poll and message list are 304s and change nothing on screen (`inbox-etag.spec`).
+- Helpers and barbers join by invitation (backend #34, "Helpers and barbers join by invitation"): Team's "Send
+  invitation" shows the backend's neutral answer and a "Waiting for an answer" list with Cancel; a barber's page
+  invites his number ("Invited: …, waiting for him to accept", "Cancel the invitation"). The invited person sees "Join
+  <shop>?" with Accept and Decline on Start, the day board, "not live yet" and `/invites` (where the `SHOP_INVITE`
+  message opens); Accept refreshes the session and opens the salon. INVITE_GONE says why, ALREADY_IN_A_SHOP says to
+  leave first. The fake backend answers invitations as ShopInvitesService, and the bell and inbox with their own
+  `"n1-…"` ETags. Cursors (`d3…`/`u3…`) needed no change: `seq` is opaque.
 - Tests: end-to-end delete account (barber, helper refused, owner), headers, install icons and offline page; unit
   tests of the service worker, the update offer and the 409 refresh.
 - Tests: the fake backend's day deltas (a seq per answer and date, full on a setup change or an unknown cursor, a

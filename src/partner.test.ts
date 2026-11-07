@@ -193,6 +193,7 @@ describe('messages', () => {
     expect(safePath('/shops/me')).toBe('/')
     // "A shop for you" (SHOP_HANDOVER_REQUEST): the hand-over requests, with or without a shop
     expect(safePath('/handover')).toBe('/handover')
+    expect(safePath('/invites')).toBe('/invites')
     expect(safePath('/handover/../evil')).toBeNull()
     expect(safePath('/bookings/b1')).toBeNull()
     expect(safePath('//evil.example')).toBeNull()

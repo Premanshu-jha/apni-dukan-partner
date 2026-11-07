@@ -55,7 +55,8 @@ describe('service worker', () => {
     await tap('/handover')
     await tap('/shops/me')
     await tap('https://evil.example/handover')
-    expect(self.clients.openWindow.mock.calls.map(([u]) => u)).toEqual([`${ORIGIN}/handover`, `${ORIGIN}/`, `${ORIGIN}/salon/day`])
+    await tap('/invites')
+    expect(self.clients.openWindow.mock.calls.map(([u]) => u)).toEqual([`${ORIGIN}/handover`, `${ORIGIN}/`, `${ORIGIN}/salon/day`, `${ORIGIN}/invites`])
   })
 
   it('two messages of the same type are two notifications (no tag replaces the first)', async () => {
