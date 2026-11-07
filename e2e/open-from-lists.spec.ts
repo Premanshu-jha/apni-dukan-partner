@@ -75,6 +75,18 @@ test('a second shift starts after the first, splitting a shift that runs to clos
   ])
 })
 
+test('a second shift after a short first one leaves an hour for a break (10:00–14:00, then 15:00–20:00)', async ({ page, context, api }) => {
+  api.staff[0].hours = []
+  await atSalon(page, context, api)
+  await page.goto('/setup/staff/st1')
+  await page.getByRole('listitem').filter({ hasText: /^Mon/ }).getByRole('button', { name: 'Add hours' }).click()
+  await page.locator('#h-1-0-e').fill('14:00')
+  await page.getByRole('button', { name: 'Add a second shift' }).click()
+  await expect(page.locator('#h-1-1-s')).toHaveValue('15:00')
+  await expect(page.locator('#h-1-1-e')).toHaveValue('20:00')
+  await expect(page.getByText('two shifts overlap')).toBeHidden()
+})
+
 test('a big salon’s day (50 barbers, 2,000 bookings) opens on one barber and draws everyone quickly', async ({ page, context, api }) => {
   test.slow()
   const today = todayIst()

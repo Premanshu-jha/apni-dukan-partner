@@ -101,3 +101,36 @@ test('a helper of one salon invited to another must leave first', async ({ page,
   await page.getByRole('button', { name: 'Accept', exact: true }).click()
   await expect(page.getByText('You work in another shop. Leave it first, then accept. You can leave Shine Unisex Salon from More.')).toBeVisible()
 })
+
+test('a waiting barber invitation: "Invited" on the barbers list; cancelled from Team, his page and card drop it', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  await page.goto('/setup/staff/st1')
+  await page.getByLabel('His mobile number').fill('9999900005')
+  await page.getByRole('button', { name: 'Invite him to sign in' }).click()
+  await expect(page.getByText(/Invited: \+91 99999 00005, waiting for him to accept/)).toBeVisible()
+  await page.goto('/setup/staff')
+  const ravi = page.getByRole('link', { name: /Ravi/ })
+  await expect(ravi.getByText('Invited: +91 99999 00005')).toBeVisible()
+  await expect(page.getByRole('link', { name: /Imran/ }).getByText('Has sign-in')).toBeVisible()
+
+  // To Team inside the app (no reload), so the barbers read above stay in memory
+  await page.evaluate(() => {
+    history.pushState({}, '', '/team')
+    dispatchEvent(new PopStateEvent('popstate'))
+  })
+  const waiting = page.getByRole('region', { name: 'Invitations waiting' })
+  await waiting.getByRole('button', { name: 'Cancel' }).click()
+  await expect(waiting).toHaveCount(0)
+  // Reading the barbers again is slow now: what shows at once is what the app kept, which must not say "Invited"
+  await page.route('**/salon/staff', async (route) => {
+    await new Promise((r) => setTimeout(r, 4000))
+    await route.fallback()
+  })
+  await page.evaluate(() => history.back())
+  await expect(page).toHaveURL(/\/setup\/staff$/)
+  await expect(ravi).toBeVisible()
+  await expect(ravi.getByText(/Invited/)).toHaveCount(0, { timeout: 1500 })
+  await ravi.click()
+  await expect(page.getByLabel('His mobile number')).toBeVisible({ timeout: 1500 })
+  await expect(page.getByText(/waiting for him to accept/)).toHaveCount(0)
+})

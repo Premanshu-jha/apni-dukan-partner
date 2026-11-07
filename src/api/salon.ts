@@ -277,6 +277,15 @@ export function refreshSalonWork(qc: QueryClient, also: QueryKey[] = []) {
   else void qc.invalidateQueries({ queryKey: salonKeys.upcoming, exact: true, refetchType: 'none' })
 }
 
+/**
+ * A barber's invitation was cancelled from Team's waiting list: his card and page stop saying "Invited" at once
+ * (the barbers kept from before drop the phone), and the barbers are read again.
+ */
+export function forgetBarberInvite(qc: QueryClient, staffId: string) {
+  qc.setQueryData<Staff[]>(salonKeys.staff, (list) => list?.map((s) => (s.id === staffId ? { ...s, invitedPhone: null } : s)))
+  void qc.invalidateQueries({ queryKey: salonKeys.staff, refetchType: 'all' })
+}
+
 /** The setup's queries (barbers, services, booking rules, who may add walk-ins): a setup change reads them again. */
 export const SETUP_KEYS: QueryKey[] = [salonKeys.services, salonKeys.staff, salonKeys.settings, salonKeys.members]
 

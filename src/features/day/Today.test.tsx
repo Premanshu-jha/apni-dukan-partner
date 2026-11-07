@@ -47,7 +47,7 @@ vi.mock('./AppointmentSheet', () => ({
   ),
 }))
 
-const { Today, MANY_BARBERS, cardTimes } = await import('./Today')
+const { Today, MANY_BARBERS, cardTimes, openingColumn } = await import('./Today')
 
 function appt(staff: number, i: number, date: string): Appointment {
   const minutes = 9 * 60 + i * 15
@@ -223,5 +223,30 @@ describe('a link that opens one appointment (?open=)', () => {
     renderAt(`/salon/day?date=${today}&open=moved-away`)
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(screen.getByText(/isn't on this day's board any more/)).toBeInTheDocument()
+  })
+})
+
+describe('the column the board opens on', () => {
+  const block = (a: Appointment): Appointment => ({ ...a, kind: 'BLOCK', blockType: 'BREAK' })
+  it('is everyone with up to MANY_BARBERS barbers', () => {
+    expect(openingColumn(bigBoard(todayIst(), MANY_BARBERS, 0).barbers)).toBe('all')
+  })
+  it('with more, is the first barber with a booking or walk-in (a break alone does not count)', () => {
+    const board = bigBoard(todayIst(), MANY_BARBERS + 3, 2)
+    board.barbers[0].appointments = []
+    board.barbers[1].appointments = board.barbers[1].appointments.map(block)
+    expect(openingColumn(board.barbers)).toBe('st2')
+  })
+  it('is everyone when nobody has a booking that day', () => {
+    const board = bigBoard(todayIst(), MANY_BARBERS + 3, 1)
+    for (const b of board.barbers) b.appointments = b.appointments.map(block)
+    expect(openingColumn(board.barbers)).toBe('all')
+  })
+  it('opens the board on that column, not an empty one', () => {
+    state.board = bigBoard(todayIst(), MANY_BARBERS + 1, 3)
+    state.board.barbers[0].appointments = []
+    renderAt('/salon/day')
+    expect(cards()).toHaveLength(3)
+    expect(screen.getByText('Customer 1-0')).toBeInTheDocument()
   })
 })
