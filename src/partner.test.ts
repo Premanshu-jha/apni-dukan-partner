@@ -10,7 +10,7 @@ import { ApiError } from './api/errors'
 import { safePath } from './features/notifications/Inbox'
 import { checkService, toPaise } from './features/setup/Services'
 import { weekText } from './features/setup/Staff'
-import { checkWeek, fromWeek, toWeek } from './features/setup/StaffDetail'
+import { checkWeek, fromWeek, toWeek, withSecondShift } from './features/setup/StaffDetail'
 import { checkDetails } from './features/shop/Register'
 import { fitInside } from './lib/image'
 import { hhmmIst, istInstant } from './lib/ist'
@@ -53,9 +53,9 @@ describe('the sign-in token', () => {
 
 describe('what each role may do', () => {
   it('gives the owner everything, helpers the day without owner-only screens, barbers their own work', () => {
-    expect(can('OWNER')).toMatchObject({ editSetup: true, closures: true, team: true, leave: true, leaveShop: false })
-    expect(can('HELPER')).toMatchObject({ editSetup: false, seeSetup: true, cancel: true, closures: false, team: false, leaveShop: true })
-    expect(can('BARBER')).toMatchObject({ seeSetup: false, cancel: false, reassign: false, startWithoutCode: false, callCustomer: false })
+    expect(can('OWNER')).toMatchObject({ editSetup: true, closures: true, team: true, leave: true, leaveShop: false, deleteAccount: false })
+    expect(can('HELPER')).toMatchObject({ editSetup: false, seeSetup: true, cancel: true, closures: false, team: false, leaveShop: true, deleteAccount: true })
+    expect(can('BARBER')).toMatchObject({ seeSetup: false, cancel: false, reassign: false, startWithoutCode: false, callCustomer: false, deleteAccount: true })
   })
 
   it('shows barbers no Salon tab', () => {
@@ -191,6 +191,10 @@ describe('messages', () => {
   it('opens only this app’s pages from a message', () => {
     expect(safePath('/salon/day?date=2026-11-06')).toBe('/salon/day?date=2026-11-06')
     expect(safePath('/shops/me')).toBe('/')
+    // "A shop for you" (SHOP_HANDOVER_REQUEST): the hand-over requests, with or without a shop
+    expect(safePath('/handover')).toBe('/handover')
+    expect(safePath('/invites')).toBe('/invites')
+    expect(safePath('/handover/../evil')).toBeNull()
     expect(safePath('/bookings/b1')).toBeNull()
     expect(safePath('//evil.example')).toBeNull()
     expect(safePath(null)).toBeNull()
@@ -217,5 +221,56 @@ describe("a barber's own breaks", () => {
     expect(blockRange('BREAK', f)).toHaveProperty('error')
     expect(blockRange('BREAK', { ...f, to: '14:00' })).toHaveProperty('startAt')
     expect(blockRange('BREAK', { ...f, own: false })).toHaveProperty('startAt')
+  })
+})
+
+describe('hand-over requests gone meanwhile', async () => {
+  const { goneText } = await import('./features/shop/ownership')
+  it('says why for each details.status of 409 HANDOVER_GONE', () => {
+    expect(goneText('CANCELLED')).toBe('The owner cancelled this request.')
+    expect(goneText('EXPIRED')).toMatch(/ran out/)
+    expect(goneText('CLOSED')).toMatch(/closed/)
+    expect(goneText('OWNER_CHANGED')).toMatch(/different owner/)
+    expect(goneText('ACCEPTED')).toMatch(/already accepted/)
+    expect(goneText('DECLINED')).toMatch(/already declined/)
+    expect(goneText('CHANGED')).toBe("This hand-over request isn't open any more.")
+  })
+})
+
+describe('adding a second shift', () => {
+  const ok = (day: Array<{ start: string; end: string }>) => checkWeek({ 1: day, 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] })
+  it('starts where the first ends, or cuts a shift running to closing at its middle with an hour between', () => {
+    expect(withSecondShift([])).toEqual([{ start: '10:00', end: '20:00' }])
+    expect(withSecondShift([{ start: '10:00', end: '20:00' }])).toEqual([
+      { start: '10:00', end: '15:00' },
+      { start: '16:00', end: '20:00' },
+    ])
+    expect(withSecondShift([{ start: '10:00', end: '14:00' }])).toEqual([
+      { start: '10:00', end: '14:00' },
+      { start: '14:00', end: '20:00' },
+    ])
+    expect(withSecondShift([{ start: '18:00', end: '24:00' }])).toEqual([
+      { start: '18:00', end: '21:00' },
+      { start: '22:00', end: '24:00' },
+    ])
+    // Too short to cut: after it, or before it at the end of the day
+    expect(withSecondShift([{ start: '19:00', end: '21:00' }])).toEqual([
+      { start: '19:00', end: '21:00' },
+      { start: '21:00', end: '24:00' },
+    ])
+    expect(withSecondShift([{ start: '22:30', end: '24:00' }])).toEqual([
+      { start: '18:30', end: '22:30' },
+      { start: '22:30', end: '24:00' },
+    ])
+    for (const first of [
+      { start: '10:00', end: '20:00' },
+      { start: '09:00', end: '21:00' },
+      { start: '10:00', end: '14:00' },
+      { start: '18:00', end: '24:00' },
+      { start: '19:00', end: '21:00' },
+      { start: '22:30', end: '24:00' },
+    ]) {
+      expect(ok(withSecondShift([first])), JSON.stringify(first)).toBeNull()
+    }
   })
 })

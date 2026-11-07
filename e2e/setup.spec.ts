@@ -64,8 +64,9 @@ test('a new owner’s checklist leads through barbers, skills and hours', async 
   expect(hours.hours[0]).toEqual({ weekday: 1, start: '10:00', end: '14:00' })
 
   await page.getByLabel('His mobile number').fill('90000 00009')
-  await page.getByRole('button', { name: 'Give sign-in' }).click()
-  await expect(page.getByText('He can sign in with this number now.')).toBeVisible()
+  await page.getByRole('button', { name: 'Invite him to sign in' }).click()
+  await expect(page.getByText("Invitation sent. He'll see it in Apni Dukan when he signs in with this number.")).toBeVisible()
+  await expect(page.getByText('Invited: +91 90000 00009, waiting for him to accept', { exact: false })).toBeVisible()
   expect(api.calls.find((c) => c.path.endsWith('/login'))!.body).toEqual({ phone: '9000000009' })
 
   await page.goto('/salon/day')

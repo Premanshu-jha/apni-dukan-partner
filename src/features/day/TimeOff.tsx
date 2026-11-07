@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { explain, isApiError, messageOf } from '../../api/errors'
-import { dayApi, salonKeys, useStaff } from '../../api/salon'
+import { dayApi, useStaff, refreshSalonWork } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import { AHEAD_DAYS } from './Today'
 import type { Appointment, InTheWay } from '../../api/types'
@@ -92,7 +92,7 @@ export function TimeOff() {
         return
       }
       await dayApi.addBlock(chosen.id, { type: kind, ...range })
-      await qc.invalidateQueries({ queryKey: salonKeys.all })
+      refreshSalonWork(qc)
       navigate(`/salon/day?date=${dateOfIst(range.startAt)}`, { replace: true })
     } catch (e) {
       if (isApiError(e, 'BLOCK_CONFLICTS')) {

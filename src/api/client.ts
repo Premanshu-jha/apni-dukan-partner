@@ -11,6 +11,11 @@ interface Options {
   auth?: boolean
   headers?: Record<string, string>
   signal?: AbortSignal
+  /**
+   * Keep this read's answer for If-None-Match (default true). False for reads whose address changes every time (a
+   * day board delta's `since`): nothing to ask "changed since?" about, and it would only push other answers out.
+   */
+  keep?: boolean
 }
 
 /** One refresh at a time: requests that hit an expired token together share it. */
@@ -33,6 +38,19 @@ function acrossTabs<T>(fn: () => Promise<T>): Promise<T> {
   return locks ? (locks.request('ad-refresh', fn) as Promise<T>) : fn()
 }
 
+/** How long a refresh answered 409 TRY_AGAIN waits for the other tab to save its new pair, if it hasn't yet. */
+export const NEWER_TOKEN_WAIT_MS = 1000
+
+/** The refresh token saved for this browser if it is newer than `used`, looking twice (now, then after a moment). */
+async function newerSavedToken(used: string): Promise<string | null> {
+  for (const wait of [0, NEWER_TOKEN_WAIT_MS]) {
+    if (wait) await new Promise((r) => setTimeout(r, wait))
+    const saved = savedRefreshToken()
+    if (saved && saved !== used) return saved
+  }
+  return null
+}
+
 /** Swap the refresh token for a new pair. false when the session is over (the person must sign in again). */
 export function refreshSession(): Promise<boolean> {
   if (refreshing) return refreshing
@@ -45,11 +63,21 @@ export function refreshSession(): Promise<boolean> {
       onSessionEnded()
       return false
     }
+    const swap = (token: string) =>
+      send<Tokens>('POST', '/api/v1/auth/refresh', { body: { refreshToken: token, device: deviceName() }, auth: false })
     try {
-      const tokens = await send<Tokens>('POST', '/api/v1/auth/refresh', {
-        body: { refreshToken, device: deviceName() },
-        auth: false,
-      })
+      let tokens: Tokens
+      try {
+        tokens = await swap(refreshToken)
+      } catch (e) {
+        if (!(e instanceof ApiError && e.status === 409 && e.code === 'TRY_AGAIN')) throw e
+        // 409 TRY_AGAIN: another tab or request swapped this same token a moment ago, and its new pair is the live
+        // one. Use the pair it saved (give its answer a moment to arrive), once: no newer one, or a second 409, keeps
+        // the session for the next call. Never a loop.
+        const newer = await newerSavedToken(refreshToken)
+        if (!newer) return false
+        tokens = await swap(newer)
+      }
       if (useSession.getState().generation !== started) {
         // Signed out while this was on its way: don't come back to life, and end the new token too.
         void send<void>('POST', '/api/v1/auth/logout', { body: { refreshToken: tokens.refreshToken }, auth: false }).catch(() => {})
@@ -106,7 +134,7 @@ async function send<T>(method: string, path: string, opts: Options, fresh = fals
   }
   // A read asks "changed since?" with the ETag of the answer kept for it (see `kept`)
   const { generation, user } = useSession.getState()
-  const key = method === 'GET' ? `${user?.id ?? ''} ${path}` : null
+  const key = method === 'GET' && opts.keep !== false ? `${user?.id ?? ''} ${path}` : null
   const last = key && !fresh ? kept.get(key) : undefined
   if (last) headers['If-None-Match'] = last.etag
   let res: Response
@@ -131,7 +159,8 @@ async function send<T>(method: string, path: string, opts: Options, fresh = fals
   // its way): ask once more for the whole answer, for whoever is signed in now
   if (res.status === 304 && method === 'GET' && !fresh) return send<T>(method, path, opts, true)
   if (res.ok) {
-    if (res.status === 204 || res.status === 202) return undefined as T
+    if (res.status === 204) return undefined as T
+    // 202 may carry a body (a hand-over request's message) or none (a code sent)
     const text = await res.text()
     const data = (text ? JSON.parse(text) : undefined) as T
     const etag = key ? res.headers.get('ETag') : null

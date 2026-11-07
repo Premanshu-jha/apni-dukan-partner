@@ -11,6 +11,7 @@ import { Today } from '../features/day/Today'
 import { WalkIn } from '../features/day/WalkIn'
 import { Inbox } from '../features/notifications/Inbox'
 import { ChangeEmail } from '../features/profile/ChangeEmail'
+import { DeleteAccount } from '../features/profile/DeleteAccount'
 import { Profile } from '../features/profile/Profile'
 import { Rules } from '../features/setup/Rules'
 import { Services } from '../features/setup/Services'
@@ -20,6 +21,10 @@ import { StaffDetail } from '../features/setup/StaffDetail'
 import { Home } from '../features/shop/Home'
 import { RegisterDetails, RegisterLayout, RegisterPhotos, RegisterReview } from '../features/shop/Register'
 import { ShopGate } from '../features/shop/ShopGate'
+import { CloseShop } from '../features/shop/CloseShop'
+import { HandOver } from '../features/shop/HandOver'
+import { HandoverPage } from '../features/shop/HandoverOffers'
+import { InvitesPage } from '../features/shop/InviteOffers'
 import { Start } from '../features/shop/Start'
 import { Team } from '../features/team/Team'
 import { EmptyState, Page } from '../components/ui'
@@ -44,6 +49,10 @@ export function App() {
       <Route element={<SignedIn />}>
         <Route element={<Bare />}>
           <Route path="/start" element={<Start />} />
+          {/* With or without a shop: hand-over requests to this person (the message points here), deleting the account */}
+          <Route path="/handover" element={<HandoverPage />} />
+          <Route path="/invites" element={<InvitesPage />} />
+          <Route path="/profile/delete" element={<DeleteAccount />} />
           <Route element={<RegisterLayout needShop={false} />}>
             <Route path="/register" element={<RegisterDetails />} />
           </Route>
@@ -58,6 +67,11 @@ export function App() {
             <Route index element={<Home />} />
             {/* Shop news in the inbox points here */}
             <Route path="/shops/me" element={<Navigate to="/" replace />} />
+            {/* The owner, at any status (a draft too): closing or handing over */}
+            <Route element={<RoleOnly roles={['OWNER']} />}>
+              <Route path="/shop/close" element={<CloseShop />} />
+              <Route path="/shop/handover" element={<HandOver />} />
+            </Route>
           </Route>
           <Route element={<PastRegistration />}>
             <Route element={<Shell />}>

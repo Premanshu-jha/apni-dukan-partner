@@ -163,6 +163,26 @@ export function Profile() {
             Leave {shop.name}
           </Button>
         )}
+        {shop.myRole === 'OWNER' && (
+          <>
+            <Link to="/shop/handover" className="py-3 text-center text-sm text-brand underline">
+              Hand over {shop.name}
+            </Link>
+            <Link to="/shop/close" className="py-3 text-center text-sm text-bad underline">
+              Close {shop.name}
+            </Link>
+          </>
+        )}
+        {rights.deleteAccount ? (
+          <Link to="/profile/delete" className="py-3 text-center text-sm text-bad underline">
+            Delete my account
+          </Link>
+        ) : (
+          <p className="py-3 text-center text-sm text-muted">
+            To delete your account, <Link to="/shop/close" className="underline">close</Link> or{' '}
+            <Link to="/shop/handover" className="underline">hand over</Link> your shop first.
+          </p>
+        )}
       </div>
 
       <Sheet open={confirmAll} title="Sign out everywhere?" onClose={() => setConfirmAll(false)}>

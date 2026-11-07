@@ -1,16 +1,19 @@
-import { useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { messageOf } from '../../api/errors'
 import { useDay, useServices, useStaff } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import type { Appointment, BarberColumn } from '../../api/types'
+import { OFFSCREEN_CHEAP } from '../../components/ShowMore'
 import { Banner, Button, Card, Chip, EmptyState, ErrorState, Loading, Page, Pill } from '../../components/ui'
 import { addDays, clock12, dateOfIst, dayLabel, isDate, timeIst, todayIst } from '../../lib/ist'
-import { useNow } from '../../lib/useNow'
+import { useTodayIst } from '../../lib/useNow'
 import { rupees } from '../../lib/money'
 import { can } from '../../lib/roles'
 import { Bell } from '../notifications/Bell'
 import { NotificationsPrompt } from '../profile/Notifications'
+import { HandoverOffers } from '../shop/HandoverOffers'
+import { InviteOffers } from '../shop/InviteOffers'
 import { WaitingForVisit } from '../shop/Home'
 import { AppointmentSheet } from './AppointmentSheet'
 import { PauseControl } from './Pause'
@@ -19,40 +22,104 @@ import { isLive, servicesText, statusText, statusTone, totalPaise, whoText } fro
 /** How far the board goes back and ahead (customers book up to 30 days ahead; closed days up to 90). */
 const PAST_DAYS = 31
 export const AHEAD_DAYS = 90
+/**
+ * With more barbers than this the board opens on the first barber's column ("Everyone" is a tap away): a big salon's
+ * whole day is up to 2,000 cards, too many to draw at once on a cheap phone, while one barber's day is a few dozen.
+ */
+export const MANY_BARBERS = 6
+
+/** The day board with one appointment opened (from the bookings list, a conflict list or a message). */
+export function dayLink(a: { id: string; startsAt: string }): string {
+  return `/salon/day?date=${dateOfIst(a.startsAt)}&open=${encodeURIComponent(a.id)}`
+}
 
 /**
  * The day board: every barber's day (or, for a barber, his own), refreshed every 30 seconds. Tap an appointment
- * to act on it. The date is in the address (?date=), which is also where the backend's messages point.
+ * to act on it. The date is in the address (?date=), which is also where the backend's messages point; `&open=<id>`
+ * opens that appointment once the day is read (or says it isn't on this day).
+ *
+ * Drawn for big salons (50 barbers, 2,000 cards): nothing here ticks (the date changes by a midnight timer), cards
+ * are memoised with a stable handler and their times worked out once per appointment object (a refresh keeps the
+ * objects of unchanged appointments, so only changed cards draw again), off-screen cards skip layout and paint, and
+ * with many barbers the board opens on one barber's column.
  */
 export function Today() {
   const shop = useShop()
   const rights = can(shop.myRole)
   const [params, setParams] = useSearchParams()
   // Moves on by itself: a board left open overnight shows the new day.
-  const today = todayIst(new Date(useNow()))
+  const today = useTodayIst()
   const asked = params.get('date')
   const date =
     isDate(asked) && asked >= addDays(today, -PAST_DAYS) && asked <= addDays(today, AHEAD_DAYS)
       ? asked
       : today
   const day = useDay(date)
-  const [barber, setBarber] = useState<string | 'all'>('all')
+  // null: not chosen yet (everyone, or the first barber when there are many)
+  const [chosenBarber, setBarber] = useState<string | 'all' | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+  // ?open=<id>: open it once this day is read (`linked`), then take it out of the address so a reload doesn't
+  // open it again
+  const openParam = params.get('open')
+  const [seenParam, setSeenParam] = useState<string | null>(null)
+  const [linked, setLinked] = useState<string | null>(null)
+  const [notHere, setNotHere] = useState(false)
+  if (openParam !== seenParam) {
+    setSeenParam(openParam)
+    if (openParam) {
+      setOpenId(openParam)
+      setLinked(openParam)
+      setNotHere(false)
+    }
+  }
+  useEffect(() => {
+    if (!openParam) return
+    setParams(
+      (p) => {
+        const next = new URLSearchParams(p)
+        next.delete('open')
+        return next
+      },
+      { replace: true },
+    )
+  }, [openParam, setParams])
   const suspended = shop.status === 'SUSPENDED'
   const waiting = shop.status === 'PENDING_VISIT'
 
-  const columns = day.data?.barbers ?? []
-  const shown = barber === 'all' ? columns : columns.filter((c) => c.staffId === barber)
-  const all = useMemo(
-    () =>
-      shown
-        .flatMap((c) => c.appointments.map((a) => ({ a, barber: c.name })))
-        .sort((x, y) => x.a.startsAt.localeCompare(y.a.startsAt)),
-    [shown],
-  )
-  const live = all.filter((x) => isLive(x.a))
-  const closed = all.filter((x) => !isLive(x.a))
-  const found = columns.flatMap((c) => c.appointments).find((a) => a.id === openId) ?? null
+  const columns = useMemo(() => day.data?.barbers ?? [], [day.data])
+  const barber =
+    chosenBarber === 'all' || (chosenBarber !== null && columns.some((c) => c.staffId === chosenBarber))
+      ? chosenBarber
+      : columns.length > MANY_BARBERS
+        ? columns[0].staffId
+        : 'all'
+  const shown = useMemo(() => (barber === 'all' ? columns : columns.filter((c) => c.staffId === barber)), [columns, barber])
+  const { live, closed } = useMemo(() => {
+    const all = shown
+      .flatMap((c) => c.appointments.map((a) => ({ a, barber: c.name })))
+      .sort((x, y) => x.a.startsAt.localeCompare(y.a.startsAt))
+    return { live: all.filter((x) => isLive(x.a)), closed: all.filter((x) => !isLive(x.a)) }
+  }, [shown])
+  const found = useMemo(() => {
+    if (!openId) return null
+    for (const c of columns) for (const a of c.appointments) if (a.id === openId) return a
+    return null
+  }, [columns, openId])
+  // The linked appointment, once its day is read: open it (in its barber's column when one column is shown), or say
+  // it isn't here (moved to another day, cancelled and gone, or given to a barber this person can't see)
+  if (linked && day.data && day.data.date === date) {
+    setLinked(null)
+    if (!found) {
+      setOpenId(null)
+      setNotHere(true)
+    } else if (barber !== 'all' && found.staffId !== barber) {
+      setBarber(found.staffId)
+    }
+  }
+  const openCard = useCallback((a: Appointment) => {
+    setNotHere(false)
+    setOpenId(a.id)
+  }, [])
   // The open appointment as last seen: if a refresh no longer has it on this day (the customer moved it, or it was
   // given to a barber this person can't see), the sheet stays with a note instead of vanishing mid-action.
   const [lastOpen, setLastOpen] = useState<Appointment | null>(null)
@@ -63,6 +130,7 @@ export function Today() {
   const go = (d: string) => {
     setParams(d === today ? {} : { date: d }, { replace: true })
     setOpenId(null)
+    setNotHere(false)
   }
 
   return (
@@ -82,6 +150,10 @@ export function Today() {
         </Banner>
       )}
       {waiting && <WaitingForVisit />}
+      {/* A request to take over a shop (this one, as its helper or barber, or another) */}
+      {shop.myRole !== 'OWNER' && <HandoverOffers />}
+      {/* An invitation to another shop (accepting says to leave this one first) */}
+      {shop.myRole !== 'OWNER' && <InviteOffers />}
       {!suspended && <NotificationsPrompt />}
       {shop.myRole === 'OWNER' && <SetupChecklist />}
       {!suspended && !waiting && rights.pause && <PauseControl />}
@@ -98,6 +170,9 @@ export function Today() {
         </Button>
       </div>
 
+      {notHere && (
+        <Banner tone="warn">That booking isn't on this day's board any more. It may have been moved or cancelled.</Banner>
+      )}
       {day.isError && day.data !== undefined && (
         <Banner tone="warn">Couldn't refresh: {messageOf(day.error)} Showing what we had.</Banner>
       )}
@@ -138,8 +213,8 @@ export function Today() {
           ) : (
             <ul className="flex flex-col gap-2">
               {live.map(({ a, barber: name }) => (
-                <li key={a.id}>
-                  <AppointmentCard a={a} barber={columns.length > 1 && barber === 'all' ? name : null} onOpen={() => setOpenId(a.id)} />
+                <li key={a.id} className={OFFSCREEN_CHEAP}>
+                  <AppointmentCard a={a} barber={columns.length > 1 && barber === 'all' ? name : null} onOpen={openCard} />
                 </li>
               ))}
             </ul>
@@ -149,8 +224,8 @@ export function Today() {
               <summary className="cursor-pointer text-sm text-muted">Done, cancelled and no-shows ({closed.length})</summary>
               <ul className="mt-3 flex flex-col gap-2">
                 {closed.map(({ a, barber: name }) => (
-                  <li key={a.id}>
-                    <AppointmentCard a={a} barber={columns.length > 1 && barber === 'all' ? name : null} onOpen={() => setOpenId(a.id)} />
+                  <li key={a.id} className={OFFSCREEN_CHEAP}>
+                    <AppointmentCard a={a} barber={columns.length > 1 && barber === 'all' ? name : null} onOpen={openCard} />
                   </li>
                 ))}
               </ul>
@@ -216,26 +291,62 @@ function DayActions({ columns, date, myStaffId }: { columns: BarberColumn[]; dat
   )
 }
 
-export function AppointmentCard({ a, barber, onOpen }: { a: Appointment; barber: string | null; onOpen: () => void }) {
+interface CardTimes {
+  start: string
+  end: string
+  /** Leave or a closed day over several days: its first and last date instead of two midnights */
+  firstDay: string | null
+  lastDay: string | null
+}
+
+/** Each appointment's times, worked out once per appointment object (date formatting is the costly part of a card). */
+const cardTimesCache = new WeakMap<Appointment, CardTimes>()
+
+export function cardTimes(a: Appointment): CardTimes {
+  const held = cardTimesCache.get(a)
+  if (held) return held
+  const firstDay = dateOfIst(a.startsAt)
+  const t: CardTimes =
+    firstDay === dateOfIst(a.endsAt)
+      ? { start: timeIst(a.startsAt), end: timeIst(a.endsAt), firstDay: null, lastDay: null }
+      : { start: '', end: '', firstDay, lastDay: dateOfIst(new Date(new Date(a.endsAt).getTime() - 1).toISOString()) }
+  cardTimesCache.set(a, t)
+  return t
+}
+
+/**
+ * One appointment on the board or in the bookings list. Memoised: `onOpen` must be the same function from one draw
+ * to the next (it gets the appointment), so a refresh draws only the cards whose appointment changed.
+ */
+export const AppointmentCard = memo(function AppointmentCard({
+  a,
+  barber,
+  onOpen,
+}: {
+  a: Appointment
+  barber: string | null
+  onOpen: (a: Appointment) => void
+}) {
   const total = totalPaise(a)
   const block = a.kind === 'BLOCK'
+  const t = cardTimes(a)
   return (
     <button
       type="button"
-      onClick={onOpen}
+      onClick={() => onOpen(a)}
       className={`flex w-full gap-3 rounded-2xl border p-3 text-left transition hover:bg-raised ${a.notStarted ? 'border-warn/60' : 'border-line'} ${block ? 'bg-raised/60' : 'bg-surface'} ${isLive(a) ? '' : 'opacity-70'}`}
     >
       <span className="flex w-16 shrink-0 flex-col text-sm">
-        {dateOfIst(a.startsAt) === dateOfIst(a.endsAt) ? (
+        {t.firstDay === null || t.lastDay === null ? (
           <>
-            <span className="font-semibold">{timeIst(a.startsAt)}</span>
-            <span className="text-muted">{timeIst(a.endsAt)}</span>
+            <span className="font-semibold">{t.start}</span>
+            <span className="text-muted">{t.end}</span>
           </>
         ) : (
           // Leave or a closed day over several days: its days, not two midnights
           <>
-            <span className="font-semibold">{dayLabel(dateOfIst(a.startsAt))}</span>
-            <span className="text-muted">to {dayLabel(dateOfIst(new Date(new Date(a.endsAt).getTime() - 1).toISOString()))}</span>
+            <span className="font-semibold">{dayLabel(t.firstDay)}</span>
+            <span className="text-muted">to {dayLabel(t.lastDay)}</span>
           </>
         )}
       </span>
@@ -254,7 +365,7 @@ export function AppointmentCard({ a, barber, onOpen }: { a: Appointment; barber:
       </span>
     </button>
   )
-}
+})
 
 /** The owner's to-do list until customers can book: services, barbers, and barbers' skills and hours. */
 function SetupChecklist() {

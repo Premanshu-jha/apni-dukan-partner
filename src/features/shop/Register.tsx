@@ -257,7 +257,28 @@ export function RegisterDetails() {
       <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
         Sign out
       </Button>
+      {shop && <DraftExits name={shop.name} />}
     </Page>
+  )
+}
+
+/**
+ * A registered draft's owner who isn't going ahead: hand it over or close it (after closing, Start offers deleting the
+ * account). An owner can't delete their account while they own a shop.
+ */
+function DraftExits({ name }: { name: string }) {
+  return (
+    <p className="text-center text-sm text-muted">
+      Not going ahead with {name}?{' '}
+      <Link to="/shop/handover" className="text-brand underline">
+        Hand it over
+      </Link>{' '}
+      or{' '}
+      <Link to="/shop/close" className="text-bad underline">
+        close it
+      </Link>
+      . To delete your account, close it first.
+    </p>
   )
 }
 

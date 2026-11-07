@@ -7,7 +7,10 @@ import { ApiError, retryDelay } from './api/errors'
 import { claimSubscription, dropBrowserSubscription, registerWorker } from './api/push'
 import { App } from './app/App'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { UpdatePrompt } from './components/UpdatePrompt'
 import { forgetThisPerson } from './features/profile/signOut'
+import { refreshSalonWork } from './api/salon'
+import { shopKeys } from './api/shop'
 import { followOtherTabs, useSession } from './store/session'
 import './index.css'
 
@@ -20,6 +23,9 @@ const queryClient: QueryClient = new QueryClient({
       if (error instanceof ApiError && (error.code === 'NO_SHOP' || error.code === 'NOT_A_SALON')) {
         void queryClient.invalidateQueries({ queryKey: ['shop'] })
       }
+      // 403 SHOP_REQUIRED (a file link): the token names no shop, or one the database no longer agrees with (taken
+      // over, closed, removed). Renew the sign-in once and read again; the shop gate follows if the shop changed.
+      if (error instanceof ApiError && error.code === 'SHOP_REQUIRED') void renewForShop(query.queryKey)
     },
   }),
   defaultOptions: {
@@ -36,6 +42,19 @@ const queryClient: QueryClient = new QueryClient({
     mutations: { networkMode: 'always' },
   },
 })
+
+/** Query keys already re-read once after a renewal for SHOP_REQUIRED: never a loop. */
+const renewedFor = new Set<string>()
+async function renewForShop(key: readonly unknown[]) {
+  const id = JSON.stringify(key)
+  if (renewedFor.has(id)) return
+  renewedFor.add(id)
+  if (await refreshSession()) {
+    void queryClient.invalidateQueries({ queryKey: shopKeys.mine })
+    void queryClient.invalidateQueries({ queryKey: key, exact: true })
+  }
+  setTimeout(() => renewedFor.delete(id), 60_000)
+}
 
 // The backend ended the session (expired, signed out everywhere, account deleted elsewhere): tidy this browser.
 whenSessionEnds(() => {
@@ -61,11 +80,17 @@ async function start() {
   }
   void registerWorker()
   // A message arrived while the app is open: refresh the bell, the day and the shop it may be about.
-  navigator.serviceWorker?.addEventListener('message', (e: MessageEvent<{ kind?: string }>) => {
+  // Only what the message is about: a booking (SALON_*) → the day in view and one delta of the coming-up list;
+  // shop news (SHOP_*) → the shop and hand-over requests. Never every page of every list.
+  navigator.serviceWorker?.addEventListener('message', (e: MessageEvent<{ kind?: string; type?: string | null }>) => {
     if (e.data?.kind !== 'push') return
     void queryClient.invalidateQueries({ queryKey: ['inbox'] })
-    void queryClient.invalidateQueries({ queryKey: ['salon'] })
-    void queryClient.invalidateQueries({ queryKey: ['shop'] })
+    const type = e.data.type ?? ''
+    if (!type.startsWith('SHOP_')) refreshSalonWork(queryClient)
+    if (!type.startsWith('SALON_')) {
+      void queryClient.invalidateQueries({ queryKey: shopKeys.mine, exact: true })
+      void queryClient.invalidateQueries({ queryKey: shopKeys.incoming })
+    }
   })
 }
 
@@ -78,6 +103,7 @@ createRoot(document.getElementById('root')!).render(
         <ErrorBoundary>
           <App />
         </ErrorBoundary>
+        <UpdatePrompt />
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

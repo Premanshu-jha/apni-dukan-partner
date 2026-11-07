@@ -1,21 +1,25 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { messageOf } from '../../api/errors'
+import { fieldError, messageOf } from '../../api/errors'
 import { dayApi, salonKeys } from '../../api/salon'
-import { shopApi } from '../../api/shop'
+import { shopApi, shopKeys, useShopInvites } from '../../api/shop'
 import type { Member } from '../../api/types'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page, Sheet, Switch } from '../../components/ui'
+import { dateTimeIst } from '../../lib/ist'
 import { formatPhone, normalizePhone } from '../../lib/phone'
 
 const roleText = { OWNER: 'Owner', HELPER: 'Helper', BARBER: 'Barber' } as const
 
 /**
- * Everyone who signs in to this salon. The owner adds helpers by phone (barbers get a sign-in on their own page),
- * and chooses who may add walk-ins. Owner only.
+ * Everyone who signs in to this salon. The owner invites helpers by phone (barbers are invited on their own page);
+ * nobody joins until they accept. The invitations still waiting are listed with Cancel. The owner also chooses who
+ * may add walk-ins. Owner only.
  */
 export function Team() {
   const qc = useQueryClient()
   const members = useQuery({ queryKey: salonKeys.members, queryFn: dayApi.members })
+  const invites = useShopInvites()
+  const [sent, setSent] = useState<string | null>(null)
   const [phone, setPhone] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -25,14 +29,17 @@ export function Team() {
   async function act(id: string, call: () => Promise<unknown>, after?: () => void) {
     setBusy(id)
     setError(null)
+    setSent(null)
     try {
       await call()
       after?.()
     } catch (e) {
-      setError(messageOf(e))
+      // 400 VALIDATION_FAILED names the phone (the owner's own number); the rest are the backend's own words
+      const phoneProblem = fieldError(e, 'phone')
+      setError(phoneProblem ? `That number ${phoneProblem}.` : messageOf(e))
     } finally {
       setBusy(null)
-      await qc.invalidateQueries({ queryKey: salonKeys.members })
+      await Promise.all([qc.invalidateQueries({ queryKey: salonKeys.members }), qc.invalidateQueries({ queryKey: shopKeys.invites })])
     }
   }
 
@@ -76,17 +83,52 @@ export function Team() {
           ))}
         </ul>
       )}
+      {(invites.data?.length ?? 0) > 0 && (
+        <section aria-label="Invitations waiting" className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-muted">Waiting for an answer</h2>
+          <ul className="flex flex-col gap-2">
+            {invites.data!.map((v) => (
+              <li key={v.id}>
+                <Card className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold">+91 {formatPhone(v.phone)}</p>
+                    <p className="text-sm text-muted">
+                      {v.role === 'HELPER' ? 'Helper' : 'Barber'} · open until {dateTimeIst(v.expiresAt)}
+                    </p>
+                  </div>
+                  <Button variant="secondary" busy={busy === v.id} onClick={() => act(v.id, () => shopApi.cancelInvite(v.id))}>
+                    Cancel
+                  </Button>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {invites.isError && <Banner tone="warn">Couldn't load the invitations waiting: {messageOf(invites.error)}</Banner>}
       {error && <Banner tone="bad">{error}</Banner>}
       <Card className="flex flex-col gap-3">
-        <p className="font-semibold">Add a helper</p>
+        <p className="font-semibold">Invite a helper</p>
         <p className="text-sm text-muted">
-          A helper runs the day with you: walk-ins, starting bookings, breaks. They sign in with this number. For a
-          barber, give him a sign-in on his page under Salon › Barbers instead.
+          A helper runs the day with you: walk-ins, starting bookings, breaks. They join when they accept your
+          invitation in Apni Dukan, signed in with this number. For a barber, invite him on his page under Salon ›
+          Barbers instead.
         </p>
         <Field id="helper-phone" label="Helper's mobile number" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        <Button busy={busy === 'add'} disabled={!normalized} onClick={() => act('add', () => shopApi.addHelper(normalized!), () => setPhone(''))}>
-          Add helper
+        <Button
+          busy={busy === 'add'}
+          disabled={!normalized}
+          onClick={() =>
+            act('add', async () => {
+              const r = await shopApi.addHelper(normalized!)
+              setPhone('')
+              setSent(r.message)
+            })
+          }
+        >
+          Send invitation
         </Button>
+        {sent && <Banner tone="good">{sent}</Banner>}
       </Card>
       <Sheet open={removing !== null} title="Remove helper?" onClose={() => setRemoving(null)}>
         <div className="flex flex-col gap-3">

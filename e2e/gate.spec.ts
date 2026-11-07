@@ -1,18 +1,18 @@
 import { MockApi } from './mockApi'
 import { atSalon, expect, signedIn, test } from './helpers'
 
-test('someone who works at a salon sees the number to give the owner, and gets in once added', async ({ page, context, api }) => {
+test('someone who works at a salon sees the number to give the owner, and gets in once in the shop', async ({ page, context, api }) => {
   await signedIn(context, api)
   await page.goto('/')
   await expect(page).toHaveURL(/\/start$/)
   await page.getByRole('button', { name: 'I work at a salon' }).click()
   await expect(page.getByText('+91 98480 12345')).toBeVisible()
-  await page.getByRole('button', { name: "I've been added, check again" }).click()
-  await expect(page.getByText("You haven't been added to a salon yet.")).toBeVisible()
+  await page.getByRole('button', { name: "I've been invited, check again" }).click()
+  await expect(page.getByText('No invitation for this number yet.')).toBeVisible()
 
   api.addedToShop = MockApi.shopOf({ myRole: 'HELPER' })
   api.members = [{ userId: 'u1', name: 'Ravi Kumar', phone: '9848012345', role: 'HELPER', staffId: null, walkInAccess: false }]
-  await page.getByRole('button', { name: "I've been added, check again" }).click()
+  await page.getByRole('button', { name: "I've been invited, check again" }).click()
   await expect(page).toHaveURL(/\/salon\/day$/)
   // A fresh token was fetched so it carries the shop
   expect(api.calls.filter((c) => c.path === '/api/v1/auth/refresh').length).toBeGreaterThanOrEqual(2)
