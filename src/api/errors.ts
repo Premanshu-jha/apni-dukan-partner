@@ -37,6 +37,8 @@ export function isApiError(e: unknown, code?: string): e is ApiError {
 
 /** The words to show a person for any error. The backend's messages are already written for people. */
 export function messageOf(e: unknown): string {
+  // 429 TRY_LATER (sign-in codes): this network has to wait before the next try; Retry-After says how long
+  if (e instanceof ApiError && e.code === 'TRY_LATER') return tryLaterText(e.retryAfterSeconds)
   if (e instanceof ApiError) return e.message
   return 'Something went wrong. Please try again.'
 }
@@ -73,4 +75,11 @@ const FIELD_NAMES: Record<string, string> = {
   date: 'The date',
   durationMinutes: 'The duration',
   pricePaise: 'The price',
+  phone: 'That number',
+}
+
+/** "Too many tries from this network. Try again in 4 minutes." (from Retry-After; at least a minute). */
+export function tryLaterText(seconds: number | null): string {
+  const minutes = Math.max(1, Math.ceil((seconds ?? 60) / 60))
+  return `Too many tries from this network. Try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`
 }

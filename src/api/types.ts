@@ -28,7 +28,8 @@ export interface ErrorBody {
 
 // ---------- the shop ----------
 
-export type ShopStatus = 'DRAFT' | 'PENDING_VISIT' | 'APPROVED' | 'SUSPENDED'
+/** CLOSED: its owner closed it for good (seen in the answer to closing; after that the owner has no shop). */
+export type ShopStatus = 'DRAFT' | 'PENDING_VISIT' | 'APPROVED' | 'SUSPENDED' | 'CLOSED'
 export type ShopType = 'KIRANA' | 'SALON'
 export type ShopRole = 'OWNER' | 'HELPER' | 'BARBER'
 
@@ -136,8 +137,10 @@ export interface Staff {
   active: boolean
   serviceIds: string[]
   hours: Shift[]
-  /** The phone he signs in with, if the owner gave him a sign-in. */
+  /** The phone he signs in with, once he accepted the owner's invitation. */
   loginPhone: string | null
+  /** The phone invited to sign in as him while that invitation waits (owner only); null or missing otherwise. */
+  invitedPhone?: string | null
   photoFileId: string | null
   version: number
   createdAt: string
@@ -218,14 +221,25 @@ export interface DayView {
   barbers: BarberColumn[]
   /** The caller's own barber profile (a barber), so the app knows which column is his; null for owner and helpers. */
   myStaffId: string | null
+  /** True: `barbers` is the whole day. False (a delta, `?since=`): `barbers` is null, see `changed` and `removed`. */
+  full?: boolean
+  /** Send back exactly as received as `since` for the same date: only what changed after this answer. */
+  seq?: string
+  /** The salon's setup this answer was made under (for information: a change makes the next delta a whole day). */
+  setupVersion?: number
+  /** A delta's new or changed appointments, in the order written: replace by id, or add to the `staffId` column. */
+  changed?: Appointment[] | null
+  /** A delta's ids no longer on this board (moved to another day or barber, a removed block): drop them if shown. */
+  removed?: string[] | null
 }
 
 export interface HistoryView {
   from: string
   to: string
-  /** How many ended in each status. */
-  counts: Record<string, number>
-  completedPaise: number
+  /** How many ended in each status (the whole range): on the first page only, null on later pages. */
+  counts: Record<string, number> | null
+  /** The first page only, like `counts`. */
+  completedPaise: number | null
   /** This page: at most 100, latest first. */
   appointments: Appointment[]
   /** Same as `next !== null` (kept by the backend for older apps). */
@@ -260,4 +274,69 @@ export interface InTheWay {
   staffId: string
   startsAt: string
   endsAt: string
+}
+
+// ---------- handing a shop over ----------
+
+/** The owner's waiting hand-over request (GET /shops/me/handover). */
+export interface HandoverView {
+  id: string
+  /** The 10-digit number asked. */
+  phone: string
+  createdAt: string
+  /** It runs out 7 days after it was made. */
+  expiresAt: string
+}
+
+/** POST /shops/me/handover: 202. `message` is the same whether or not the number has an account. */
+export interface HandoverRequested {
+  message: string
+  handover: HandoverView
+}
+
+/** A request waiting for the signed-in person's phone (GET /me/handover). */
+export interface IncomingHandover {
+  id: string
+  shopId: string
+  shopCode: number
+  shopName: string
+  type: ShopType
+  area: string
+  city: string
+  ownerName: string
+  createdAt: string
+  expiresAt: string
+}
+
+// ---------- joining a shop by invitation ----------
+
+/** A waiting invitation as the owner sees it (GET /shops/me/invites): the phone typed, never a name. */
+export interface InviteView {
+  id: string
+  phone: string
+  role: 'HELPER' | 'BARBER'
+  /** The barber profile it would sign in as (BARBER), else null. */
+  staffId: string | null
+  createdAt: string
+  expiresAt: string
+}
+
+/** POST /shops/me/helpers: 202. `message` is the same whether or not the number has an account. */
+export interface InviteResult {
+  message: string
+  invite: InviteView
+}
+
+/** An invitation waiting for the signed-in person's phone (GET /me/invites). */
+export interface IncomingInvite {
+  id: string
+  shopId: string
+  shopCode: number
+  shopName: string
+  type: string
+  area: string
+  city: string
+  role: 'HELPER' | 'BARBER'
+  createdAt: string
+  expiresAt: string
 }
