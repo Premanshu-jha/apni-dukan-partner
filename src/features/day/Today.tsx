@@ -13,6 +13,7 @@ import { can } from '../../lib/roles'
 import { Bell } from '../notifications/Bell'
 import { NotificationsPrompt } from '../profile/Notifications'
 import { HandoverOffers } from '../shop/HandoverOffers'
+import { InviteOffers } from '../shop/InviteOffers'
 import { WaitingForVisit } from '../shop/Home'
 import { AppointmentSheet } from './AppointmentSheet'
 import { PauseControl } from './Pause'
@@ -151,6 +152,8 @@ export function Today() {
       {waiting && <WaitingForVisit />}
       {/* A request to take over a shop (this one, as its helper or barber, or another) */}
       {shop.myRole !== 'OWNER' && <HandoverOffers />}
+      {/* An invitation to another shop (accepting says to leave this one first) */}
+      {shop.myRole !== 'OWNER' && <InviteOffers />}
       {!suspended && <NotificationsPrompt />}
       {shop.myRole === 'OWNER' && <SetupChecklist />}
       {!suspended && !waiting && rights.pause && <PauseControl />}

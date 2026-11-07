@@ -36,6 +36,7 @@ vi.mock('./status', async (orig) => {
 vi.mock('../notifications/Bell', () => ({ Bell: () => null }))
 vi.mock('../profile/Notifications', () => ({ NotificationsPrompt: () => null }))
 vi.mock('../shop/HandoverOffers', () => ({ HandoverOffers: () => null }))
+vi.mock('../shop/InviteOffers', () => ({ InviteOffers: () => null }))
 vi.mock('./Pause', () => ({ PauseControl: () => null }))
 vi.mock('./AppointmentSheet', () => ({
   AppointmentSheet: ({ a, gone }: { a: Appointment; gone: boolean }) => (

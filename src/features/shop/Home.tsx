@@ -4,6 +4,7 @@ import { useShop } from '../../api/shop'
 import { Button, Card, EmptyState, Page } from '../../components/ui'
 import { signOutHere } from '../profile/signOut'
 import { HandoverOffers } from './HandoverOffers'
+import { InviteOffers } from './InviteOffers'
 import { useRecheckShop } from './ShopGate'
 
 /** Where "/" goes: registration for a draft owner, a wait screen for staff of a salon not live yet, else today. */
@@ -23,6 +24,7 @@ function NotLiveYet() {
   return (
     <Page title={shop.name}>
       <HandoverOffers />
+      <InviteOffers />
       <EmptyState
         title="Your salon isn't live yet"
         body={`${shop.ownerName} has registered ${shop.name}. Once our field team approves it, you'll see the day's bookings here.`}

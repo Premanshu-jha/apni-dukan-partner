@@ -3,13 +3,14 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { refreshSession } from '../../api/client'
 import { messageOf } from '../../api/errors'
-import { fetchMyShop, shopKeys, useMyShop } from '../../api/shop'
+import { fetchMyShop, shopApi, shopKeys, useMyShop } from '../../api/shop'
 import { Banner, Button, Card, Loading, Page } from '../../components/ui'
 import { formatPhone } from '../../lib/phone'
 import { useSession } from '../../store/session'
 import { Brand } from '../auth/Brand'
 import { signOutHere } from '../profile/signOut'
 import { HandoverOffers } from './HandoverOffers'
+import { InviteOffers } from './InviteOffers'
 import { closedNotice, forgetClosed, startNotice } from './ownership'
 
 /**
@@ -43,7 +44,9 @@ export function Start() {
         qc.setQueryData(shopKeys.mine, mine)
         navigate('/', { replace: true })
       } else {
-        setNotice("You haven't been added to a salon yet.")
+        // Joining is by invitation now: look for one for this number
+        const invites = await qc.fetchQuery({ queryKey: shopKeys.incomingInvites, queryFn: shopApi.incomingInvites, staleTime: 0 })
+        setNotice(invites.length ? 'Your invitation is at the top of this screen: accept it to join.' : 'No invitation for this number yet.')
       }
     } catch (e) {
       setNotice(messageOf(e))
@@ -63,6 +66,7 @@ export function Start() {
       )}
       {note && <Banner tone="info">{note}</Banner>}
       {shop.isError && <Banner tone="bad">{messageOf(shop.error)}</Banner>}
+      <InviteOffers />
       <HandoverOffers />
       {!worker ? (
         <div className="flex flex-col gap-3">
@@ -83,15 +87,15 @@ export function Start() {
         </div>
       ) : (
         <Card className="flex flex-col gap-3">
-          <p className="text-lg font-semibold">Ask your owner to add you</p>
+          <p className="text-lg font-semibold">Ask your owner to invite you</p>
           <p className="text-muted">
-            Your owner adds this number in their Apni Dukan Partner app (Team for helpers, or a barber's profile for
-            barbers):
+            Your owner invites this number in their Apni Dukan Partner app (Team for helpers, or a barber's profile for
+            barbers). The invitation shows on this screen; accept it to join:
           </p>
           <p className="text-center text-2xl font-bold tracking-wide">+91 {formatPhone(user.phone)}</p>
           {notice && <Banner tone="info">{notice}</Banner>}
           <Button busy={busy} onClick={checkAgain}>
-            I've been added, check again
+            I've been invited, check again
           </Button>
           <Button variant="ghost" onClick={() => setWorker(false)}>
             Back

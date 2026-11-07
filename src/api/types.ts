@@ -137,8 +137,10 @@ export interface Staff {
   active: boolean
   serviceIds: string[]
   hours: Shift[]
-  /** The phone he signs in with, if the owner gave him a sign-in. */
+  /** The phone he signs in with, once he accepted the owner's invitation. */
   loginPhone: string | null
+  /** The phone invited to sign in as him while that invitation waits (owner only); null or missing otherwise. */
+  invitedPhone?: string | null
   photoFileId: string | null
   version: number
   createdAt: string
@@ -302,6 +304,39 @@ export interface IncomingHandover {
   area: string
   city: string
   ownerName: string
+  createdAt: string
+  expiresAt: string
+}
+
+// ---------- joining a shop by invitation ----------
+
+/** A waiting invitation as the owner sees it (GET /shops/me/invites): the phone typed, never a name. */
+export interface InviteView {
+  id: string
+  phone: string
+  role: 'HELPER' | 'BARBER'
+  /** The barber profile it would sign in as (BARBER), else null. */
+  staffId: string | null
+  createdAt: string
+  expiresAt: string
+}
+
+/** POST /shops/me/helpers: 202. `message` is the same whether or not the number has an account. */
+export interface InviteResult {
+  message: string
+  invite: InviteView
+}
+
+/** An invitation waiting for the signed-in person's phone (GET /me/invites). */
+export interface IncomingInvite {
+  id: string
+  shopId: string
+  shopCode: number
+  shopName: string
+  type: string
+  area: string
+  city: string
+  role: 'HELPER' | 'BARBER'
   createdAt: string
   expiresAt: string
 }

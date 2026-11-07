@@ -1,14 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { isApiError, messageOf } from '../../api/errors'
+import { explain, isApiError, messageOf } from '../../api/errors'
 import { setupApi, useServices, useStaff, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
 import { fileApi, useShop } from '../../api/shop'
 import type { InTheWay, Shift, Staff } from '../../api/types'
 import { PhotoPicker } from '../../components/PhotoPicker'
 import { Banner, Button, Card, EmptyState, ErrorState, Field, Loading, Page, Switch } from '../../components/ui'
 import { clock12, dateTimeIst, timeIst, weekdayName } from '../../lib/ist'
-import { normalizePhone } from '../../lib/phone'
+import { formatPhone, normalizePhone } from '../../lib/phone'
 import { can } from '../../lib/roles'
 import { dayLink } from '../day/Today'
 import { loginText } from './Staff'
@@ -67,7 +67,7 @@ function useSaver() {
       setSaved(message)
     } catch (e) {
       setError(
-        isApiError(e, 'STAFF_CHANGED') ? 'Someone changed this barber meanwhile. The page now shows the latest; try again.' : messageOf(e),
+        isApiError(e, 'STAFF_CHANGED') ? 'Someone changed this barber meanwhile. The page now shows the latest; try again.' : explain(e),
       )
       if (isApiError(e, 'BOOKINGS_IN_THE_WAY')) {
         const list = e.details.appointments
@@ -159,7 +159,8 @@ function Login({ s, edit }: { s: Staff; edit: boolean }) {
       <div>
         <p className="font-medium">His own sign-in</p>
         <p className="text-sm text-muted">
-          With a sign-in he opens this app with his phone number and sees his own bookings. {loginText(s.loginPhone)}.
+          With a sign-in he opens this app with his phone number and sees his own bookings. You invite his number; he
+          accepts in Apni Dukan. {s.invitedPhone ? `Invited: +91 ${formatPhone(s.invitedPhone)}, waiting for him to accept` : loginText(s.loginPhone)}.
         </p>
       </div>
       {edit &&
@@ -167,11 +168,19 @@ function Login({ s, edit }: { s: Staff; edit: boolean }) {
           <Button variant="secondary" busy={busy} onClick={() => run(() => setupApi.unlinkLogin(s.id), 'Sign-in removed. He is signed out.')}>
             Remove his sign-in
           </Button>
+        ) : s.invitedPhone ? (
+          <Button variant="secondary" busy={busy} onClick={() => run(() => setupApi.unlinkLogin(s.id), 'Invitation cancelled.')}>
+            Cancel the invitation
+          </Button>
         ) : (
           <>
             <Field id="staff-phone" label="His mobile number" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            <Button busy={busy} disabled={!normalized} onClick={() => run(() => setupApi.linkLogin(s.id, normalized!), 'Done. He can sign in with this number now.')}>
-              Give sign-in
+            <Button
+              busy={busy}
+              disabled={!normalized}
+              onClick={() => run(() => setupApi.linkLogin(s.id, normalized!), "Invitation sent. He'll see it in Apni Dukan when he signs in with this number.")}
+            >
+              Invite him to sign in
             </Button>
           </>
         ))}

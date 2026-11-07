@@ -73,4 +73,5 @@ const FIELD_NAMES: Record<string, string> = {
   date: 'The date',
   durationMinutes: 'The duration',
   pricePaise: 'The price',
+  phone: 'That number',
 }

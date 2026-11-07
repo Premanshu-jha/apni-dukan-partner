@@ -28,6 +28,9 @@ const icons: Record<string, string> = {
   SHOP_HANDOVER_ACCEPTED: '⇄',
   SHOP_HANDOVER_DECLINED: '✕',
   SHOP_HANDOVER_DONE: '✓',
+  SHOP_INVITE: '＋',
+  SHOP_INVITE_ACCEPTED: '✓',
+  SHOP_INVITE_DECLINED: '✕',
 }
 
 const alarming = new Set([
@@ -37,16 +40,17 @@ const alarming = new Set([
   'SHOP_NOT_APPROVED',
   'SHOP_SUSPENDED',
   'SHOP_HANDOVER_DECLINED',
+  'SHOP_INVITE_DECLINED',
 ])
 
 /**
  * Only this app's own pages are opened from a message: the day board, the start for shop news, or the hand-over
- * requests ("A shop for you": /handover).
+ * requests ("A shop for you": /handover), invitations to join a shop (/invites).
  */
 export function safePath(url: string | null): string | null {
   if (!url || !url.startsWith('/') || url.startsWith('//')) return null
   if (url.startsWith('/salon/')) return url
-  if (url === '/handover') return url
+  if (url === '/handover' || url === '/invites') return url
   if (url.startsWith('/shops/')) return '/'
   return null
 }

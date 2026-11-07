@@ -24,6 +24,7 @@ import { ShopGate } from '../features/shop/ShopGate'
 import { CloseShop } from '../features/shop/CloseShop'
 import { HandOver } from '../features/shop/HandOver'
 import { HandoverPage } from '../features/shop/HandoverOffers'
+import { InvitesPage } from '../features/shop/InviteOffers'
 import { Start } from '../features/shop/Start'
 import { Team } from '../features/team/Team'
 import { EmptyState, Page } from '../components/ui'
@@ -50,6 +51,7 @@ export function App() {
           <Route path="/start" element={<Start />} />
           {/* With or without a shop: hand-over requests to this person (the message points here), deleting the account */}
           <Route path="/handover" element={<HandoverPage />} />
+          <Route path="/invites" element={<InvitesPage />} />
           <Route path="/profile/delete" element={<DeleteAccount />} />
           <Route element={<RegisterLayout needShop={false} />}>
             <Route path="/register" element={<RegisterDetails />} />

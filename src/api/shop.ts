@@ -9,6 +9,9 @@ import type {
   HandoverRequested,
   HandoverView,
   IncomingHandover,
+  IncomingInvite,
+  InviteResult,
+  InviteView,
   Shop,
   ShopDetailsIn,
   ShopMember,
@@ -24,6 +27,10 @@ export const shopKeys = {
   handover: ['shop', 'handover'] as const,
   /** Hand-over requests waiting for my phone. Not under 'shop': it is about the person, shop or not. */
   incoming: ['me', 'handover'] as const,
+  /** My shop's waiting invitations (owner). */
+  invites: ['shop', 'invites'] as const,
+  /** Invitations waiting for my phone. Not under 'shop': it is about the person, shop or not. */
+  incomingInvites: ['me', 'invites'] as const,
   photo: (id: string) => ['file', id] as const,
 }
 
@@ -92,7 +99,22 @@ export const shopApi = {
     api<Shop>('PUT', `${S}/me/photos`, { body: { version, ...photos } }),
   submit: (version: number) => api<Shop>('POST', `${S}/me/submit`, { body: { version } }),
   members: () => api<ShopMember[]>('GET', `${S}/me/members`),
-  addHelper: (phone: string) => api<ShopMember[]>('POST', `${S}/me/helpers`, { body: { phone } }),
+  /** Invite a helper (owner): 202 with the same message for any number; they join when they accept. */
+  addHelper: (phone: string) => api<InviteResult>('POST', `${S}/me/helpers`, { body: { phone } }),
+  /** My shop's invitations still waiting, helpers and barbers (owner). */
+  invites: () => api<InviteView[]>('GET', `${S}/me/invites`),
+  /** Cancel one (owner). 204. */
+  cancelInvite: (id: string) => api<void>('DELETE', `${S}/me/invites/${encodeURIComponent(id)}`),
+  /** Invitations waiting for my phone (anyone signed in, shop or not). */
+  incomingInvites: () => api<IncomingInvite[]>('GET', '/api/v1/me/invites'),
+  /** Join the shop: 200 with it (myRole HELPER or BARBER), then the session is refreshed so the token carries it. */
+  acceptInvite: async (id: string) => {
+    const shop = await api<Shop>('POST', `/api/v1/me/invites/${encodeURIComponent(id)}/accept`)
+    const renewed = (await refreshSession()) || (await refreshSession())
+    return { shop, renewed }
+  },
+  /** Say no (204); the owner is told. */
+  declineInvite: (id: string) => api<void>('POST', `/api/v1/me/invites/${encodeURIComponent(id)}/decline`),
   removeHelper: (userId: string) => api<ShopMember[]>('DELETE', `${S}/me/helpers/${userId}`),
   leave: () => api<void>('POST', `${S}/me/leave`),
 
@@ -137,6 +159,16 @@ export function useMyHandover() {
  */
 export function useIncomingHandovers() {
   return useQuery({ queryKey: shopKeys.incoming, queryFn: shopApi.incoming, refetchOnWindowFocus: true, staleTime: 30_000 })
+}
+
+/** Invitations waiting for my phone: read on the first screens and on every return to the app (as hand-overs). */
+export function useIncomingInvites() {
+  return useQuery({ queryKey: shopKeys.incomingInvites, queryFn: shopApi.incomingInvites, refetchOnWindowFocus: true, staleTime: 30_000 })
+}
+
+/** My shop's waiting invitations (owner screens). */
+export function useShopInvites() {
+  return useQuery({ queryKey: shopKeys.invites, queryFn: shopApi.invites })
 }
 
 export const fileApi = {
