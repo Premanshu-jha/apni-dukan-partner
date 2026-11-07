@@ -211,7 +211,7 @@ export function Sheet({
   }, [open])
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-30 flex items-end justify-center bg-scrim/60" onClick={onClose}>
       <div
         ref={panel}
         role="dialog"
@@ -285,7 +285,7 @@ export function TextArea({
 }
 
 const pillTones = {
-  brand: 'bg-brand/15 text-brand',
+  brand: 'bg-brand/15 text-link',
   good: 'bg-good/15 text-good',
   warn: 'bg-warn/15 text-warn',
   bad: 'bg-bad/15 text-bad',

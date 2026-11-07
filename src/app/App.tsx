@@ -110,7 +110,7 @@ export function App() {
               <EmptyState
                 title="Page not found"
                 action={
-                  <Link to="/" className="text-brand underline">
+                  <Link to="/" className="text-link underline">
                     Go to today
                   </Link>
                 }

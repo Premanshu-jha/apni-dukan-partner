@@ -1,6 +1,6 @@
-# Apni Dukan — partner app
+# Clozest — partner app
 
-The app salons use to run their day on Apni Dukan: register the salon, set up services and barbers, and work the
+The app salons use to run their day on Clozest: register the salon, set up services and barbers, and work the
 day's bookings and walk-ins. It is a phone-first web app (it can be added to the home screen) and talks only to
 [apni-dukan-backend](https://github.com/Premanshu-jha/apni-dukan-backend).
 
@@ -201,7 +201,7 @@ sheet only. A link `/salon/day?date=…&open=<id>` (Bookings, the "in the way" l
 day is read, or says it isn't on that day any more.
 
 Big salons (50 barbers, 2,000 bookings a day): with more than 6 barbers the board opens on the first barber's column
-("Everyone" is a tap away), because one barber's day is a few dozen cards. Cards are memoised (`AppointmentCard`, one
+with a booking or walk-in that day ("Everyone" if nobody has one, and a tap away), because one barber's day is a few dozen cards. Cards are memoised (`AppointmentCard`, one
 stable handler) and their times are worked out once per appointment object; a refresh keeps the objects of unchanged
 appointments (TanStack Query's structural sharing and the delta merge), so only changed cards are drawn again.
 Off-screen cards skip layout and paint (`content-visibility: auto`). Virtualising the list was not needed for that and
@@ -312,7 +312,7 @@ Railway) and checks every header on the app, a deep link, `sw.js`, the manifest 
 
 ### Installing and offline
 
-`public/manifest.webmanifest` ("Apni Dukan Partner", short "AD Partner") lists the SVG icon and PNGs (192, 512,
+`public/manifest.webmanifest` ("Clozest Partner", short "Clozest Pro") lists the SVG icon and PNGs (192, 512,
 maskable 512) plus `apple-touch-icon.png` for iPhone, all made from `public/icon.svg` by `npm run icons` (sharp);
 commit the PNGs after changing the SVG. `public/sw.js` keeps a small offline page (`offline.html`, its CSS and the
 icon): opening the app without a connection shows "You're offline" with "Try again". Nothing else is cached. A new
@@ -360,15 +360,16 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
   sign-in once and reads again (uploads send once more).
 - A 202 answer's body is read (the hand-over request's message).
 - Installable everywhere: PNG icons (192, 512, maskable) and the iPhone icon from `icon.svg` (`npm run icons`), a
-  complete manifest named "Apni Dukan Partner"; an offline page when opened without a connection; a new version waits
+  complete manifest named "Clozest Partner"; an offline page when opened without a connection; a new version waits
   for "New version available — Reload" instead of switching silently. The service worker is registered also where
   push isn't offered.
 - A refresh answered 409 `TRY_AGAIN` (another tab or request swapped the same token first) uses the newer token that
   was saved and retries the call once; never a loop.
 - Dependabot (npm and GitHub Actions, weekly) and `npm audit --audit-level=high` in CI.
 - Barbers' hours and services: a change refused with 409 `BOOKINGS_IN_THE_WAY` lists the bookings in the way, each a
-  link that opens it on its day's board. "Add a second shift" starts after the first shift (a shift to 8 PM is split
-  with an hour's break) instead of overlapping it.
+  link that opens it on its day's board. "Add a second shift" starts an hour after the first (10:00–14:00, then 15:00–20:00; a shift to
+  8 PM is split with an hour's break), never overlapping it. The barbers list shows "Invited: +91 …" while a
+  barber's invitation waits; cancelling it from Team clears it there at once.
 - Bookings: a tap opens the day's board with that booking open (`&open=<id>`); a booking no longer on that day says so.
 - The day board for big salons: no 30-second redraw (the date changes at midnight), memoised cards with times worked
   out once, cheap off-screen cards, and one barber's column first when there are more than 6. A test draws 2,000.

@@ -68,13 +68,13 @@ export function PhotoPicker({
         ) : has ? (
           <span className="text-sm text-muted">Photo saved</span>
         ) : (
-          <span className="flex flex-col items-center gap-1 text-sm text-brand">
+          <span className="flex flex-col items-center gap-1 text-sm text-link">
             <span aria-hidden className="text-3xl">＋</span>
             Take or choose a photo
           </span>
         )}
         {busy && (
-          <span className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <span className="absolute inset-0 flex items-center justify-center bg-scrim/50">
             <Spinner label="Uploading…" />
           </span>
         )}

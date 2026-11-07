@@ -270,7 +270,7 @@ function DraftExits({ name }: { name: string }) {
   return (
     <p className="text-center text-sm text-muted">
       Not going ahead with {name}?{' '}
-      <Link to="/shop/handover" className="text-brand underline">
+      <Link to="/shop/handover" className="text-link underline">
         Hand it over
       </Link>{' '}
       or{' '}
@@ -379,13 +379,13 @@ export function RegisterReview() {
         <Line label="Location" value={`${shop.latitude.toFixed(5)}, ${shop.longitude.toFixed(5)}`} />
         {shop.gstin && <Line label="GSTIN" value={shop.gstin} />}
         {shop.udyamNumber && <Line label="Udyam" value={shop.udyamNumber} />}
-        <Link to="/register" className="text-sm text-brand underline">
+        <Link to="/register" className="text-sm text-link underline">
           Edit details
         </Link>
       </Card>
       <Card className="flex items-center justify-between">
         <span>Photos: {ready ? 'both added' : 'missing'}</span>
-        <Link to="/register/photos" className="text-sm text-brand underline">
+        <Link to="/register/photos" className="text-sm text-link underline">
           {ready ? 'Change' : 'Add'}
         </Link>
       </Card>

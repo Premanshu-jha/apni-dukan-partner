@@ -57,7 +57,7 @@ export function Start() {
 
   return (
     <Page>
-      <Brand subtitle={`Welcome, ${user.name ?? ''}. Let's get your salon on Apni Dukan.`} />
+      <Brand subtitle={`Welcome, ${user.name ?? ''}. Let's get your salon on Clozest.`} />
       {closed && (
         <Banner tone="info">
           {closed} is closed. Its upcoming bookings were cancelled and the customers told. You can register a new salon,
@@ -79,7 +79,7 @@ export function Start() {
           </Card>
           <Card className="flex flex-col gap-3">
             <p className="text-lg font-semibold">I work at a salon</p>
-            <p className="text-sm text-muted">A barber or a helper whose owner already uses Apni Dukan.</p>
+            <p className="text-sm text-muted">A barber or a helper whose owner already uses Clozest.</p>
             <Button variant="secondary" onClick={() => setWorker(true)}>
               I work at a salon
             </Button>
@@ -89,7 +89,7 @@ export function Start() {
         <Card className="flex flex-col gap-3">
           <p className="text-lg font-semibold">Ask your owner to invite you</p>
           <p className="text-muted">
-            Your owner invites this number in their Apni Dukan Partner app (Team for helpers, or a barber's profile for
+            Your owner invites this number in their Clozest Partner app (Team for helpers, or a barber's profile for
             barbers). The invitation shows on this screen; accept it to join:
           </p>
           <p className="text-center text-2xl font-bold tracking-wide">+91 {formatPhone(user.phone)}</p>

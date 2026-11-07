@@ -6,7 +6,7 @@ const TILES = (import.meta.env.VITE_MAP_TILES as string | undefined) || 'https:/
 
 const pin = L.divIcon({
   className: '',
-  html: '<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#f59e0b;border:3px solid #0f1115;box-shadow:0 2px 6px rgba(0,0,0,.5)"></div>',
+  html: '<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--color-brand);border:3px solid var(--color-bg);box-shadow:0 2px 6px color-mix(in srgb, var(--color-scrim) 50%, transparent)"></div>',
   iconSize: [28, 28],
   iconAnchor: [14, 28],
 })

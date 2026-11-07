@@ -1,12 +1,12 @@
-/* The offline page's look: the app's dark theme, without the app's build. */
+/* The offline page's look: the app's dark theme (src/index.css colours), without the app's build. */
 html,
 body {
   height: 100%;
   margin: 0;
 }
 body {
-  background: #0f1115;
-  color: #e6e8ee;
+  background: #0b1220;
+  color: #e8eef9;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 main {
@@ -28,7 +28,7 @@ h1 {
 }
 p {
   margin: 0;
-  color: #9aa1b2;
+  color: #9aa8c2;
 }
 a {
   display: inline-flex;
@@ -36,12 +36,12 @@ a {
   min-height: 3rem;
   padding: 0 1.25rem;
   border-radius: 0.75rem;
-  background: #f59e0b;
-  color: #1a1203;
+  background: #2b66f6;
+  color: #ffffff;
   font-weight: 600;
   text-decoration: none;
 }
 a:focus-visible {
-  outline: 2px solid #f59e0b;
+  outline: 2px solid #7fb2ff;
   outline-offset: 2px;
 }

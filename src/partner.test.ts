@@ -239,7 +239,7 @@ describe('hand-over requests gone meanwhile', async () => {
 
 describe('adding a second shift', () => {
   const ok = (day: Array<{ start: string; end: string }>) => checkWeek({ 1: day, 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] })
-  it('starts where the first ends, or cuts a shift running to closing at its middle with an hour between', () => {
+  it('leaves an hour after the first (till closing), or cuts a shift running to closing at its middle with an hour between', () => {
     expect(withSecondShift([])).toEqual([{ start: '10:00', end: '20:00' }])
     expect(withSecondShift([{ start: '10:00', end: '20:00' }])).toEqual([
       { start: '10:00', end: '15:00' },
@@ -247,20 +247,29 @@ describe('adding a second shift', () => {
     ])
     expect(withSecondShift([{ start: '10:00', end: '14:00' }])).toEqual([
       { start: '10:00', end: '14:00' },
-      { start: '14:00', end: '20:00' },
+      { start: '15:00', end: '20:00' },
     ])
     expect(withSecondShift([{ start: '18:00', end: '24:00' }])).toEqual([
       { start: '18:00', end: '21:00' },
       { start: '22:00', end: '24:00' },
     ])
-    // Too short to cut: after it, or before it at the end of the day
+    // Too late for closing, or too short to cut: an hour after it, or an hour before it at the end of the day
+    expect(withSecondShift([{ start: '10:00', end: '19:30' }])).toEqual([
+      { start: '10:00', end: '19:30' },
+      { start: '20:30', end: '24:00' },
+    ])
     expect(withSecondShift([{ start: '19:00', end: '21:00' }])).toEqual([
       { start: '19:00', end: '21:00' },
-      { start: '21:00', end: '24:00' },
+      { start: '22:00', end: '24:00' },
     ])
     expect(withSecondShift([{ start: '22:30', end: '24:00' }])).toEqual([
-      { start: '18:30', end: '22:30' },
+      { start: '17:30', end: '21:30' },
       { start: '22:30', end: '24:00' },
+    ])
+    // Nearly the whole day: cut, with the hour between
+    expect(withSecondShift([{ start: '00:30', end: '23:30' }])).toEqual([
+      { start: '00:30', end: '12:00' },
+      { start: '13:00', end: '23:30' },
     ])
     for (const first of [
       { start: '10:00', end: '20:00' },
@@ -269,6 +278,8 @@ describe('adding a second shift', () => {
       { start: '18:00', end: '24:00' },
       { start: '19:00', end: '21:00' },
       { start: '22:30', end: '24:00' },
+      { start: '10:00', end: '19:30' },
+      { start: '00:30', end: '23:30' },
     ]) {
       expect(ok(withSecondShift([first])), JSON.stringify(first)).toBeNull()
     }

@@ -123,14 +123,14 @@ export function Profile() {
             </div>
           </div>
         ) : (
-          <Row label="Name" value={user.name ?? ''} action={<button type="button" className="text-brand" onClick={() => setEditing(true)}>Edit</button>} />
+          <Row label="Name" value={user.name ?? ''} action={<button type="button" className="text-link" onClick={() => setEditing(true)}>Edit</button>} />
         )}
         <Row label="Mobile" value={`+91 ${formatPhone(user.phone)}`} />
         <Row
           label="Email"
           value={user.email ?? ''}
           action={
-            <Link to="/profile/email" className="text-brand">
+            <Link to="/profile/email" className="text-link">
               Change
             </Link>
           }
@@ -146,7 +146,7 @@ export function Profile() {
         <p className="text-sm text-muted">
           A problem with a booking, the app or your salon's listing? Write to us with your shop code.
         </p>
-        <a href={`mailto:${SUPPORT_EMAIL}`} className="text-sm text-brand underline">
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="text-sm text-link underline">
           {SUPPORT_EMAIL}
         </a>
       </Card>
@@ -165,7 +165,7 @@ export function Profile() {
         )}
         {shop.myRole === 'OWNER' && (
           <>
-            <Link to="/shop/handover" className="py-3 text-center text-sm text-brand underline">
+            <Link to="/shop/handover" className="py-3 text-center text-sm text-link underline">
               Hand over {shop.name}
             </Link>
             <Link to="/shop/close" className="py-3 text-center text-sm text-bad underline">

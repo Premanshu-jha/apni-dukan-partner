@@ -96,7 +96,7 @@ export function CodeStep() {
             </Button>
           </>
         )}
-        <button type="button" className="text-sm text-brand underline" onClick={() => navigate('/signin')}>
+        <button type="button" className="text-sm text-link underline" onClick={() => navigate('/signin')}>
           Wrong number? Change it
         </button>
       </div>

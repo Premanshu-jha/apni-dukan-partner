@@ -52,7 +52,7 @@ export function Closures() {
           <ul className="flex flex-col gap-1 text-sm">
             {inTheWay.map((a) => (
               <li key={a.id}>
-                <Link className="text-brand underline" to={`/salon/day?date=${dateOfIst(a.startsAt)}`}>
+                <Link className="text-link underline" to={`/salon/day?date=${dateOfIst(a.startsAt)}`}>
                   {dateTimeIst(a.startsAt)}–{timeIst(a.endsAt)} ({a.kind === 'BLOCK' ? 'a break' : a.kind === 'WALK_IN' ? 'walk-in' : 'booking'})
                 </Link>
               </li>

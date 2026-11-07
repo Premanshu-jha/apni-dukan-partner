@@ -23,10 +23,19 @@ import { isLive, servicesText, statusText, statusTone, totalPaise, whoText } fro
 const PAST_DAYS = 31
 export const AHEAD_DAYS = 90
 /**
- * With more barbers than this the board opens on the first barber's column ("Everyone" is a tap away): a big salon's
+ * With more barbers than this the board opens on the first barber's column with bookings ("Everyone" is a tap away): a big salon's
  * whole day is up to 2,000 cards, too many to draw at once on a cheap phone, while one barber's day is a few dozen.
  */
 export const MANY_BARBERS = 6
+
+/**
+ * The column the board opens on: everyone, or with more than MANY_BARBERS barbers the first barber with a booking or
+ * walk-in that day (breaks and leave don't count), so it never opens on an empty column; everyone if nobody has one.
+ */
+export function openingColumn(columns: BarberColumn[]): string | 'all' {
+  if (columns.length <= MANY_BARBERS) return 'all'
+  return columns.find((c) => c.appointments.some((a) => a.kind !== 'BLOCK'))?.staffId ?? 'all'
+}
 
 /** The day board with one appointment opened (from the bookings list, a conflict list or a message). */
 export function dayLink(a: { id: string; startsAt: string }): string {
@@ -90,9 +99,7 @@ export function Today() {
   const barber =
     chosenBarber === 'all' || (chosenBarber !== null && columns.some((c) => c.staffId === chosenBarber))
       ? chosenBarber
-      : columns.length > MANY_BARBERS
-        ? columns[0].staffId
-        : 'all'
+      : openingColumn(columns)
   const shown = useMemo(() => (barber === 'all' ? columns : columns.filter((c) => c.staffId === barber)), [columns, barber])
   const { live, closed } = useMemo(() => {
     const all = shown
@@ -186,7 +193,7 @@ export function Today() {
           body={rights.editSetup ? 'Add your barbers and their hours to start taking bookings.' : 'The owner hasn’t added barbers yet.'}
           action={
             rights.editSetup ? (
-              <Link to="/setup/staff" className="text-brand underline">
+              <Link to="/setup/staff" className="text-link underline">
                 Add barbers
               </Link>
             ) : undefined
@@ -391,7 +398,7 @@ function SetupChecklist() {
               <span aria-hidden className={i.done ? 'text-good' : 'text-muted'}>
                 {i.done ? '✓' : '○'}
               </span>
-              <span className={i.done ? 'text-muted line-through' : 'text-brand underline'}>{i.text}</span>
+              <span className={i.done ? 'text-muted line-through' : 'text-link underline'}>{i.text}</span>
               <span className="sr-only">{i.done ? '(done)' : '(to do)'}</span>
             </Link>
           </li>

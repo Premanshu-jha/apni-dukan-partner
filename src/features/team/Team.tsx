@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { fieldError, messageOf } from '../../api/errors'
-import { dayApi, salonKeys } from '../../api/salon'
+import { dayApi, forgetBarberInvite, salonKeys } from '../../api/salon'
 import { shopApi, shopKeys, useShopInvites } from '../../api/shop'
 import type { Member } from '../../api/types'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page, Sheet, Switch } from '../../components/ui'
@@ -96,7 +96,8 @@ export function Team() {
                       {v.role === 'HELPER' ? 'Helper' : 'Barber'} · open until {dateTimeIst(v.expiresAt)}
                     </p>
                   </div>
-                  <Button variant="secondary" busy={busy === v.id} onClick={() => act(v.id, () => shopApi.cancelInvite(v.id))}>
+                  {/* A barber's invitation shows on his page ("Invited: …"): refresh the barbers so it goes there too */}
+                  <Button variant="secondary" busy={busy === v.id} onClick={() => act(v.id, () => shopApi.cancelInvite(v.id), v.staffId ? () => forgetBarberInvite(qc, v.staffId!) : undefined)}>
                     Cancel
                   </Button>
                 </Card>
@@ -111,7 +112,7 @@ export function Team() {
         <p className="font-semibold">Invite a helper</p>
         <p className="text-sm text-muted">
           A helper runs the day with you: walk-ins, starting bookings, breaks. They join when they accept your
-          invitation in Apni Dukan, signed in with this number. For a barber, invite him on his page under Salon ›
+          invitation in Clozest, signed in with this number. For a barber, invite him on his page under Salon ›
           Barbers instead.
         </p>
         <Field id="helper-phone" label="Helper's mobile number" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />

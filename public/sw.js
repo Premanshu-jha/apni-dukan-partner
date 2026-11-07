@@ -59,9 +59,9 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data ? event.data.json() : {}
   } catch {
-    data = { title: 'Apni Dukan', body: event.data ? event.data.text() : '' }
+    data = { title: 'Clozest', body: event.data ? event.data.text() : '' }
   }
-  const title = data.title || 'Apni Dukan'
+  const title = data.title || 'Clozest'
   // Tell open app windows, so the bell and the day board refresh at once.
   const tellApp = self.clients
     .matchAll({ type: 'window', includeUncontrolled: true })

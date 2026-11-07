@@ -16,7 +16,7 @@ function useSubscribed() {
 
 function resultText(r: PushResult): string | null {
   if (r === 'denied') return 'Notifications are blocked for this site. Allow them in your browser settings, then try again.'
-  if (r === 'unsupported') return "This browser can't show notifications. On iPhone, add Apni Dukan Partner to your Home Screen first."
+  if (r === 'unsupported') return "This browser can't show notifications. On iPhone, add Clozest Partner to your Home Screen first."
   if (r === 'not-configured') return "Notifications aren't set up on the server yet."
   return null
 }
@@ -76,7 +76,7 @@ export function NotificationsRow() {
     return (
       <p className="text-sm text-muted">
         {needsHomeScreen()
-          ? 'To get booking notifications on iPhone, tap Share, then "Add to Home Screen", and open Apni Dukan Partner from there.'
+          ? 'To get booking notifications on iPhone, tap Share, then "Add to Home Screen", and open Clozest Partner from there.'
           : "This browser can't show notifications. You'll still see every message under the bell."}
       </p>
     )

@@ -91,7 +91,7 @@ export function BookingsInTheWay({ list }: { list: InTheWay[] | null }) {
       <ul className="flex flex-col gap-1 text-sm">
         {list.map((a) => (
           <li key={a.id}>
-            <Link className="text-brand underline" to={dayLink(a)}>
+            <Link className="text-link underline" to={dayLink(a)}>
               {dateTimeIst(a.startsAt)}–{timeIst(a.endsAt)}
             </Link>
           </li>
@@ -160,7 +160,7 @@ function Login({ s, edit }: { s: Staff; edit: boolean }) {
         <p className="font-medium">His own sign-in</p>
         <p className="text-sm text-muted">
           With a sign-in he opens this app with his phone number and sees his own bookings. You invite his number; he
-          accepts in Apni Dukan. {s.invitedPhone ? `Invited: +91 ${formatPhone(s.invitedPhone)}, waiting for him to accept` : loginText(s.loginPhone)}.
+          accepts in Clozest. {s.invitedPhone ? `Invited: +91 ${formatPhone(s.invitedPhone)}, waiting for him to accept` : loginText(s.loginPhone)}.
         </p>
       </div>
       {edit &&
@@ -178,7 +178,7 @@ function Login({ s, edit }: { s: Staff; edit: boolean }) {
             <Button
               busy={busy}
               disabled={!normalized}
-              onClick={() => run(() => setupApi.linkLogin(s.id, normalized!), "Invitation sent. He'll see it in Apni Dukan when he signs in with this number.")}
+              onClick={() => run(() => setupApi.linkLogin(s.id, normalized!), "Invitation sent. He'll see it in Clozest when he signs in with this number.")}
             >
               Invite him to sign in
             </Button>
@@ -254,25 +254,32 @@ const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
 const toTime = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 
 /**
- * The day after "Add hours" (10:00–20:00) or "Add a second shift": the new shift starts where the first one ends (till
- * closing). When the first already runs to closing (or later), it is cut at its middle and the second starts an hour
- * after (a lunch break), so 10:00–20:00 becomes 10:00–15:00 and 16:00–20:00. Either way nothing overlaps; the owner
- * adjusts the times after.
+ * The day after "Add hours" (10:00–20:00) or "Add a second shift". The second shift always leaves an hour's break
+ * after the first: 10:00–14:00 gets 15:00–20:00 (till closing). When the first already runs to closing (or later),
+ * it is cut at its middle with the hour between, so 10:00–20:00 becomes 10:00–15:00 and 16:00–20:00. A first shift
+ * too late or too short for that gets the second after it, still an hour later, up to midnight, or else before it.
+ * Nothing overlaps; the owner adjusts the times after.
  */
 export function withSecondShift(day: Array<{ start: string; end: string }>): Array<{ start: string; end: string }> {
   const [first] = day
   if (!first) return [{ start: DAY_START, end: CLOSING }]
   const start = toMin(first.start)
   const end = toMin(first.end)
-  if (first.end < CLOSING) return [first, { start: first.end, end: CLOSING }]
-  // Cut at the middle (15-minute steps), keeping at least an hour on each side of the hour's break
-  const middle = Math.floor((start + end) / 2 / 15) * 15
-  if (middle - start >= 60 && end - (middle + 60) >= 60) {
-    return [{ ...first, end: toTime(middle) }, { start: toTime(middle + 60), end: first.end }]
+  const BREAK = 60
+  const MIDNIGHT = 24 * 60
+  // An hour's break, then at least an hour of work before closing
+  if (end + BREAK + 60 <= toMin(CLOSING)) return [first, { start: toTime(end + BREAK), end: CLOSING }]
+  if (first.end >= CLOSING) {
+    // Cut at the middle (15-minute steps), keeping at least an hour on each side of the hour's break
+    const middle = Math.floor((start + end) / 2 / 15) * 15
+    if (middle - start >= 60 && end - (middle + BREAK) >= 60) {
+      return [{ ...first, end: toTime(middle) }, { start: toTime(middle + BREAK), end: first.end }]
+    }
   }
-  // Too short to cut: after it if the day has an hour left, else before it; a shift of the whole day leaves no room
-  if (end <= 23 * 60) return [first, { start: first.end, end: toTime(Math.min(end + 4 * 60, 24 * 60)) }]
-  if (start >= 60) return [{ start: toTime(Math.max(0, start - 4 * 60)), end: first.start }, first]
+  // After it, an hour later, if the day has room for an hour's work; else before it, an hour earlier
+  if (end + BREAK + 60 <= MIDNIGHT) return [first, { start: toTime(end + BREAK), end: toTime(Math.min(end + BREAK + 4 * 60, MIDNIGHT)) }]
+  if (start - BREAK >= 60) return [{ start: toTime(Math.max(0, start - BREAK - 4 * 60)), end: toTime(start - BREAK) }, first]
+  // (Only a shift of nearly the whole day gets here, and that one is cut above)
   return day
 }
 
@@ -308,7 +315,7 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
       <div className="flex items-center justify-between">
         <p className="font-medium">Weekly hours</p>
         {edit && week[1].length > 0 && (
-          <button type="button" className="text-sm text-brand underline" onClick={copyMonday}>
+          <button type="button" className="text-sm text-link underline" onClick={copyMonday}>
             Copy Monday to Tue–Sat
           </button>
         )}
@@ -322,7 +329,7 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
               {edit && week[d].length < 2 && (
                 <button
                   type="button"
-                  className="text-sm text-brand underline"
+                  className="text-sm text-link underline"
                   onClick={() => setWeek({ ...week, [d]: withSecondShift(week[d]) })}
                 >
                   {week[d].length ? 'Add a second shift' : 'Add hours'}

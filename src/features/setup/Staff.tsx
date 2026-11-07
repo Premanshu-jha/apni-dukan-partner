@@ -38,10 +38,11 @@ export function StaffList() {
               {staff.data.map((s) => (
                 <li key={s.id}>
                   <Link to={`/setup/staff/${s.id}`} className="flex flex-col gap-1 rounded-2xl border border-line bg-surface p-3 hover:bg-raised">
-                    <span className="flex items-center gap-2">
+                    <span className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold">{s.name}</span>
                       {!s.active && <Pill tone="muted">Off</Pill>}
                       {s.loginPhone && <Pill tone="brand">Has sign-in</Pill>}
+                      {!s.loginPhone && s.invitedPhone && <Pill tone="warn">Invited: +91 {formatPhone(s.invitedPhone)}</Pill>}
                     </span>
                     <span className="text-sm text-muted">
                       {s.serviceIds.length} service{s.serviceIds.length === 1 ? '' : 's'} · {weekText(s.hours)}
