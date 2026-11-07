@@ -674,6 +674,23 @@ export class MockApi {
         return ok(200, bump())
       }
       if (body.version !== s.version) return fail(409, 'STAFF_CHANGED', 'This barber was changed meanwhile. Reload.')
+      // New hours or services must not strand his upcoming bookings (SalonSetupService.requireBookingsStillFit)
+      if (st[2] === '/services' || st[2] === '/hours') {
+        const stranded = this.appointments.filter((a) => {
+          if (a.staffId !== s.id || a.kind === 'BLOCK' || a.status !== 'CONFIRMED' || new Date(a.startsAt as string).getTime() <= Date.now()) return false
+          if (st[2] === '/services') return (a.services as Json[]).some((v) => !(body.serviceIds as string[]).includes(v.serviceId as string))
+          const local = new Date(new Date(a.startsAt as string).getTime() + IST)
+          const weekday = ((local.getUTCDay() + 6) % 7) + 1
+          const from = local.toISOString().slice(11, 16)
+          const to = new Date(new Date(a.endsAt as string).getTime() + IST).toISOString().slice(11, 16)
+          return !(body.hours as Json[]).some((h) => h.weekday === weekday && (h.start as string) <= from && (to <= (h.end as string) || to === '00:00'))
+        })
+        if (stranded.length) {
+          return fail(409, 'BOOKINGS_IN_THE_WAY', "Some of his upcoming bookings wouldn't fit any more. Reassign or cancel them first.", {
+            appointments: stranded.map((a) => ({ id: a.id, kind: a.kind, staffId: a.staffId, startsAt: a.startsAt, endsAt: a.endsAt })),
+          })
+        }
+      }
       if (st[2] === '/services') s.serviceIds = body.serviceIds
       else if (st[2] === '/hours') s.hours = body.hours
       else {
