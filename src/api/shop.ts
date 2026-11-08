@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createContext, useContext } from 'react'
 import { useSession } from '../store/session'
 import { api, refreshSession } from './client'
-import { isApiError } from './errors'
+import { ApiError, isApiError } from './errors'
 import type {
   Described,
   FileLink,
@@ -19,6 +19,7 @@ import type {
   ShopDetailsIn,
   ShopMember,
   StoredFile,
+  VideoUploadLink,
 } from './types'
 
 const S = '/api/v1/shops'
@@ -105,6 +106,8 @@ export const shopApi = {
     api<Shop>('PATCH', `${S}/me`, { body: { version, ...details } }),
   setPhotos: (version: number, photos: { ownerPhotoFileId?: string; shopPhotoFileId?: string }) =>
     api<Shop>('PUT', `${S}/me/photos`, { body: { version, ...photos } }),
+  /** Set the salon video (owner): the file from videoApi.complete. A video it replaces is deleted. */
+  setVideo: (version: number, fileId: string) => api<Shop>('PUT', `${S}/me/video`, { body: { version, fileId } }),
   submit: (version: number) => api<Shop>('POST', `${S}/me/submit`, { body: { version } }),
   members: () => api<ShopMember[]>('GET', `${S}/me/members`),
   /** Invite a helper (owner): 202 with the same message for any number; they join when they accept. */
@@ -196,6 +199,108 @@ export const fileApi = {
     }
   },
   link: (id: string) => api<FileLink>('GET', `/api/v1/files/${id}/link`),
+}
+
+/**
+ * R2 answered the PUT with an error. `linkExpired` (403: the link ran out or was refused) needs a new link; a 5xx is
+ * R2's own trouble and the same link may be tried again.
+ */
+export class VideoSendError extends Error {
+  readonly status: number
+  readonly linkExpired: boolean
+  constructor(status: number) {
+    super(status === 403 ? 'The upload link ran out.' : "The video didn't go through. Try again.")
+    this.name = 'VideoSendError'
+    this.status = status
+    this.linkExpired = status === 403
+  }
+}
+
+/** No upload progress for this long: the connection is taken as dropped (a phone that lost signal mid-upload). */
+export const VIDEO_STALL_MS = 60_000
+
+/**
+ * The salon video: too big for the backend, so the phone sends it straight to R2 (see the backend's "The salon
+ * video"): start gives a one-time link, send PUTs the file there with progress, complete records it.
+ */
+export const videoApi = {
+  /** durationSeconds null: the phone couldn't read the length (the owner chose "Upload anyway"). */
+  start: async (sizeBytes: number, contentType: string, durationSeconds: number | null) => {
+    await ensureShopInToken()
+    const ask = () =>
+      api<VideoUploadLink>('POST', '/api/v1/files/video-uploads', { body: { sizeBytes, contentType, durationSeconds } })
+    try {
+      return await ask()
+    } catch (e) {
+      // As for photos: a token whose shop is out of date gets one renewal and one more try
+      if (!isApiError(e, 'SHOP_REQUIRED') || !(await refreshSession())) throw e
+      return ask()
+    }
+  },
+  /**
+   * PUTs the file to the link, calling onProgress with 0..1. Rejects with ApiError NETWORK when the connection drops
+   * (also a CORS-less refusal, which the browser reports as status 0) or nothing moved for VIDEO_STALL_MS,
+   * VideoSendError when R2 answered with an error, and an AbortError when cancelled.
+   */
+  send: (link: VideoUploadLink, file: Blob, onProgress: (done: number) => void, signal?: AbortSignal, stallMs = VIDEO_STALL_MS) =>
+    new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      let stalled = false
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const watch = () => {
+        clearTimeout(timer)
+        timer = setTimeout(() => {
+          stalled = true
+          xhr.abort()
+        }, stallMs)
+      }
+      const done = (f: () => void) => {
+        clearTimeout(timer)
+        f()
+      }
+      xhr.open('PUT', link.uploadUrl)
+      xhr.setRequestHeader('Content-Type', link.contentType)
+      xhr.upload.onprogress = (e) => {
+        watch()
+        if (e.lengthComputable && e.total > 0) onProgress(e.loaded / e.total)
+      }
+      xhr.onload = () =>
+        done(() => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            onProgress(1)
+            resolve()
+          } else reject(new VideoSendError(xhr.status))
+        })
+      xhr.onerror = () => done(() => reject(ApiError.network()))
+      xhr.ontimeout = () => done(() => reject(ApiError.network()))
+      xhr.onabort = () => done(() => reject(stalled ? ApiError.network() : new DOMException('Cancelled', 'AbortError')))
+      if (signal) {
+        if (signal.aborted) {
+          reject(new DOMException('Cancelled', 'AbortError'))
+          return
+        }
+        signal.addEventListener('abort', () => xhr.abort(), { once: true })
+      }
+      watch()
+      xhr.send(file)
+    }),
+  complete: (uploadId: string) =>
+    api<StoredFile>('POST', `/api/v1/files/video-uploads/${encodeURIComponent(uploadId)}/complete`),
+}
+
+/**
+ * A link to play the salon video: links last 5 minutes, so a fresh one is read every 4 minutes (the player keeps the
+ * one it loaded, see SalonVideo).
+ */
+export function useVideoLink(id: string | null) {
+  return useQuery({
+    queryKey: [...shopKeys.photo(id ?? 'none'), 'video'],
+    queryFn: () => fileApi.link(id!),
+    enabled: Boolean(id),
+    refetchInterval: 4 * 60_000,
+    staleTime: 4 * 60_000,
+    gcTime: 4 * 60_000,
+  })
 }
 
 /** A short-lived link to show one of the shop's photos. */

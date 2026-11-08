@@ -1,7 +1,8 @@
 import { MockApi } from './mockApi'
-import { expect, JPEG, signedIn, test } from './helpers'
+import { expect, fakeMp4, JPEG, signedIn, stubVideoLength, test } from './helpers'
 
-test('a new owner signs up, registers the salon in three steps and waits for the visit', async ({ page, api }) => {
+test('a new owner signs up, registers the salon in three steps and waits for the visit', async ({ page, context, api }) => {
+  await stubVideoLength(context, 30)
   await page.goto('/')
   await expect(page).toHaveURL(/\/signin$/)
   await page.getByLabel('Mobile number').fill('98480 12345')
@@ -42,8 +43,10 @@ test('a new owner signs up, registers the salon in three steps and waits for the
   await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
   await page.getByLabel('Add your photo').setInputFiles({ name: 'me.jpg', mimeType: 'image/jpeg', buffer: JPEG })
   await page.getByLabel('Add shop front').setInputFiles({ name: 'shop.jpg', mimeType: 'image/jpeg', buffer: JPEG })
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()   // the salon video too
+  await page.getByLabel('Record video').setInputFiles({ name: 'salon.mp4', mimeType: 'video/mp4', buffer: fakeMp4() })
   await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()
-  const uploads = api.calls.filter((c) => c.method === 'POST' && c.path.startsWith('/api/v1/files'))
+  const uploads = api.calls.filter((c) => c.method === 'POST' && c.path.startsWith('/api/v1/files?'))
   expect(uploads.map((u) => u.path)).toEqual(['/api/v1/files?purpose=OWNER_PHOTO', '/api/v1/files?purpose=SHOP_PHOTO'])
   expect(uploads.every((u) => MockApi.tokenHasShop(u.auth) && u.contentType?.startsWith('multipart/form-data'))).toBe(true)
   await page.getByRole('button', { name: 'Continue' }).click()

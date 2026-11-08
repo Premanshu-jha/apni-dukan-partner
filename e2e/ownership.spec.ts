@@ -262,8 +262,9 @@ test('a photo link refused with 403 SHOP_REQUIRED (a token from before a hand-ov
   api.shop = MockApi.shopOf({ status: 'DRAFT' })
   api.staleFileTokenOnce = true
   await page.goto('/register/photos')
-  await expect.poll(() => api.calls.filter((c) => c.path.endsWith('/link')).length).toBeGreaterThanOrEqual(3)
+  // Three links on this page (two photos and the salon video): the refused one renews the sign-in, then is asked again
+  await expect.poll(() => api.calls.filter((c) => c.path.endsWith('/link')).length).toBeGreaterThanOrEqual(4)
   const firstLink = api.calls.findIndex((c) => c.path.endsWith('/link'))
-  expect(api.calls.slice(firstLink).some((c) => c.path === '/api/v1/auth/refresh')).toBe(true)
+  await expect.poll(() => api.calls.slice(firstLink).some((c) => c.path === '/api/v1/auth/refresh')).toBe(true)
   await expect(page.locator('img[src*="blob.png"]')).toHaveCount(2)
 })

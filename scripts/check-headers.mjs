@@ -4,6 +4,7 @@
 const base = process.argv[2] ?? 'http://localhost:8080'
 const API = 'https://api.example.com'
 const TURNSTILE = 'https://challenges.cloudflare.com'
+const R2 = 'https://*.r2.cloudflarestorage.com'
 // What this app may use (Permissions-Policy)
 const ALLOWED = ['geolocation=(self)']
 const DENIED = ['camera=()', 'microphone=()', 'payment=()']
@@ -23,7 +24,9 @@ async function headersOf(path) {
   check(directive('default-src') === "default-src 'self'", `${path}: default-src is "${directive('default-src')}"`)
   check(directive('frame-ancestors') === "frame-ancestors 'none'", `${path}: frame-ancestors is "${directive('frame-ancestors')}"`)
   check(directive('script-src') === `script-src 'self' ${TURNSTILE}`, `${path}: script-src is "${directive('script-src')}"`)
-  check(directive('connect-src') === `connect-src 'self' ${API}`, `${path}: connect-src is "${directive('connect-src')}"`)
+  // The backend, and R2 for the salon video's upload (the build sets no PHOTO_ORIGIN: any R2 address)
+  check(directive('connect-src') === `connect-src 'self' ${API} ${R2}`, `${path}: connect-src is "${directive('connect-src')}"`)
+  check(directive('media-src') === `media-src 'self' blob: ${R2}`, `${path}: media-src is "${directive('media-src')}"`)
   check(directive('object-src') === "object-src 'none'", `${path}: object-src is "${directive('object-src')}"`)
   check(directive('worker-src') === "worker-src 'self'", `${path}: worker-src is "${directive('worker-src')}"`)
   check(!csp.includes('unsafe-eval'), `${path}: CSP allows eval`)
