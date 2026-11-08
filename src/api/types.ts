@@ -91,6 +91,15 @@ export interface Located {
   formattedAddress: string
 }
 
+/** POST /shops/reverse-geocode: the address at a GPS point ("" where Google gave nothing). */
+export interface Described {
+  addressLine: string
+  area: string
+  city: string
+  pincode: string
+  formattedAddress: string
+}
+
 export type FilePurpose = 'SHOP_PHOTO' | 'OWNER_PHOTO' | 'STAFF_PHOTO'
 
 export interface StoredFile {

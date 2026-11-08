@@ -4,6 +4,7 @@ import { useSession } from '../store/session'
 import { api, refreshSession } from './client'
 import { isApiError } from './errors'
 import type {
+  Described,
   FileLink,
   FilePurpose,
   GeocodeIn,
@@ -97,6 +98,9 @@ export const shopApi = {
   },
   /** Where a typed address is (registration step 1, "Find my salon on the map"). */
   geocode: (address: GeocodeIn) => api<Located>('POST', `${S}/geocode`, { body: address }),
+  /** The address at the phone's GPS point (registration step 1 fills the empty address fields from it). */
+  reverseGeocode: (latitude: number, longitude: number) =>
+    api<Described>('POST', `${S}/reverse-geocode`, { body: { latitude, longitude } }),
   update: (version: number, details: Partial<ShopDetailsIn>) =>
     api<Shop>('PATCH', `${S}/me`, { body: { version, ...details } }),
   setPhotos: (version: number, photos: { ownerPhotoFileId?: string; shopPhotoFileId?: string }) =>
