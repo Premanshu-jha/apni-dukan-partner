@@ -9,6 +9,8 @@
  * - Cloudflare Turnstile (only when VITE_TURNSTILE_SITE_KEY is set): its script and its frame;
  * - shop and barber photos: signed links to Cloudflare R2 (PHOTO_ORIGIN, default any *.r2.cloudflarestorage.com
  *   address); a photo just taken is shown from a blob: address;
+ * - the salon video: sent straight to R2 with a one-time link (connect-src) and played back from a signed R2 link
+ *   (media-src); its length is read from a blob: address before it is sent;
  * - map tiles for the location pin (VITE_MAP_TILES, default OpenStreetMap's).
  * Styles allow 'unsafe-inline': the map's pin and the Turnstile widget set inline styles. Scripts never run inline.
  */
@@ -42,8 +44,9 @@ export function securityHeaders(env: HeaderSettings): Record<string, string> {
     "default-src 'self'",
     `script-src 'self'${turnstile}`,
     `frame-src ${turnstile ? TURNSTILE : "'none'"}`,
-    `connect-src 'self' ${api}`,
+    `connect-src 'self' ${api} ${photos}`,
     `img-src 'self' data: blob: ${photos} ${tiles}`,
+    `media-src 'self' blob: ${photos}`,
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
     "manifest-src 'self'",
