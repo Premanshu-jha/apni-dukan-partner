@@ -19,7 +19,17 @@ import {
 } from '../../lib/locate'
 import { forgetRegisterDraft, loadRegisterDraft, saveRegisterDraft } from '../../lib/registerDraft'
 import { useSession } from '../../store/session'
-import { ADDRESS_FIELDS, addressSearchOff, canSearchAddress, precisionHint, searchFailure, zoomFor } from './addressPin'
+import {
+  ADDRESS_FIELDS,
+  addressSearchOff,
+  canSearchAddress,
+  FILLED_TEXT,
+  fillEmpty,
+  markAddressSearchOff,
+  precisionHint,
+  searchFailure,
+  zoomFor,
+} from './addressPin'
 import { signOutHere } from '../profile/signOut'
 
 /** The map library is big and only registration needs it: loaded when this screen shows the map. */
@@ -91,8 +101,6 @@ interface Pin {
   lng: number
   /** Where GPS put it, to tell how far it was dragged. */
   gps: Fix | null
-  /** What placed it last: GPS, the address search, or the saved draft. Dragging keeps it. */
-  from: 'gps' | 'address' | 'saved'
   /** The map's zoom when it was placed. */
   zoom: number
   /** Counts placements, so the map re-centres even on the same point. */
@@ -122,7 +130,7 @@ export function RegisterDetails() {
   const userId = useSession((s) => s.user?.id)
   const [form, setForm] = useState<Form>(() => (shop ? formOf(shop) : { ...empty, ...loadRegisterDraft<Form>(userId) }))
   const [pin, setPin] = useState<Pin | null>(() =>
-    shop ? { lat: shop.latitude, lng: shop.longitude, gps: null, from: 'saved', zoom: 18, placement: 0 } : null,
+    shop ? { lat: shop.latitude, lng: shop.longitude, gps: null, zoom: 18, placement: 0 } : null,
   )
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState<LocateError | null>(null)
@@ -146,6 +154,13 @@ export function RegisterDetails() {
    * GPS fix, a slow search) is dropped, so the last one wins and a drag is never undone.
    */
   const latest = useRef(0)
+  /** The form as last drawn, to tell whether the address from the GPS point filled anything. */
+  const formNow = useRef(form)
+  useEffect(() => {
+    formNow.current = form
+  }, [form])
+  /** The address fields were filled from the GPS point. */
+  const [filled, setFilled] = useState(false)
 
   // Nothing is on the backend before the first save: keep the typing on this phone meanwhile.
   useEffect(() => {
@@ -173,12 +188,13 @@ export function RegisterDetails() {
 
   useEffect(() => {
     if (!focusGps) return
-    document.getElementById('use-my-location')?.focus()
+    // "Use my location", or the card's heading when the guide to turn location on shows instead
+    ;(document.getElementById('use-my-location') ?? document.getElementById('salon-location'))?.focus()
     setFocusGps(false)
   }, [focusGps])
 
-  function place(lat: number, lng: number, gps: Fix | null, from: Pin['from'], zoom: number) {
-    setPin((p) => ({ lat, lng, gps, from, zoom, placement: (p?.placement ?? 0) + 1 }))
+  function place(lat: number, lng: number, gps: Fix | null, zoom: number) {
+    setPin((p) => ({ lat, lng, gps, zoom, placement: (p?.placement ?? 0) + 1 }))
   }
 
   /** The owner dragged the pin (or tapped the map): it stays there, whatever answer comes in later. */
@@ -197,14 +213,38 @@ export function RegisterDetails() {
     try {
       const fix = await locateOnce()
       if (tap !== latest.current) return
-      place(fix.lat, fix.lng, fix, 'gps', 18)
+      place(fix.lat, fix.lng, fix, 18)
       setFound(null)
       setSearchError(null)
       setAddressChanged(false)
+      setFilled(false)
+      // Only worth asking (it uses the same Google budget) while an address field is still empty
+      if (ADDRESS_FIELDS.some((k) => !formNow.current[k].trim())) void fillFromPoint(fix, tap)
     } catch (e) {
       if (tap === latest.current) setLocError(e as LocateError)
     } finally {
       setLocating(false)
+    }
+  }
+
+  /**
+   * The address at the GPS point fills the empty address fields. Quiet when it fails: the pin is what matters, and
+   * the owner can still type. Fields the owner filled meanwhile are kept, and the answer is dropped if the owner took
+   * the location again, searched the address or moved the pin since (`tap`, as for the pin).
+   */
+  async function fillFromPoint(fix: Fix, tap: number) {
+    if (addressSearchOff()) return
+    try {
+      const at = await shopApi.reverseGeocode(round6(fix.lat), round6(fix.lng))
+      if (tap !== latest.current) return
+      if (fillEmpty(formNow.current, at) === formNow.current) return
+      setForm((f) => fillEmpty(f, at))
+      setFilled(true)
+    } catch (e) {
+      if (isApiError(e, 'GEOCODING_OFF')) {
+        markAddressSearchOff()
+        setSearchHidden(true)
+      }
     }
   }
 
@@ -218,17 +258,21 @@ export function RegisterDetails() {
     setSearching(true)
     setSearchError(null)
     setNeedFields(false)
+    setFilled(false)
+    const sent = {
+      addressLine: form.addressLine.trim(),
+      area: form.area.trim(),
+      city: form.city.trim(),
+      pincode: form.pincode.trim(),
+    }
     try {
-      const at = await shopApi.geocode({
-        addressLine: form.addressLine.trim(),
-        area: form.area.trim(),
-        city: form.city.trim(),
-        pincode: form.pincode.trim(),
-      })
+      const at = await shopApi.geocode(sent)
       if (tap !== latest.current) return
-      place(at.latitude, at.longitude, null, 'address', zoomFor(at.precision))
-      setFound(at.precision)
-      setAddressChanged(false)
+      place(at.latitude, at.longitude, null, zoomFor(at.precision))
+      // Edited while the search ran: the pin is for the address as it was
+      const edited = ADDRESS_FIELDS.some((k) => formNow.current[k].trim() !== sent[k])
+      setFound(edited ? null : at.precision)
+      setAddressChanged(edited)
       setLocError(null)
     } catch (e) {
       if (tap !== latest.current) return
@@ -302,7 +346,9 @@ export function RegisterDetails() {
 
       <Card className="flex flex-col gap-3">
         <div>
-          <p className="font-semibold">Salon location</p>
+          <p id="salon-location" tabIndex={-1} className="font-semibold outline-none">
+            Salon location
+          </p>
           <p className="text-sm text-muted">
             {searchHidden
               ? 'Stand inside your salon and tap the button.'
@@ -330,6 +376,7 @@ export function RegisterDetails() {
               Fill in the address, area, city and pincode above to find it on the map.
             </p>
           )}
+          {filled && <Banner tone="info" live={false}>{FILLED_TEXT}</Banner>}
           {searchError && <Banner tone="warn" live={false}>{searchError}</Banner>}
           {found && <Banner tone={found === 'EXACT' ? 'info' : 'warn'} live={false}>{precisionHint(found)}</Banner>}
           {addressChanged && (
