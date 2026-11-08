@@ -93,9 +93,10 @@ const tones: Record<Tone, string> = {
   bad: 'border-bad/40 bg-bad/10 text-bad',
 }
 
-export function Banner({ tone = 'info', children }: { tone?: Tone; children: ReactNode }) {
+/** @param live false inside a region that already announces (aria-live), so it isn't announced twice */
+export function Banner({ tone = 'info', live = true, children }: { tone?: Tone; live?: boolean; children: ReactNode }) {
   return (
-    <div role={tone === 'bad' ? 'alert' : 'status'} className={`rounded-xl border px-4 py-3 text-sm ${tones[tone]}`}>
+    <div role={live ? (tone === 'bad' ? 'alert' : 'status') : undefined} className={`rounded-xl border px-4 py-3 text-sm ${tones[tone]}`}>
       {children}
     </div>
   )

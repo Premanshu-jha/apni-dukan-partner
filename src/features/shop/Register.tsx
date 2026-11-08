@@ -3,7 +3,7 @@ import { lazy, Suspense, useContext, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, Outlet, useNavigate } from 'react-router'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
 import { fileApi, ShopContext, shopApi, shopKeys, useMyShop, useShop } from '../../api/shop'
-import type { Shop, ShopDetailsIn } from '../../api/types'
+import type { GeocodePrecision, Shop, ShopDetailsIn } from '../../api/types'
 import { LocationGuide } from '../../components/LocationGuide'
 import { PhotoPicker } from '../../components/PhotoPicker'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
@@ -19,6 +19,7 @@ import {
 } from '../../lib/locate'
 import { forgetRegisterDraft, loadRegisterDraft, saveRegisterDraft } from '../../lib/registerDraft'
 import { useSession } from '../../store/session'
+import { ADDRESS_FIELDS, addressSearchOff, canSearchAddress, precisionHint, searchFailure, zoomFor } from './addressPin'
 import { signOutHere } from '../profile/signOut'
 
 /** The map library is big and only registration needs it: loaded when this screen shows the map. */
@@ -90,6 +91,12 @@ interface Pin {
   lng: number
   /** Where GPS put it, to tell how far it was dragged. */
   gps: Fix | null
+  /** What placed it last: GPS, the address search, or the saved draft. Dragging keeps it. */
+  from: 'gps' | 'address' | 'saved'
+  /** The map's zoom when it was placed. */
+  zoom: number
+  /** Counts placements, so the map re-centres even on the same point. */
+  placement: number
 }
 
 /** The same limits as the backend's CreateShop, so most mistakes show before sending. */
@@ -114,13 +121,31 @@ export function RegisterDetails() {
   const shop = useContext(ShopContext)
   const userId = useSession((s) => s.user?.id)
   const [form, setForm] = useState<Form>(() => (shop ? formOf(shop) : { ...empty, ...loadRegisterDraft<Form>(userId) }))
-  const [pin, setPin] = useState<Pin | null>(() => (shop ? { lat: shop.latitude, lng: shop.longitude, gps: null } : null))
+  const [pin, setPin] = useState<Pin | null>(() =>
+    shop ? { lat: shop.latitude, lng: shop.longitude, gps: null, from: 'saved', zoom: 18, placement: 0 } : null,
+  )
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState<LocateError | null>(null)
   const [blocked, setBlocked] = useState(false)
   const [touched, setTouched] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [searchHidden, setSearchHidden] = useState(addressSearchOff)
+  /** How exact the pin from the address is; null once GPS, a drag or a later edit took over. */
+  const [found, setFound] = useState<GeocodePrecision | null>(null)
+  /** The address was edited after it placed the pin. */
+  const [addressChanged, setAddressChanged] = useState(false)
+  /** "Find my salon on the map" tapped before the address was filled in. */
+  const [needFields, setNeedFields] = useState(false)
+  /** After the search was turned off, focus goes to "Use my location". */
+  const [focusGps, setFocusGps] = useState(false)
+  /**
+   * The last thing the owner did to the pin (a button tapped or the pin dragged). An answer to an older tap (a slow
+   * GPS fix, a slow search) is dropped, so the last one wins and a drag is never undone.
+   */
+  const latest = useRef(0)
 
   // Nothing is on the backend before the first save: keep the typing on this phone meanwhile.
   useEffect(() => {
@@ -132,19 +157,91 @@ export function RegisterDetails() {
   }, [locError])
 
   const problems = checkDetails(form)
-  const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value })
+  const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setForm((f) => ({ ...f, [k]: value }))
+    if ((ADDRESS_FIELDS as readonly string[]).includes(k)) {
+      setNeedFields(false)
+      setSearchError(null)
+      if (found) {
+        // The pin came from the address as it was; the owner keeps it but should search again or drag it
+        setFound(null)
+        setAddressChanged(true)
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!focusGps) return
+    document.getElementById('use-my-location')?.focus()
+    setFocusGps(false)
+  }, [focusGps])
+
+  function place(lat: number, lng: number, gps: Fix | null, from: Pin['from'], zoom: number) {
+    setPin((p) => ({ lat, lng, gps, from, zoom, placement: (p?.placement ?? 0) + 1 }))
+  }
+
+  /** The owner dragged the pin (or tapped the map): it stays there, whatever answer comes in later. */
+  function moveByHand(lat: number, lng: number) {
+    latest.current++
+    setPin((p) => (p ? { ...p, lat, lng } : p))
+    setFound(null)
+    setAddressChanged(false)
+  }
   const show = (k: keyof Form) => (touched ? problems[k] : undefined) ?? fieldError(error, k)
 
   async function locate() {
+    const tap = ++latest.current
     setLocating(true)
     setLocError(null)
     try {
       const fix = await locateOnce()
-      setPin({ lat: fix.lat, lng: fix.lng, gps: fix })
+      if (tap !== latest.current) return
+      place(fix.lat, fix.lng, fix, 'gps', 18)
+      setFound(null)
+      setSearchError(null)
+      setAddressChanged(false)
     } catch (e) {
-      setLocError(e as LocateError)
+      if (tap === latest.current) setLocError(e as LocateError)
     } finally {
       setLocating(false)
+    }
+  }
+
+  /** "Find my salon on the map": the typed address becomes the pin, to be dragged onto the door. */
+  async function searchAddress() {
+    if (!canSearchAddress(form)) {
+      setNeedFields(true)
+      return
+    }
+    const tap = ++latest.current
+    setSearching(true)
+    setSearchError(null)
+    setNeedFields(false)
+    try {
+      const at = await shopApi.geocode({
+        addressLine: form.addressLine.trim(),
+        area: form.area.trim(),
+        city: form.city.trim(),
+        pincode: form.pincode.trim(),
+      })
+      if (tap !== latest.current) return
+      place(at.latitude, at.longitude, null, 'address', zoomFor(at.precision))
+      setFound(at.precision)
+      setAddressChanged(false)
+      setLocError(null)
+    } catch (e) {
+      if (tap !== latest.current) return
+      const failure = searchFailure(e)
+      // The old "on your door" hint no longer fits; the pin itself stays for the owner to drag
+      setFound(null)
+      setAddressChanged(false)
+      if (failure.hide) {
+        setSearchHidden(true)
+        setFocusGps(true)
+      } else setSearchError(failure.text)
+    } finally {
+      setSearching(false)
     }
   }
 
@@ -207,14 +304,47 @@ export function RegisterDetails() {
         <div>
           <p className="font-semibold">Salon location</p>
           <p className="text-sm text-muted">
-            Stand inside your salon and tap the button. Customers nearby find you by this pin; our field team checks it on
-            their visit.
+            {searchHidden
+              ? 'Stand inside your salon and tap the button.'
+              : 'Stand inside your salon and tap Use my location, or find it from the address and drag the pin onto your door.'}{' '}
+            Customers nearby find you by this pin; our field team checks it on their visit.
           </p>
         </div>
-        {pin ? (
+        {!searchHidden && (
+          <Button
+            variant="secondary"
+            busy={searching}
+            disabled={locating}
+            aria-disabled={!canSearchAddress(form) || undefined}
+            className={canSearchAddress(form) ? '' : 'opacity-50'}
+            onClick={searchAddress}
+            aria-describedby={needFields ? 'address-search-needs' : undefined}
+          >
+            Find my salon on the map
+          </Button>
+        )}
+        {/* One live region for every location message, always there, so screen readers hear each change once */}
+        <div aria-live="polite" className="flex flex-col gap-2 empty:hidden">
+          {needFields && (
+            <p id="address-search-needs" className="text-sm text-muted">
+              Fill in the address, area, city and pincode above to find it on the map.
+            </p>
+          )}
+          {searchError && <Banner tone="warn" live={false}>{searchError}</Banner>}
+          {found && <Banner tone={found === 'EXACT' ? 'info' : 'warn'} live={false}>{precisionHint(found)}</Banner>}
+          {addressChanged && (
+            <Banner tone="info" live={false}>
+              You changed the address — tap Find my salon on the map again or drag the pin.
+            </Banner>
+          )}
+          {locError === 'timeout' && <Banner tone="warn" live={false}>That took too long. Turn on GPS and move near the door, then try again.</Banner>}
+          {locError === 'unavailable' && <Banner tone="warn" live={false}>Your phone couldn't find its location. Check that location is on.</Banner>}
+          {locError === 'unsupported' && <Banner tone="bad" live={false}>This browser can't share a location. Open the app in Chrome or Safari.</Banner>}
+        </div>
+        {pin && (
           <>
             <Suspense fallback={<Loading label="Loading the map…" />}>
-              <PinMap lat={pin.lat} lng={pin.lng} onMove={(lat, lng) => setPin((p) => ({ lat, lng, gps: p?.gps ?? null }))} />
+              <PinMap lat={pin.lat} lng={pin.lng} zoom={pin.zoom} placement={pin.placement} onMove={moveByHand} />
             </Suspense>
             <p className="text-sm text-muted">
               Drag the pin to your door if it's off.
@@ -225,21 +355,14 @@ export function RegisterDetails() {
               <Banner tone="warn">The phone isn't sure where it is. Go near the door or a window, then take it again.</Banner>
             )}
             {!insideIndia(pin.lat, pin.lng) && <Banner tone="bad">The pin must be in India.</Banner>}
-            <Button variant="secondary" busy={locating} onClick={locate}>
-              Take my location again
-            </Button>
           </>
-        ) : blocked || locError === 'denied' ? (
+        )}
+        {locError === 'denied' || (!pin && blocked) ? (
           <LocationGuide onRetry={locate} />
         ) : (
-          <>
-            {locError === 'timeout' && <Banner tone="warn">That took too long. Turn on GPS and move near the door, then try again.</Banner>}
-            {locError === 'unavailable' && <Banner tone="warn">Your phone couldn't find its location. Check that location is on.</Banner>}
-            {locError === 'unsupported' && <Banner tone="bad">This browser can't share a location. Open the app in Chrome or Safari.</Banner>}
-            <Button busy={locating} onClick={locate}>
-              Use my location
-            </Button>
-          </>
+          <Button id="use-my-location" variant={pin ? 'secondary' : 'primary'} busy={locating} disabled={searching} onClick={locate}>
+            {pin?.gps ? 'Take my location again' : 'Use my location'}
+          </Button>
         )}
         {touched && !pin && <p className="text-sm text-bad">Add the salon's location to continue.</p>}
       </Card>
