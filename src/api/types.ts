@@ -72,6 +72,34 @@ export interface ShopDetailsIn {
   udyamNumber: string | null
 }
 
+/** POST /shops/geocode: the typed address (registration, before the shop exists). */
+export interface GeocodeIn {
+  addressLine: string
+  area: string
+  city: string
+  pincode: string
+}
+
+/** How exact Google's pin is: on the building, on the street, or only somewhere in the area. */
+export type GeocodePrecision = 'EXACT' | 'STREET' | 'AREA'
+
+/** Where the typed address is: the pin the owner then drags onto the door. */
+export interface Located {
+  latitude: number
+  longitude: number
+  precision: GeocodePrecision
+  formattedAddress: string
+}
+
+/** POST /shops/reverse-geocode: the address at a GPS point ("" where Google gave nothing). */
+export interface Described {
+  addressLine: string
+  area: string
+  city: string
+  pincode: string
+  formattedAddress: string
+}
+
 export type FilePurpose = 'SHOP_PHOTO' | 'OWNER_PHOTO' | 'STAFF_PHOTO'
 
 export interface StoredFile {

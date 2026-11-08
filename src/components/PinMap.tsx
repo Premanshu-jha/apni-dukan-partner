@@ -13,16 +13,23 @@ const pin = L.divIcon({
 
 /**
  * A small map with one pin the owner can drag (or tap the map to move it). Calls onMove with the new point.
- * The pin starts where the phone's GPS put it.
+ * The pin starts where the phone's GPS (or the address search) put it. `zoom` is used when the pin is placed (closer
+ * for a precise point, wider for "somewhere in this area"), never when the owner moves it.
+ * @param placement changes each time the screen places the pin, so placing it again where it already is still
+ *        re-centres and re-zooms the map
  */
 export function PinMap({
   lat,
   lng,
   onMove,
+  zoom = 18,
+  placement = 0,
 }: {
   lat: number
   lng: number
   onMove: (lat: number, lng: number) => void
+  zoom?: number
+  placement?: number
 }) {
   const box = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
@@ -34,7 +41,7 @@ export function PinMap({
 
   useEffect(() => {
     if (!box.current || map.current) return
-    const m = L.map(box.current, { zoomControl: true, attributionControl: true }).setView([lat, lng], 18)
+    const m = L.map(box.current, { zoomControl: true, attributionControl: true }).setView([lat, lng], zoom)
     L.tileLayer(TILES, { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(m)
     const mk = L.marker([lat, lng], { draggable: true, icon: pin, keyboard: true, title: 'Salon location' }).addTo(m)
     mk.on('dragend', () => {
@@ -56,12 +63,21 @@ export function PinMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const placed = useRef(placement)
   useEffect(() => {
     const p = marker.current?.getLatLng()
-    if (!p || (p.lat === lat && p.lng === lng)) return
-    marker.current?.setLatLng([lat, lng])
-    map.current?.setView([lat, lng])
-  }, [lat, lng])
+    if (!p) return
+    const newPlacement = placed.current !== placement
+    placed.current = placement
+    if (newPlacement) {
+      marker.current?.setLatLng([lat, lng])
+      map.current?.setView([lat, lng], zoom)
+    } else if (p.lat !== lat || p.lng !== lng) {
+      // Moved by the screen without a new placement: follow, keeping the owner's zoom
+      marker.current?.setLatLng([lat, lng])
+      map.current?.setView([lat, lng])
+    }
+  }, [lat, lng, zoom, placement])
 
   return (
     <div

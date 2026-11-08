@@ -119,7 +119,7 @@ sequenceDiagram
   participant O as Owner's phone
   participant A as Partner app
   participant B as Backend
-  O->>A: Details and "Use my location" (GPS, drag the pin)
+  O->>A: Details, then "Use my location" (GPS; empty address fields filled from POST /shops/reverse-geocode) or "Find my salon on the map" (POST /shops/geocode), drag the pin
   A->>B: POST /shops (type SALON)
   B-->>A: 201 DRAFT
   A->>B: POST /auth/refresh (the new token carries the shop)
@@ -323,6 +323,26 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 (set `shops.status` to `APPROVED`).
 
 ## Changelog
+
+### 0.6.0 — 2026-11-08
+
+- Registration step 1: **Find my salon on the map**. An owner who isn't standing in the salon fills in the address and
+  taps it; the backend (`POST /shops/geocode`, Google's Geocoding API) answers where it is and the pin drops there, to
+  be dragged onto the door. "This is only close by…" when Google only knows the street or area, "Check the pin is on
+  your door." when it found the building. The button needs the address, area, city and pincode first. "Use my
+  location" (GPS) works as before; the last button tapped sets the pin (a slow answer to an earlier tap is dropped,
+  and nothing moves a pin the owner dragged). The map starts closer the more exact the pin (18 for the building or
+  GPS, 17 for the street, 15 for the area). Editing the address afterwards says to search again or drag the pin. If
+  the backend has address search turned off (503 `GEOCODING_OFF`), the button is hidden for the visit and focus
+  moves to "Use my location"; not found, too many searches (429 `TRY_LATER`), Google down, a busy backend and no
+  network each get a plain message pointing to "Use my location". All location messages come from one polite live
+  region; the button is `aria-disabled` (not `disabled`) until the address is filled in, so tapping it says what's
+  missing. A GPS failure while a pin is on the map now shows its message (or the guide to turn location on).
+  Scenarios 197–206.
+- After "Use my location", the address is filled from the GPS point (`POST /shops/reverse-geocode`): only fields
+  still empty when the answer arrives, never what the owner typed, with "We filled the address from your location.
+  Check it and correct anything that's wrong." Failures are silent (the GPS pin is what matters); not looked up after
+  the address search or a drag. Scenarios 207–212.
 
 ### 0.5.0 — 2026-11-07
 
