@@ -54,6 +54,8 @@ export interface Shop {
   myRole: ShopRole
   ownerPhotoFileId: string | null
   shopPhotoFileId: string | null
+  /** The salon video (needed before Submit for visit); the owner's view only, null for helpers and barbers. */
+  shopVideoFileId?: string | null
   version: number
   createdAt: string
   updatedAt: string
@@ -100,7 +102,19 @@ export interface Described {
   formattedAddress: string
 }
 
-export type FilePurpose = 'SHOP_PHOTO' | 'OWNER_PHOTO' | 'STAFF_PHOTO'
+export type FilePurpose = 'SHOP_PHOTO' | 'OWNER_PHOTO' | 'STAFF_PHOTO' | 'SHOP_VIDEO'
+
+/** POST /files/video-uploads: where the phone sends the salon video itself (a one-time R2 link). */
+export interface VideoUploadLink {
+  uploadId: string
+  /** PUT the file here with exactly this Content-Type; valid until expiresAt (15 minutes). */
+  uploadUrl: string
+  contentType: string
+  sizeBytes: number
+  /** By the server's clock; the phone counts expiresInSeconds from when the answer arrived instead. */
+  expiresAt: string
+  expiresInSeconds?: number
+}
 
 export interface StoredFile {
   id: string
