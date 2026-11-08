@@ -6,6 +6,8 @@ import { fileApi, ShopContext, shopApi, shopKeys, useMyShop, useShop } from '../
 import type { GeocodePrecision, Shop, ShopDetailsIn } from '../../api/types'
 import { LocationGuide } from '../../components/LocationGuide'
 import { PhotoPicker } from '../../components/PhotoPicker'
+import { readyForVisit } from '../../lib/salonVideo'
+import { SalonVideo } from './SalonVideo'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
 import {
   insideIndia,
@@ -452,7 +454,7 @@ function DraftExits({ name }: { name: string }) {
   )
 }
 
-/** Step 2: the owner's photo (for the field team) and the shop front (customers see it). */
+/** Step 2: the owner's photo (for the field team), the shop front (customers see it) and the salon video (field team). */
 export function RegisterPhotos() {
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -487,9 +489,37 @@ export function RegisterPhotos() {
     }
   }
 
-  const done = Boolean(shop.ownerPhotoFileId && shop.shopPhotoFileId)
+  /**
+   * Sets the salon video on the shop, after any photo save still under way (each needs the version the last left).
+   * Someone else saved the shop meanwhile (409 SHOP_CHANGED): the shop is read again and the save tried once more;
+   * a second refusal goes to the card, which says to reload.
+   */
+  function setVideo(fileId: string, signal: AbortSignal) {
+    const attempt = async () => {
+      // Left the page meanwhile (the card is gone): nothing more is saved
+      if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+      const latest = qc.getQueryData<Shop>(shopKeys.mine) ?? shop
+      qc.setQueryData(shopKeys.mine, await shopApi.setVideo(latest.version, fileId))
+    }
+    const run = queue.current
+      .catch(() => undefined)
+      .then(async () => {
+        try {
+          await attempt()
+        } catch (e) {
+          if (!isApiError(e, 'SHOP_CHANGED')) throw e
+          await qc.refetchQueries({ queryKey: shopKeys.mine, exact: true })
+          await attempt()
+        }
+      })
+    queue.current = run
+    return run
+  }
+
+  const [videoBusy, setVideoBusy] = useState(false)
+  const done = readyForVisit(shop)
   return (
-    <Page back="/register" title="Photos">
+    <Page back="/register" title="Photos and video" leaveWarning={videoBusy ? LEAVE_DURING_UPLOAD : null}>
       <Steps at={2} />
       <PhotoPicker
         label="Your photo"
@@ -505,13 +535,16 @@ export function RegisterPhotos() {
         fileId={shop.shopPhotoFileId}
         upload={(p) => setPhoto('SHOP_PHOTO', p)}
       />
-      <Button disabled={!done} onClick={() => navigate('/register/review')}>
+      <SalonVideo fileId={shop.shopVideoFileId ?? null} save={setVideo} onBusy={setVideoBusy} />
+      <Button disabled={!done || videoBusy} onClick={() => navigate('/register/review')}>
         Continue
       </Button>
-      {!done && <p className="text-center text-sm text-muted">Both photos are needed.</p>}
+      {!done && <p className="text-center text-sm text-muted">Both photos and the salon video are needed.</p>}
     </Page>
   )
 }
+
+const LEAVE_DURING_UPLOAD = 'The salon video is still uploading. Leave anyway? It will have to be sent again.'
 
 /** Step 3: check everything and ask for the field team's visit. */
 export function RegisterReview() {
@@ -520,7 +553,9 @@ export function RegisterReview() {
   const shop = useShop()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const ready = Boolean(shop.ownerPhotoFileId && shop.shopPhotoFileId)
+  const photos = Boolean(shop.ownerPhotoFileId && shop.shopPhotoFileId)
+  const video = Boolean(shop.shopVideoFileId)
+  const ready = readyForVisit(shop)
 
   async function submit() {
     setBusy(true)
@@ -554,9 +589,15 @@ export function RegisterReview() {
         </Link>
       </Card>
       <Card className="flex items-center justify-between">
-        <span>Photos: {ready ? 'both added' : 'missing'}</span>
+        <span>Photos: {photos ? 'both added' : 'missing'}</span>
         <Link to="/register/photos" className="text-sm text-link underline">
-          {ready ? 'Change' : 'Add'}
+          {photos ? 'Change' : 'Add'}
+        </Link>
+      </Card>
+      <Card className="flex items-center justify-between">
+        <span>Salon video: {video ? 'added' : 'missing'}</span>
+        <Link to="/register/photos" className="text-sm text-link underline">
+          {video ? 'Change' : 'Add'}
         </Link>
       </Card>
       <p className="text-sm text-muted">
