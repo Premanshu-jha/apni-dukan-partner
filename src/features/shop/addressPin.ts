@@ -1,5 +1,5 @@
 import { ApiError } from '../../api/errors'
-import type { GeocodeIn, GeocodePrecision } from '../../api/types'
+import type { Described, GeocodeIn, GeocodePrecision } from '../../api/types'
 
 /**
  * "Find my salon on the map" (registration step 1): the typed address becomes a pin through POST /shops/geocode,
@@ -35,6 +35,11 @@ export function addressSearchOff(): boolean {
   return searchOff
 }
 
+/** The backend said address search is off: remember it for the visit. */
+export function markAddressSearchOff(): void {
+  searchOff = true
+}
+
 /** For tests only. */
 export function resetAddressSearch(): void {
   searchOff = false
@@ -63,3 +68,19 @@ export function searchFailure(e: unknown): { hide: true } | { hide: false; text:
   // GEOCODING_UNAVAILABLE, SERVICE_BUSY, offline, anything else
   return { hide: false, text: "Address search isn't working right now. Use your location, or try again later." }
 }
+
+/**
+ * After "Use my location": the address at the GPS point fills only the fields still empty (never what the owner
+ * typed, even if they typed it while the answer was on its way). Returns the same object when nothing changes.
+ */
+export function fillEmpty<F extends GeocodeIn>(form: F, at: Described): F {
+  let next = form
+  for (const k of ADDRESS_FIELDS) {
+    const value = (at[k] ?? '').trim()
+    if (k === 'pincode' && !/^[1-9]\d{5}$/.test(value)) continue
+    if (!form[k].trim() && value) next = { ...next, [k]: value }
+  }
+  return next
+}
+
+export const FILLED_TEXT = "We filled the address from your location. Check it and correct anything that's wrong."
