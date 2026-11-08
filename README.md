@@ -119,7 +119,7 @@ sequenceDiagram
   participant O as Owner's phone
   participant A as Partner app
   participant B as Backend
-  O->>A: Details, then "Use my location" (GPS) or "Find my salon on the map" (POST /shops/geocode), drag the pin
+  O->>A: Details, then "Use my location" (GPS; empty address fields filled from POST /shops/reverse-geocode) or "Find my salon on the map" (POST /shops/geocode), drag the pin
   A->>B: POST /shops (type SALON)
   B-->>A: 201 DRAFT
   A->>B: POST /auth/refresh (the new token carries the shop)
@@ -339,6 +339,10 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
   region; the button is `aria-disabled` (not `disabled`) until the address is filled in, so tapping it says what's
   missing. A GPS failure while a pin is on the map now shows its message (or the guide to turn location on).
   Scenarios 197–206.
+- After "Use my location", the address is filled from the GPS point (`POST /shops/reverse-geocode`): only fields
+  still empty when the answer arrives, never what the owner typed, with "We filled the address from your location.
+  Check it and correct anything that's wrong." Failures are silent (the GPS pin is what matters); not looked up after
+  the address search or a drag. Scenarios 207–212.
 
 ### 0.5.0 — 2026-11-07
 
