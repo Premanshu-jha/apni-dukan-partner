@@ -6,12 +6,14 @@ import { isApiError } from './errors'
 import type {
   FileLink,
   FilePurpose,
+  GeocodeIn,
   HandoverRequested,
   HandoverView,
   IncomingHandover,
   IncomingInvite,
   InviteResult,
   InviteView,
+  Located,
   Shop,
   ShopDetailsIn,
   ShopMember,
@@ -93,6 +95,8 @@ export const shopApi = {
     await refreshSession()
     return shop
   },
+  /** Where a typed address is (registration step 1, "Find my salon on the map"). */
+  geocode: (address: GeocodeIn) => api<Located>('POST', `${S}/geocode`, { body: address }),
   update: (version: number, details: Partial<ShopDetailsIn>) =>
     api<Shop>('PATCH', `${S}/me`, { body: { version, ...details } }),
   setPhotos: (version: number, photos: { ownerPhotoFileId?: string; shopPhotoFileId?: string }) =>
