@@ -127,6 +127,11 @@ export class MockApi {
   myStaffId: string | null = null
   /** This person may add walk-ins (owner always). */
   walkIns = true
+  /**
+   * POST /shops/geocode (AddressLocator): where the typed address is, null for ADDRESS_NOT_FOUND, or 'off' for
+   * GEOCODING_OFF (no Google key on the backend).
+   */
+  geocode: Json | null | 'off' = { latitude: 28.6215, longitude: 77.3652, precision: 'STREET', formattedAddress: 'Ithum Tower, Sector 62, Noida, Uttar Pradesh 201309, India' }
   /** Next answer of an action, by path suffix: a code + status, once. */
   failOnce = new Map<string, { status: number; code: string; message: string; details?: Json; retryAfter?: number }>()
   /** How many next-page requests of the upcoming list or the history fail with 500 (the pages shown must stay). */
@@ -509,6 +514,18 @@ export class MockApi {
         this.role = this.shop.myRole as Role
       }
       return this.shop ? ok(200, this.shop) : fail(404, 'NO_SHOP', 'You have no shop yet.')
+    }
+    if (p === '/shops/geocode' && method === 'POST') {
+      // The same checks as ShopRequests.Geocode, then AddressLocator's answers
+      const bad: Json = {}
+      if (typeof body.addressLine !== 'string' || body.addressLine.trim().length < 5) bad.addressLine = 'size must be between 5 and 200'
+      if (typeof body.area !== 'string' || body.area.trim().length < 2) bad.area = 'size must be between 2 and 100'
+      if (typeof body.city !== 'string' || body.city.trim().length < 2) bad.city = 'size must be between 2 and 60'
+      if (!/^[1-9]\d{5}$/.test(body.pincode ?? '')) bad.pincode = 'must be a 6-digit pincode'
+      if (Object.keys(bad).length) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', bad)
+      if (this.geocode === 'off') return fail(503, 'GEOCODING_OFF', "Address search isn't available. Use your location.")
+      if (!this.geocode) return fail(404, 'ADDRESS_NOT_FOUND', "Couldn't find that address. Check the pincode and area, or use your location.")
+      return ok(200, this.geocode)
     }
     if (p === '/shops' && method === 'POST') {
       if (this.shop) return fail(409, 'ALREADY_HAS_SHOP', 'You already have a shop.')
