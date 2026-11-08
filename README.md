@@ -119,6 +119,7 @@ sequenceDiagram
   participant O as Owner's phone
   participant A as Partner app
   participant B as Backend
+  participant R2 as Cloudflare R2
   O->>A: Details, then "Use my location" (GPS; empty address fields filled from POST /shops/reverse-geocode) or "Find my salon on the map" (POST /shops/geocode), drag the pin
   A->>B: POST /shops (type SALON)
   B-->>A: 201 DRAFT
@@ -126,6 +127,11 @@ sequenceDiagram
   O->>A: Owner photo, shop front (shrunk on the phone)
   A->>B: POST /files?purpose=OWNER_PHOTO, SHOP_PHOTO
   A->>B: PUT /shops/me/photos (version)
+  O->>A: Salon video (15–45 s, up to 100 MB; length checked on the phone)
+  A->>B: POST /files/video-uploads {sizeBytes, contentType, durationSeconds}
+  B-->>A: 201 one-time R2 link (15 min)
+  A->>R2: PUT the file straight to R2 (progress bar, Cancel, Try again on the same link)
+  A->>B: POST /files/video-uploads/{id}/complete, then PUT /shops/me/video (version)
   O->>A: Submit
   A->>B: POST /shops/me/submit (version)
   B-->>A: PENDING_VISIT
@@ -289,7 +295,8 @@ Railway (a service that builds from `main`). `railway.json` picks Railpack, whic
 default: every address that isn't a file gets `index.html` (single-page app), `/health` answers 200, and every answer
 carries the security headers. Keep the service's Start Command empty in Railway's settings: a start command turns
 Caddy (and the headers) off. Set `VITE_API_URL`, `VITE_TURNSTILE_SITE_KEY` and optionally `VITE_MAP_TILES` as the
-service's variables (they are read at build time), optionally `PHOTO_ORIGIN` (default
+service's variables (they are read at build time), `PHOTO_ORIGIN` (in production the account's exact
+`https://<account>.r2.cloudflarestorage.com`, so the policy names only your R2 address; default
 `https://*.r2.cloudflarestorage.com`, where signed photo links point). Then add the site's address to the backend's
 `CORS_ALLOWED_ORIGINS`.
 
@@ -300,7 +307,7 @@ service's variables (they are read at build time), optionally `PHOTO_ORIGIN` (de
 
 | Header | Value |
 | --- | --- |
-| `Content-Security-Policy` | `default-src 'self'`; scripts from the site (plus `https://challenges.cloudflare.com` when the Turnstile key is set, also its frame); API calls (and photo uploads) only to `VITE_API_URL`; images from the site, `data:`, `blob:` (a photo just taken), `PHOTO_ORIGIN` and the map tiles' server; styles allow inline (the map pin, the Turnstile widget); no plugins; `frame-ancestors 'none'` |
+| `Content-Security-Policy` | `default-src 'self'`; scripts from the site (plus `https://challenges.cloudflare.com` when the Turnstile key is set, also its frame); API calls (and photo uploads) only to `VITE_API_URL`, and the salon video's upload to R2 (`PHOTO_ORIGIN`); video playback (`media-src`) from the site, `blob:` and `PHOTO_ORIGIN`; images from the site, `data:`, `blob:` (a photo just taken), `PHOTO_ORIGIN` and the map tiles' server; styles allow inline (the map pin, the Turnstile widget); no plugins; `frame-ancestors 'none'` |
 | `Strict-Transport-Security` | `max-age=63072000; includeSubDomains` |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` |
 | `X-Content-Type-Options` | `nosniff` |
@@ -323,6 +330,35 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 (set `shops.status` to `APPROVED`).
 
 ## Changelog
+
+### 0.7.0 — 2026-11-08
+
+- Registration step 2: **Salon video**, needed before Submit (15–45 seconds, up to 100 MB, MP4/MOV/WebM). The card
+  says how to film it (phone sideways and 1080p (HD) rather than 4K; start outside at the board; walk in and turn
+  slowly left to right; lights on; avoid customers' faces), with **Record video** (the phone's camera) and **Choose
+  from gallery**, real buttons that open the file pickers. The phone checks the size and length first, by the
+  backend's rule (the rounded length 14–46 s), and refuses a clip too short, too long or too big without sending
+  anything; if it can't read the length it says so and offers **Upload anyway** (sent without a length). Then it asks
+  the backend for a one-time link (`POST /files/video-uploads`) and sends the file **straight to Cloudflare R2** with
+  a progress bar and **Cancel**; a send with no progress for 60 seconds counts as a dropped connection.
+- **Try again** goes on from the step that failed: a file that arrived isn't sent again, a completed upload isn't
+  completed again. The link is kept after R2's own trouble (5xx) and a first dropped connection, and replaced after
+  a 403, a second drop or when less than a minute is left (counted from when the link arrived, so the phone's clock
+  doesn't matter); an upload the backend no longer knows starts afresh. If someone saved the salon meanwhile, the
+  save is tried once more by itself, then the card says to reload.
+- While the video uploads, Continue is disabled, the back button and any link inside the app ask first (a link's
+  click is caught: the app's router can't hold a route change) and closing the page asks too. Leaving while it is
+  being saved stops the save: nothing is set on the salon afterwards. A completed video that expired before it was
+  saved (409 `UPLOAD_GONE`) says "This video expired. Upload it again." and Try again starts afresh.
+- Afterwards a small player shows it with **Replace video** ("Keep the current video" goes back and clears any
+  error). Its link is read again every 4 minutes, but the player keeps the one it loaded; one that can't play gets a
+  fresh link once, then "Couldn't play the video. Reload the page.". Progress, checking and saving are told to
+  screen readers. The review step shows "Salon video: added / missing" and Submit waits for it.
+- Security headers: `connect-src` adds R2 (the upload) and a new `media-src` allows playing it. **In production set
+  `PHOTO_ORIGIN` to the account's exact `https://<account>.r2.cloudflarestorage.com`**: it then replaces the
+  wildcard `https://*.r2.cloudflarestorage.com` everywhere (a unit test checks it).
+- The app can't replace the video of a live salon (the card is only in registration).
+- **Needs the backend's salon video (deploy it first) and the R2 bucket's CORS rule for this app's address.**
 
 ### 0.6.0 — 2026-11-08
 
