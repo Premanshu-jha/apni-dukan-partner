@@ -50,3 +50,39 @@ export const JPEG = Buffer.from(
   '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
   'base64',
 )
+
+/**
+ * The browser reads a picked video's length from its file; the tests' videos are only a header, so the length is
+ * stubbed: any video given a blob: address reports `seconds` (window.__videoSeconds, changeable mid-test).
+ */
+export async function stubVideoLength(context: BrowserContext, seconds = 30) {
+  await context.addInitScript((s) => {
+    const w = window as unknown as { __videoSeconds: number }
+    w.__videoSeconds = s
+    const src = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src')!
+    Object.defineProperty(HTMLMediaElement.prototype, 'src', {
+      configurable: true,
+      get() {
+        return src.get!.call(this)
+      },
+      set(value: string) {
+        if (typeof value === 'string' && value.startsWith('blob:')) {
+          Object.defineProperty(this, 'duration', { configurable: true, get: () => w.__videoSeconds })
+          // NaN: a file whose length can't be read (the browser gives up with an error)
+          const event = Number.isNaN(w.__videoSeconds) ? 'error' : 'loadedmetadata'
+          setTimeout(() => (this as HTMLMediaElement).dispatchEvent(new Event(event)), 0)
+          return
+        }
+        src.set!.call(this, value)
+      },
+    })
+  }, seconds)
+}
+
+/** A video file's first bytes as a phone's MP4 starts (an "ftyp" box); the rest doesn't matter to the tests. */
+export function fakeMp4(size = 4096): Buffer {
+  const bytes = Buffer.alloc(size, 7)
+  bytes.writeUInt32BE(0x20, 0)
+  bytes.write('ftypisom', 4, 'latin1')
+  return bytes
+}

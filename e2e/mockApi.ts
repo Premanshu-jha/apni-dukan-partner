@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import type { BrowserContext, Route } from '@playwright/test'
 
 /**
@@ -18,6 +20,8 @@ function matches(ifNoneMatch: string | undefined, etag: string): boolean {
   if (!ifNoneMatch) return false
   return ifNoneMatch.split(',').some((t) => t.trim() === '*' || t.trim().replace(/^W\//, '') === etag)
 }
+/** A real 20-second video (64×64, VP9 in MP4), played back as the salon video. */
+const VIDEO = readFileSync(resolve('e2e/fixtures/salon-20s.mp4'))
 const IST = 5.5 * 3600_000
 const P = '/api/v1'
 
@@ -141,6 +145,20 @@ export class MockApi {
   geocodeDelay = 0
   /** Milliseconds before answering a reverse lookup (a slow answer). */
   reverseDelay = 0
+  /** Salon video upload links given (VideoUploadService), by id: what was asked, and whether it completed. */
+  videoUploads = new Map<string, { sizeBytes: number; contentType: string; fileId: string | null; createdAt: number }>()
+  /** What the fake R2 holds, by upload id: the bytes' length and first bytes. */
+  r2 = new Map<string, { size: number; head: Buffer }>()
+  /** The next PUTs to R2 drop as with no network, this many times. */
+  r2DropNext = 0
+  /** Milliseconds before R2 answers a PUT (a slow upload, to cancel it). */
+  r2Delay = 0
+  /** The next PUTs to R2 are answered with this status (R2's own trouble: 503), this many times. */
+  r2Fail = { status: 503, times: 0 }
+  /** The saved salon video's link answers 404 (a link that ran out), so the player can't play it. */
+  videoBroken = false
+  /** The next setVideo saves answer 409 SHOP_CHANGED (someone saved the shop meanwhile), this many times. */
+  shopChangedOnVideo = 0
   /** Next answer of an action, by path suffix: a code + status, once. */
   failOnce = new Map<string, { status: number; code: string; message: string; details?: Json; retryAfter?: number }>()
   /** How many next-page requests of the upcoming list or the history fail with 500 (the pages shown must stay). */
@@ -241,6 +259,7 @@ export class MockApi {
       myRole: 'OWNER',
       ownerPhotoFileId: 'f-owner',
       shopPhotoFileId: 'f-shop',
+      shopVideoFileId: 'fv-video',
       version: 3,
       createdAt: '2026-11-01T00:00:00Z',
       updatedAt: '2026-11-01T00:00:00Z',
@@ -446,6 +465,35 @@ export class MockApi {
     const fail = (status: number, code: string, message: string, details: Json = {}) => ok(status, { code, message, details })
 
     if (p.startsWith('/tiles/')) return route.fulfill({ status: 404, body: '' })
+    // The saved salon video's (fake R2) link: a real little video, or 404 when it "ran out"
+    if (p === '/video.mp4') {
+      if (this.videoBroken) return route.fulfill({ status: 404, headers: this.cors(), body: '' })
+      return route.fulfill({ status: 200, headers: { ...this.cors(), 'Content-Type': 'video/mp4' }, body: VIDEO })
+    }
+
+    // ---------- the fake R2 (the salon video's PUT goes here, straight from the phone) ----------
+    if (p.startsWith('/__r2/')) {
+      const id = p.split('/').pop()!.split('.')[0]
+      const upload = this.videoUploads.get(id)
+      if (method !== 'PUT' || !upload) return route.fulfill({ status: 403, headers: this.cors(), body: '<Error>SignatureDoesNotMatch</Error>' })
+      if (this.r2Delay) await new Promise((r) => setTimeout(r, this.r2Delay))
+      if (this.r2DropNext > 0) {
+        this.r2DropNext--
+        return route.abort('connectionreset')
+      }
+      if (this.r2Fail.times > 0) {
+        this.r2Fail.times--
+        return route.fulfill({ status: this.r2Fail.status, headers: this.cors(), body: '<Error>InternalError</Error>' })
+      }
+      // The link was signed for this type (R2 refuses another)
+      if (contentType !== upload.contentType) return route.fulfill({ status: 403, headers: this.cors(), body: '<Error>SignatureDoesNotMatch</Error>' })
+      const bytes = req.postDataBuffer()
+      if (bytes && bytes.length > 0) this.r2.set(id, { size: bytes.length, head: bytes.subarray(0, 64) })
+      // A file picked from disk is sent from the file itself, and Chromium doesn't show such a body to the test:
+      // taken as arrived whole (its first bytes as an MP4's)
+      else this.r2.set(id, { size: upload.sizeBytes, head: Buffer.from('\0\0\0\x20ftypisom', 'latin1') })
+      return route.fulfill({ status: 200, headers: { ...this.cors(), ETag: '"r2"' }, body: '' })
+    }
 
     // ---------- sign-in (public) ----------
     // OtpService: past the all-network numbers, a network that never signed this number in waits (429 TRY_LATER)
@@ -553,7 +601,7 @@ export class MockApi {
       if (!this.user.emailVerified || !this.user.name) return fail(403, 'PROFILE_INCOMPLETE', 'Add your email and name first.')
       if (!/^[1-9]\d{5}$/.test(body.pincode)) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { pincode: 'must be a 6-digit pincode' })
       this.role = 'OWNER'
-      this.shop = MockApi.shopOf({ ...body, status: 'DRAFT', myRole: 'OWNER', type: body.type ?? 'KIRANA', ownerPhotoFileId: null, shopPhotoFileId: null, version: 0 })
+      this.shop = MockApi.shopOf({ ...body, status: 'DRAFT', myRole: 'OWNER', type: body.type ?? 'KIRANA', ownerPhotoFileId: null, shopPhotoFileId: null, shopVideoFileId: null, version: 0 })
       return ok(201, this.shop)
     }
     if (p === '/shops/me' && method === 'PATCH') {
@@ -574,9 +622,29 @@ export class MockApi {
       }
       return ok(200, this.shop)
     }
+    if (p === '/shops/me/video' && method === 'PUT') {
+      if (!this.shop || this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can change these details.')
+      if (this.shop.type !== 'SALON') return fail(409, 'NOT_A_SALON', 'The salon video is only for salons.')
+      if (this.shopChangedOnVideo > 0) {
+        // Someone else saved the shop just now: its version moved on
+        this.shopChangedOnVideo--
+        this.shop = { ...this.shop, version: (this.shop.version as number) + 1 }
+      }
+      if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
+      const f = this.files.find((x) => x.id === body.fileId && x.purpose === 'SHOP_VIDEO')
+      if (!f) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { fileId: 'must be a video uploaded with POST /files/video-uploads' })
+      this.shop = { ...this.shop, shopVideoFileId: f.id, version: (this.shop.version as number) + 1 }
+      return ok(200, this.shop)
+    }
     if (p === '/shops/me/submit') {
       if (!this.shop) return fail(404, 'NO_SHOP', 'You have no shop yet.')
-      if (!this.shop.ownerPhotoFileId || !this.shop.shopPhotoFileId) return fail(409, 'PHOTOS_REQUIRED', 'Add both photos first.')
+      if (!this.shop.ownerPhotoFileId || !this.shop.shopPhotoFileId || (this.shop.type === 'SALON' && !this.shop.shopVideoFileId)) {
+        const missing: Json = {}
+        if (!this.shop.ownerPhotoFileId) missing.ownerPhotoFileId = "add the owner's photo"
+        if (!this.shop.shopPhotoFileId) missing.shopPhotoFileId = 'add a photo of the shop'
+        if (this.shop.type === 'SALON' && !this.shop.shopVideoFileId) missing.shopVideoFileId = 'add a short video of the salon'
+        return fail(409, 'PHOTOS_REQUIRED', "Add the owner's photo, a photo of the shop and a short video of the salon first.", missing)
+      }
       if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
       this.shop = { ...this.shop, status: 'PENDING_VISIT', statusReason: null, version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
@@ -738,13 +806,63 @@ export class MockApi {
       this.staleFileTokenOnce = false
       return fail(403, 'SHOP_REQUIRED', 'Register or join a shop first.')
     }
+    // ---------- the salon video (VideoUploadService): a one-time link, the PUT to R2, then complete ----------
+    if (p === '/files/video-uploads' && method === 'POST') {
+      if (this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can add the salon video.')
+      const type = String(body?.contentType ?? '').split(';')[0].trim().toLowerCase()
+      if (!['video/mp4', 'video/quicktime', 'video/webm'].includes(type)) return fail(400, 'UNSUPPORTED_FILE_TYPE', 'The video must be MP4, MOV or WebM')
+      if (body.sizeBytes > 100 * 1024 * 1024) return fail(413, 'FILE_TOO_LARGE', 'A video can be at most 100 MB')
+      if (this.shop?.type !== 'SALON') return fail(409, 'NOT_A_SALON', 'The salon video is only for salons.')
+      // durationSeconds may be null (the phone couldn't read it): then only the size counts
+      if (body.durationSeconds !== null && (body.durationSeconds < 14 || body.durationSeconds > 46)) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { durationSeconds: 'must be 15 to 45 seconds' })
+      if (this.videoUploads.size >= 5) return fail(429, 'TOO_MANY_UPLOADS', 'This shop started 5 video uploads today. Try again tomorrow.')
+      const id = `vu${++this.n}`
+      this.videoUploads.set(id, { sizeBytes: body.sizeBytes, contentType: type, fileId: null, createdAt: Date.now() })
+      const ext = type === 'video/quicktime' ? 'mov' : type.split('/')[1]
+      return ok(201, {
+        uploadId: id,
+        uploadUrl: `${API}/__r2/apni-dukan/shops/shop1/videos/${id}.${ext}?X-Amz-Signature=fake`,
+        contentType: type,
+        sizeBytes: body.sizeBytes,
+        expiresAt: minutesFromNow(15),
+        expiresInSeconds: 900,
+      })
+    }
+    const completing = p.match(/^\/files\/video-uploads\/([^/]+)\/complete$/)
+    if (completing && method === 'POST') {
+      if (this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can add the salon video.')
+      const id = completing[1]
+      const upload = this.videoUploads.get(id)
+      if (!upload) return fail(404, 'UPLOAD_NOT_FOUND', 'No such upload')
+      if (upload.fileId) return ok(200, this.files.find((x) => x.id === upload.fileId))
+      const stored = this.r2.get(id)
+      if (!stored) return fail(409, 'UPLOAD_NOT_FINISHED', "The video hasn't arrived yet. Send it again.")
+      const ftyp = stored.head.subarray(4, 8).toString('latin1') === 'ftyp'
+      const ebml = stored.head.length >= 4 && stored.head.readUInt32BE(0) === 0x1a45dfa3
+      if (stored.size !== upload.sizeBytes) {
+        this.r2.delete(id)
+        return fail(400, 'UPLOAD_SIZE_MISMATCH', "The video that arrived isn't the one described. Send it again.")
+      }
+      if (upload.contentType === 'video/webm' ? !ebml : !ftyp) {
+        this.r2.delete(id)
+        return fail(400, 'UNSUPPORTED_FILE_TYPE', "That file isn't a video.")
+      }
+      const f = { id: `fv${++this.n}`, purpose: 'SHOP_VIDEO', contentType: upload.contentType, sizeBytes: upload.sizeBytes, originalName: null, createdAt: new Date().toISOString(), duplicate: false }
+      this.files.push(f)
+      upload.fileId = f.id
+      return ok(201, f)
+    }
     if (p === '/files' && method === 'POST') {
       if (!contentType?.startsWith('multipart/form-data')) return fail(400, 'VALIDATION_FAILED', 'Send a file.')
       const f = { id: `f${++this.n}`, purpose: url.searchParams.get('purpose'), contentType: 'image/jpeg', sizeBytes: 1000, originalName: 'x.jpg', createdAt: new Date().toISOString(), duplicate: false }
       this.files.push(f)
       return ok(201, f)
     }
-    if (/^\/files\/[^/]+\/link$/.test(p)) return ok(200, { url: `${API}/blob.png`, expiresAt: minutesFromNow(5) })
+    if (/^\/files\/[^/]+\/link$/.test(p)) {
+      // A video plays from its own (fake R2) link; photos show the same little image
+      const video = p.split('/')[2].startsWith('fv')
+      return ok(200, { url: video ? `${API}/video.mp4` : `${API}/blob.png`, expiresAt: minutesFromNow(5) })
+    }
 
     // ---------- the salon: every call needs a salon ----------
     if (p.startsWith('/salon')) {
