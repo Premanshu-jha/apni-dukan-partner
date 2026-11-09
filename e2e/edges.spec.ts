@@ -26,10 +26,10 @@ test('five wrong start codes lock the code; the owner starts it anyway once the 
   await expect(sheet.getByText('Started without a code.')).toBeVisible()
 })
 
-test('after the 15-minute hold there is no Start, only No-show', async ({ page, context, api }) => {
+test('after the 10-minute hold there is no Start, only No-show', async ({ page, context, api }) => {
   await signedIn(context, api)
   api.approvedSalon()
-  api.addBooking({ startsAt: minutesFromNow(-16) })
+  api.addBooking({ startsAt: minutesFromNow(-11) })
   await page.goto('/salon/day')
   await page.getByText('Riya Sharma').click()
   await expect(page.getByRole('dialog').getByRole('button', { name: 'Start' })).toBeHidden()

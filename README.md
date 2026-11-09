@@ -145,7 +145,7 @@ flowchart LR
   C["CONFIRMED"] -- "Start with the customer's code, from 15 min before" --> I["IN_SERVICE"]
   C -- "Start without code (owner or helper)" --> I
   I -- "its time is over (automatic)" --> D["COMPLETED"]
-  C -- "No-show, from 15 min after the start (or automatic)" --> N["NO_SHOW"]
+  C -- "No-show, from 10 min after the start (or automatic)" --> N["NO_SHOW"]
   N -- "Undo within 24 h (owner or helper)" --> C
   C -- "Cancel with a reason (owner or helper)" --> X["CANCELLED_BY_SALON"]
   C -- "Give to another barber" --> C
@@ -330,6 +330,14 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 (set `shops.status` to `APPROVED`).
 
 ## Changelog
+
+### 0.8.0 — 2026-11-09
+
+- The late allowance is 10 minutes (backend PR #44): Start closes, and No-show opens, at the backend's `noShowFrom`
+  for each appointment instead of a fixed 15 minutes in the app, so the two never disagree again. The code screen
+  says "the hold until 4:40 PM is over".
+- Nothing changes for live updates: the day board and the coming-up list already reload the moment a booking message
+  arrives (a new booking, a move, a cancel), and check every 30 / 60 seconds otherwise.
 
 ### 0.7.0 — 2026-11-08
 
