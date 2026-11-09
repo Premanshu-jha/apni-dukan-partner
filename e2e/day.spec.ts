@@ -50,7 +50,7 @@ test('a barber works his own bookings only', async ({ page, context, api }) => {
   await expect(sheet.getByRole('button', { name: /start anyway/ })).toBeHidden()
 })
 
-test('no-show opens 15 minutes after the start; it can be undone', async ({ page, context, api }) => {
+test('no-show opens 10 minutes after the start; it can be undone', async ({ page, context, api }) => {
   await signedIn(context, api)
   api.approvedSalon()
   api.addBooking({ startsAt: minutesFromNow(-5) })
@@ -71,6 +71,23 @@ test('no-show opens 15 minutes after the start; it can be undone', async ({ page
   await expect(page.getByText('No-show undone.')).toBeVisible()
   // The backend closes it as cancelled by the salon (strike removed); it doesn't come back as booked
   await expect(page.getByRole('dialog').getByText('Cancelled by salon')).toBeVisible()
+})
+
+test('Start closes and no-show opens when the 10-minute hold ends', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  api.approvedSalon()
+  api.addBooking({ startsAt: minutesFromNow(-8), customerName: 'Still held' })
+  api.addBooking({ startsAt: minutesFromNow(-12), customerName: 'Held over' })
+  await page.goto('/salon/day')
+
+  await page.getByText('Still held').click()
+  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /No-show from/ })).toBeDisabled()
+  await page.getByRole('button', { name: 'Close' }).click()
+
+  await page.getByText('Held over').click()
+  await expect(page.getByRole('button', { name: 'Start', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Mark no-show' })).toBeEnabled()
 })
 
 test('give a booking to another barber, and cancel one with a reason the customer sees', async ({ page, context, api }) => {

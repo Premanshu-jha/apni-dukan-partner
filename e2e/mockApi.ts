@@ -404,7 +404,7 @@ export class MockApi {
     const out: Json = {
       ...a,
       notStarted: a.status === 'CONFIRMED' && now >= start,
-      noShowFrom: a.kind === 'BLOCK' ? null : new Date(start + 15 * 60_000).toISOString(),
+      noShowFrom: a.kind === 'BLOCK' ? null : new Date(start + 10 * 60_000).toISOString(),
       customerPhone: this.role === 'BARBER' ? null : (a.customerPhone ?? null),
       // SalonDayService.view: on a walk-in only while the viewer may still add walk-ins
       addedByMe: a.createdBy === this.user.id && (a.kind === 'BLOCK' || this.role !== 'BARBER' || this.walkIns),
@@ -1129,7 +1129,7 @@ export class MockApi {
       if (act[2] === 'start') {
         if (a.status !== 'CONFIRMED') return changed()
         if (Date.now() < start - 15 * 60_000) return fail(409, 'WRONG_STATUS', 'Too early: Start is allowed from 15 minutes before.', { reason: 'TOO_EARLY', startFrom: new Date(start - 15 * 60_000).toISOString() })
-        if (Date.now() >= start + 15 * 60_000) return fail(409, 'WRONG_STATUS', 'It was held until the start plus 15 minutes and is a no-show now. Add the customer as a walk-in.', { reason: 'HELD_OVER', heldUntil: new Date(start + 15 * 60_000).toISOString() })
+        if (Date.now() >= start + 10 * 60_000) return fail(409, 'WRONG_STATUS', 'It was held until the start plus 10 minutes and is a no-show now. Add the customer as a walk-in.', { reason: 'HELD_OVER', heldUntil: new Date(start + 10 * 60_000).toISOString() })
         if (a.kind === 'BOOKING') {
           if (body?.withoutCode) {
             if (!ownerOrHelper) return fail(403, 'NOT_ALLOWED', "Only the owner or a helper can start without the customer's code.")
@@ -1167,7 +1167,7 @@ export class MockApi {
       }
       if (act[2] === 'no-show') {
         if (a.status !== 'CONFIRMED') return changed()
-        if (Date.now() < start + 15 * 60_000) return fail(409, 'WRONG_STATUS', 'The customer may still come: No-show is allowed later.', { reason: 'TOO_EARLY', noShowFrom: new Date(start + 15 * 60_000).toISOString() })
+        if (Date.now() < start + 10 * 60_000) return fail(409, 'WRONG_STATUS', 'The customer may still come: No-show is allowed later.', { reason: 'TOO_EARLY', noShowFrom: new Date(start + 10 * 60_000).toISOString() })
         a.status = 'NO_SHOW'
         return ok(200, this.view(a))
       }
