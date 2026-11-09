@@ -16,6 +16,9 @@ import { kindText, servicesText, statusText, totalPaise, whoText } from './statu
 
 type Mode = 'menu' | 'start' | 'finish' | 'noShow' | 'reassign' | 'cancel' | 'removeBlock'
 
+/** The backend's late allowance (SalonDayService.LATE_ALLOWANCE), used only if an answer has no noShowFrom. */
+const LATE_ALLOWANCE_MS = 10 * 60_000
+
 /** A walk-in already in the chair can be cancelled as a mistake only this soon after it started (the backend's rule). */
 export const MISTAKE_MINUTES = 15
 
@@ -84,10 +87,11 @@ export function AppointmentSheet({
   // Ticks, so "No-show from 4:45 PM" turns on by itself while the sheet is open.
   const now = useNow(15_000)
   const noShowOpen = a.noShowFrom ? now >= new Date(a.noShowFrom).getTime() : false
-  // The backend's windows: Start from 15 minutes before until 15 after; undo a no-show within 24 hours
+  // The backend's windows: Start from 15 minutes before until the customer is no longer held (noShowFrom: the start
+  // plus the backend's late allowance, 10 minutes); undo a no-show within 24 hours
   const startMs = new Date(a.startsAt).getTime()
   const startFrom = startMs - 15 * 60_000
-  const heldUntil = startMs + 15 * 60_000
+  const heldUntil = a.noShowFrom ? new Date(a.noShowFrom).getTime() : startMs + LATE_ALLOWANCE_MS
   const startOpen = now >= startFrom && now < heldUntil
   const undoOpen = now <= startMs + 24 * 3600_000
   const beforeEnd = now < new Date(a.endsAt).getTime()
@@ -212,7 +216,7 @@ export function AppointmentSheet({
           <div className="flex flex-col gap-3">
             <CodeInput id="start-code" label="The customer's 4-digit code" length={4} value={code} onChange={setCode} />
             <p className="text-sm text-muted">It is on the customer's booking screen. The code shows they are here.</p>
-            {!startOpen && <Banner tone="warn">Start is closed now: {now < startFrom ? `it opens at ${timeIst(new Date(startFrom).toISOString())}` : 'the 15-minute hold is over'}.</Banner>}
+            {!startOpen && <Banner tone="warn">Start is closed now: {now < startFrom ? `it opens at ${timeIst(new Date(startFrom).toISOString())}` : `the hold until ${timeIst(new Date(heldUntil).toISOString())} is over`}.</Banner>}
             <Button busy={busy} disabled={code.length !== 4 || !startOpen} onClick={() => run(() => dayApi.start(a.id, { code }), 'Started.')}>
               Start
             </Button>
