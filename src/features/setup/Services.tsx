@@ -8,12 +8,16 @@ import { Banner, Button, EmptyState, ErrorState, Field, Loading, Page, Pill, She
 import { duration, rupees } from '../../lib/money'
 import { can } from '../../lib/roles'
 
-interface Form {
+export interface ServiceForm {
   name: string
   minutes: string
   rupees: string
   from: boolean
+  /** Days after a visit to remind the customer to come back; "0": never. */
+  returnDays: string
 }
+
+type Form = ServiceForm
 
 /** "250" or "250.50" rupees → paise; null if it isn't a price. */
 export function toPaise(text: string): number | null {
@@ -23,14 +27,36 @@ export function toPaise(text: string): number | null {
   return Number(r) * 100 + Number(p.padEnd(2, '0'))
 }
 
-export function checkService(f: Form): { name?: string; minutes?: string; rupees?: string } {
-  const e: { name?: string; minutes?: string; rupees?: string } = {}
+export function checkService(f: Form): { name?: string; minutes?: string; rupees?: string; returnDays?: string } {
+  const e: { name?: string; minutes?: string; rupees?: string; returnDays?: string } = {}
   if (f.name.trim().length < 2 || f.name.trim().length > 60) e.name = 'A name of 2 to 60 letters'
+  // The backend's text rule (TextCleaner): at least 2 letters or digits ("--" or "A." isn't a name)
+  else if ((f.name.match(/[\p{L}\p{N}]/gu) ?? []).length < 2) e.name = 'A name with at least 2 letters or digits'
   const m = Number(f.minutes)
   if (!Number.isInteger(m) || m < 5 || m > 480 || m % 5 !== 0) e.minutes = 'From 5 to 480 minutes, in steps of 5'
   const p = toPaise(f.rupees)
   if (p === null || p > 10_000_000) e.rupees = 'A price in rupees, up to ₹1,00,000'
+  const r = Number(f.returnDays)
+  if (f.returnDays.trim() === '' || !Number.isInteger(r) || r < 0 || r > 180) e.returnDays = 'From 0 (never) to 180 days'
   return e
+}
+
+/** The form's service as the backend wants it (after checkService found nothing). */
+export function serviceIn(f: Form): ServiceIn {
+  return {
+    name: f.name.trim().replace(/\s+/g, ' '),
+    durationMinutes: Number(f.minutes),
+    pricePaise: toPaise(f.rupees)!,
+    priceIsFrom: f.from,
+    returnAfterDays: Number(f.returnDays),
+  }
+}
+
+/** "Reminds after 3 weeks" for a list line; null when it never reminds. */
+export function comeBackText(days: number): string | null {
+  if (days === 0) return null
+  if (days % 7 === 0) return `back in ${days / 7} week${days === 7 ? '' : 's'}`
+  return `back in ${days} day${days === 1 ? '' : 's'}`
 }
 
 /** The salon's services: what customers can book, how long each takes and its price. */
@@ -83,6 +109,7 @@ export function Services() {
                     </span>
                     <span className="text-sm text-muted">
                       {duration(s.durationMinutes)} · {rupees(s.pricePaise, s.priceIsFrom)}
+                      {comeBackText(s.returnAfterDays ?? 14) && ` · ${comeBackText(s.returnAfterDays ?? 14)}`}
                     </span>
                   </button>
                   {edit && <Switch label={`${s.name} on offer`} checked={s.active} disabled={busyId === s.id} onChange={(on) => toggle(s, on)} />}
@@ -105,12 +132,18 @@ export function Services() {
   )
 }
 
-function ServiceSheet({ service, onClose }: { service: ServiceItem | null; onClose: () => void }) {
+export function ServiceSheet({ service, onClose }: { service: ServiceItem | null; onClose: () => void }) {
   const qc = useQueryClient()
   const [form, setForm] = useState<Form>(
     service
-      ? { name: service.name, minutes: String(service.durationMinutes), rupees: String(service.pricePaise / 100), from: service.priceIsFrom }
-      : { name: '', minutes: '30', rupees: '', from: false },
+      ? {
+          name: service.name,
+          minutes: String(service.durationMinutes),
+          rupees: String(service.pricePaise / 100),
+          from: service.priceIsFrom,
+          returnDays: String(service.returnAfterDays ?? 14),
+        }
+      : { name: '', minutes: '30', rupees: '', from: false, returnDays: '14' },
   )
   const [touched, setTouched] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -120,12 +153,7 @@ function ServiceSheet({ service, onClose }: { service: ServiceItem | null; onClo
   async function save() {
     setTouched(true)
     if (Object.keys(checkService(form)).length) return
-    const body: ServiceIn = {
-      name: form.name.trim(),
-      durationMinutes: Number(form.minutes),
-      pricePaise: toPaise(form.rupees)!,
-      priceIsFrom: form.from,
-    }
+    const body: ServiceIn = serviceIn(form)
     setBusy(true)
     setError(null)
     try {
@@ -153,7 +181,16 @@ function ServiceSheet({ service, onClose }: { service: ServiceItem | null; onClo
           <input type="checkbox" className="h-5 w-5 accent-brand" checked={form.from} onChange={(e) => setForm({ ...form, from: e.target.checked })} />
           Price can go up at the salon (shown as "from ₹…")
         </label>
-        {error != null && !['name', 'durationMinutes', 'pricePaise'].some((k) => fieldError(error, k)) && <Banner tone="bad">{messageOf(error)}</Banner>}
+        <Field
+          id="svc-return"
+          label="Remind customers to come back after (days)"
+          inputMode="numeric"
+          value={form.returnDays}
+          onChange={(e) => setForm({ ...form, returnDays: e.target.value.replace(/\D/g, '') })}
+          error={problems.returnDays ?? fieldError(error, 'returnAfterDays')}
+        />
+        <p className="-mt-2 text-xs text-muted">0 = no reminder. Customers who booked it get one push message, e.g. 21 days after a haircut.</p>
+        {error != null && !['name', 'durationMinutes', 'pricePaise', 'returnAfterDays'].some((k) => fieldError(error, k)) && <Banner tone="bad">{messageOf(error)}</Banner>}
         <Button busy={busy} onClick={save}>
           Save
         </Button>
