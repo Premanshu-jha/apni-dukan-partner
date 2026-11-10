@@ -30,6 +30,7 @@ describe('India time', () => {
     expect(timeIst('2026-11-05T11:00:00Z')).toBe('4:30 PM')
     expect(clock12('09:05')).toBe('9:05 AM')
     expect(clock12('12:00')).toBe('12:00 PM')
+    expect(clock12('24:00')).toBe('midnight')   // open till the end of the day
     expect(clock12('00:30')).toBe('12:30 AM')
     expect(weekdayName(1)).toBe('Mon')
     expect(weekdayName(7)).toBe('Sun')
