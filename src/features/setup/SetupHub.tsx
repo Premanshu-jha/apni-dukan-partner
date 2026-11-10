@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { useServices, useSettings, useStaff } from '../../api/salon'
+import { useSalonHours, useServices, useSettings, useStaff } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import { Page } from '../../components/ui'
 import { can } from '../../lib/roles'
@@ -10,13 +10,37 @@ export function SetupHub() {
   const services = useServices()
   const staff = useStaff()
   const settings = useSettings()
+  const hours = useSalonHours()
   const edit = can(shop.myRole).editSetup
   const sub = (q: { isError: boolean }, text: string | null) => (text ?? (q.isError ? "Couldn't load. Open to try again." : '…'))
+  const owner = shop.myRole === 'OWNER'
+  // What the owner gave at registration: his to change any time (helpers don't see these)
+  const salonRows = owner
+    ? [
+        { to: '/setup/details', title: 'Salon details', sub: `${shop.name} · ${shop.area}` },
+        { to: '/setup/photos', title: 'Photos and video', sub: 'Your photo, the shop front and the salon video' },
+        {
+          to: '/setup/document',
+          title: 'Registration document',
+          sub: !shop.registrationDocFileId
+            ? 'Not added (optional): customers see "Unregistered"'
+            : shop.registrationDocCheckedAt
+              ? 'Checked: customers see "Registered"'
+              : 'Waiting for our team to check it',
+        },
+      ]
+    : []
   const rows = [
+    ...salonRows,
     {
       to: '/setup/services',
       title: 'Services and prices',
       sub: sub(services, services.data ? `${services.data.filter((s) => s.active).length} on offer` : null),
+    },
+    {
+      to: '/setup/hours',
+      title: 'Opening hours',
+      sub: sub(hours, hours.data ? (hours.data.days.length ? `Open ${hours.data.days.length} days a week` : 'Not set yet') : null),
     },
     { to: '/setup/staff', title: 'Barbers', sub: sub(staff, staff.data ? `${staff.data.filter((s) => s.active).length} working` : null) },
     {

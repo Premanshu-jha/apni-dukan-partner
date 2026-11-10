@@ -19,7 +19,11 @@ import { SetupHub } from '../features/setup/SetupHub'
 import { StaffList } from '../features/setup/Staff'
 import { StaffDetail } from '../features/setup/StaffDetail'
 import { Home } from '../features/shop/Home'
-import { RegisterDetails, RegisterLayout, RegisterPhotos, RegisterReview } from '../features/shop/Register'
+import { RegisterDetails, RegisterHours, RegisterLayout, RegisterPhotos, RegisterReview } from '../features/shop/Register'
+import { SalonDocumentPage } from '../features/shop/SalonDocument'
+import { RegisterServices } from '../features/shop/RegisterServices'
+import { SalonHoursPage } from '../features/setup/SalonHours'
+import { Ratings } from '../features/ratings/Ratings'
 import { ShopGate } from '../features/shop/ShopGate'
 import { CloseShop } from '../features/shop/CloseShop'
 import { HandOver } from '../features/shop/HandOver'
@@ -58,6 +62,8 @@ export function App() {
           </Route>
           <Route element={<RegisterLayout needShop />}>
             <Route path="/register/photos" element={<RegisterPhotos />} />
+            <Route path="/register/services" element={<RegisterServices />} />
+            <Route path="/register/hours" element={<RegisterHours />} />
             <Route path="/register/review" element={<RegisterReview />} />
           </Route>
         </Route>
@@ -92,8 +98,14 @@ export function App() {
                 <Route path="/setup/staff" element={<StaffList />} />
                 <Route path="/setup/staff/:id" element={<StaffDetail />} />
                 <Route path="/setup/rules" element={<Rules />} />
+                <Route path="/setup/hours" element={<SalonHoursPage />} />
+                <Route path="/salon/ratings" element={<Ratings />} />
               </Route>
               <Route element={<RoleOnly roles={['OWNER']} />}>
+                {/* What the owner gave at registration, editable any time */}
+                <Route path="/setup/details" element={<RegisterDetails edit />} />
+                <Route path="/setup/photos" element={<RegisterPhotos edit />} />
+                <Route path="/setup/document" element={<SalonDocumentPage />} />
                 <Route path="/team" element={<Team />} />
                 <Route path="/salon/closures" element={<Closures />} />
               </Route>

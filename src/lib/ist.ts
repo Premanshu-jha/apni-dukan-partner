@@ -59,6 +59,7 @@ export function weekdayName(weekday: number): string {
 
 /** "10:00" (24-hour, as the backend sends it) as "10:00 AM". */
 export function clock12(hhmm: string): string {
+  if (hhmm === '24:00') return 'midnight'   // the end of the day: "12:00 AM" would read as its start
   const [h, m] = hhmm.split(':').map(Number)
   const suffix = h >= 12 && h < 24 ? 'PM' : 'AM'
   const h12 = h % 12 === 0 ? 12 : h % 12

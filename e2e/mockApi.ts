@@ -72,10 +72,32 @@ export function minutesFromNow(n: number): string {
 }
 
 export const SERVICES = [
-  { id: 'v1', name: 'Haircut', durationMinutes: 30, pricePaise: 20000, priceIsFrom: false, active: true, sortOrder: 0, version: 0 },
-  { id: 'v2', name: 'Beard trim', durationMinutes: 15, pricePaise: 10000, priceIsFrom: false, active: true, sortOrder: 1, version: 0 },
-  { id: 'v3', name: 'Hair colour', durationMinutes: 60, pricePaise: 80000, priceIsFrom: true, active: true, sortOrder: 2, version: 0 },
+  { id: 'v1', name: 'Haircut', durationMinutes: 30, pricePaise: 20000, priceIsFrom: false, active: true, sortOrder: 0, returnAfterDays: 21, version: 0 },
+  { id: 'v2', name: 'Beard trim', durationMinutes: 15, pricePaise: 10000, priceIsFrom: false, active: true, sortOrder: 1, returnAfterDays: 7, version: 0 },
+  { id: 'v3', name: 'Hair colour', durationMinutes: 60, pricePaise: 80000, priceIsFrom: true, active: true, sortOrder: 2, returnAfterDays: 30, version: 0 },
 ]
+
+/** GET /salon/service-catalog (ServiceCatalog), the first few. */
+export const CATALOG = [
+  { name: 'Haircut', durationMinutes: 30, returnAfterDays: 21 },
+  { name: 'Beard trim', durationMinutes: 15, returnAfterDays: 7 },
+  { name: 'Clean shave', durationMinutes: 20, returnAfterDays: 7 },
+  { name: 'Hair wash', durationMinutes: 15, returnAfterDays: 0 },
+  { name: 'Facial', durationMinutes: 45, returnAfterDays: 30 },
+]
+
+/** SalonSetupService.hoursVersion: the week itself, in minutes. */
+function hoursVersion(days: Json[]): string | null {
+  if (!days.length) return null
+  const m = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3))
+  return [...days]
+    .sort((a, b) => (a.weekday as number) - (b.weekday as number))
+    .map((d) => `${d.weekday}:${m(d.open as string)}-${m(d.close as string)}`)
+    .join(',')
+}
+
+/** An approved salon's week: open all day, every day, so no barber's hours fall outside. */
+export const ALL_DAY = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({ weekday, open: '00:00', close: '24:00' }))
 
 /** Appointments per page of the upcoming list and the history (SalonDayService.UPCOMING_PAGE, HISTORY_PAGE). */
 const PAGE = 100
@@ -121,6 +143,11 @@ export class MockApi {
     { id: 'st2', name: 'Imran', active: true, serviceIds: ['v1', 'v2'], hours: week, loginPhone: '9000000002', photoFileId: null, version: 0, invitedPhone: null },
   ]
   settings: Json = { minLeadMinutes: 30, maxDaysAhead: 14, version: null, updatedAt: null }
+  /** The salon's opening hours (GET /salon/hours): the open days. */
+  hours: Json[] = ALL_DAY.map((d) => ({ ...d }))
+  /** The salon's ratings (GET /salon/ratings), newest first. */
+  ratings: Json[] = []
+  ratingSummary: Json = { count: 0, average: null, tags: [] }
   appointments: Json[] = []
   members: Json[] = []
   closures: Json[] = []
@@ -260,6 +287,9 @@ export class MockApi {
       ownerPhotoFileId: 'f-owner',
       shopPhotoFileId: 'f-shop',
       shopVideoFileId: 'fv-video',
+      registrationDocType: 'TRADE_LICENCE',
+      registrationDocFileId: 'f-doc',
+      registrationDocCheckedAt: '2026-10-01T05:00:00Z',
       version: 3,
       createdAt: '2026-11-01T00:00:00Z',
       updatedAt: '2026-11-01T00:00:00Z',
@@ -427,6 +457,28 @@ export class MockApi {
         Date.parse(x.startsAt as string) < to &&
         Date.parse(x.endsAt as string) > from,
     )
+  }
+
+  /** SalonSetupService.requireRoomForStaff: at most 50 active barbers. */
+  private noRoomForStaff() {
+    return this.staff.filter((s) => s.active).length >= 50
+  }
+
+  /** The barber's CLOSED block for one of the salon's closed days (the day's count goes up). */
+  private closedBlock(c: Json, st: Json) {
+    const from = istInstant(c.date as string, '00:00')
+    const to = new Date(Date.parse(from) + 86400_000).toISOString()
+    this.appointments.push({ id: `b${++this.n}`, kind: 'BLOCK', blockType: 'CLOSED', staffId: st.id, status: 'BLOCKED', startsAt: from, endsAt: to, services: [], startedAt: null, startedWithCode: null, bookingNo: null, customerName: null, guestName: null, cancelReason: null, closureId: c.closureId, createdBy: this.user.id })
+    c.barbers = (c.barbers as number) + 1
+  }
+
+  /** SalonSetupService.joinClosedDays: a barber added or switched on gets the salon's coming closed days. */
+  private joinClosures(st: Json) {
+    for (const c of this.closures) {
+      if (Date.parse(istInstant(c.date as string, '00:00')) + 86400_000 <= Date.now()) continue
+      if (this.appointments.some((a) => a.closureId === c.closureId && a.staffId === st.id && a.status === 'BLOCKED')) continue
+      this.closedBlock(c, st)
+    }
   }
 
   private seesAll() {
@@ -601,13 +653,20 @@ export class MockApi {
       if (!this.user.emailVerified || !this.user.name) return fail(403, 'PROFILE_INCOMPLETE', 'Add your email and name first.')
       if (!/^[1-9]\d{5}$/.test(body.pincode)) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { pincode: 'must be a 6-digit pincode' })
       this.role = 'OWNER'
-      this.shop = MockApi.shopOf({ ...body, status: 'DRAFT', myRole: 'OWNER', type: body.type ?? 'KIRANA', ownerPhotoFileId: null, shopPhotoFileId: null, shopVideoFileId: null, version: 0 })
+      this.shop = MockApi.shopOf({ ...body, status: 'DRAFT', myRole: 'OWNER', type: body.type ?? 'KIRANA', ownerPhotoFileId: null, shopPhotoFileId: null, shopVideoFileId: null, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, version: 0 })
+      // A new salon has no services, hours or barbers yet
+      this.services = []
+      this.hours = []
+      this.staff = []
       return ok(201, this.shop)
     }
     if (p === '/shops/me' && method === 'PATCH') {
       if (!this.shop || this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can do this.')
       if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
       const { version: _v, ...change } = body
+      // ShopService.update: a live shop's new address or pin goes back to the field team
+      const moved = ['addressLine', 'area', 'city', 'pincode', 'latitude', 'longitude'].some((k) => change[k] !== undefined && change[k] !== this.shop![k])
+      if (moved && this.shop.status === 'APPROVED') change.status = 'PENDING_VISIT'
       this.shop = { ...this.shop, ...change, gstin: change.gstin === '' ? null : change.gstin, udyamNumber: change.udyamNumber === '' ? null : change.udyamNumber, version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
     }
@@ -636,8 +695,29 @@ export class MockApi {
       this.shop = { ...this.shop, shopVideoFileId: f.id, version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
     }
+    if (p === '/shops/me/registration-document' && method === 'PUT') {
+      if (!this.shop || this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can change these details.')
+      if (this.shop.type !== 'SALON') return fail(409, 'NOT_A_SALON', 'The registration document is only for salons.')
+      if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
+      const f = this.files.find((x) => x.id === body.fileId && x.purpose === 'REG_DOC')
+      if (!f) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { fileId: 'must be a photo or PDF uploaded with purpose REG_DOC' })
+      // ShopService.setRegistrationDoc: the salon stays as it is; the new document waits for the field team's check
+      this.shop = { ...this.shop, registrationDocType: body.type, registrationDocFileId: f.id, registrationDocCheckedAt: null, version: (this.shop.version as number) + 1 }
+      return ok(200, this.shop)
+    }
+    if (p === '/shops/me/registration-document' && method === 'DELETE') {
+      if (!this.shop || this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can change these details.')
+      if (this.shop.type !== 'SALON') return fail(409, 'NOT_A_SALON', 'The registration document is only for salons.')
+      if (Number(url.searchParams.get('version')) !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
+      if (this.shop.registrationDocFileId) {
+        this.shop = { ...this.shop, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, version: (this.shop.version as number) + 1 }
+      }
+      return ok(200, this.shop)
+    }
     if (p === '/shops/me/submit') {
       if (!this.shop) return fail(404, 'NO_SHOP', 'You have no shop yet.')
+      // ShopService.submitForVisit: the version first (ownedShop), then what is missing
+      if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
       if (!this.shop.ownerPhotoFileId || !this.shop.shopPhotoFileId || (this.shop.type === 'SALON' && !this.shop.shopVideoFileId)) {
         const missing: Json = {}
         if (!this.shop.ownerPhotoFileId) missing.ownerPhotoFileId = "add the owner's photo"
@@ -645,7 +725,14 @@ export class MockApi {
         if (this.shop.type === 'SALON' && !this.shop.shopVideoFileId) missing.shopVideoFileId = 'add a short video of the salon'
         return fail(409, 'PHOTOS_REQUIRED', "Add the owner's photo, a photo of the shop and a short video of the salon first.", missing)
       }
-      if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
+      if (this.shop.type === 'SALON') {
+        const missing: Json = {}
+        if (!this.services.some((s) => s.active)) missing.services = 'add the services the salon offers'
+        if (!this.hours.length) missing.hours = "set the salon's opening hours"
+        if (Object.keys(missing).length) {
+          return fail(409, 'REGISTRATION_INCOMPLETE', "Add the salon's services and its opening hours first.", missing)
+        }
+      }
       this.shop = { ...this.shop, status: 'PENDING_VISIT', statusReason: null, version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
     }
@@ -854,6 +941,10 @@ export class MockApi {
     }
     if (p === '/files' && method === 'POST') {
       if (!contentType?.startsWith('multipart/form-data')) return fail(400, 'VALIDATION_FAILED', 'Send a file.')
+      // The salon's registration document is the owner's (FileService.requireOwnerFor)
+      if (url.searchParams.get('purpose') === 'REG_DOC' && this.role !== 'OWNER') {
+        return fail(403, 'OWNER_ONLY', 'Only the shop owner can add or open the registration document.')
+      }
       const f = { id: `f${++this.n}`, purpose: url.searchParams.get('purpose'), contentType: 'image/jpeg', sizeBytes: 1000, originalName: 'x.jpg', createdAt: new Date().toISOString(), duplicate: false }
       this.files.push(f)
       return ok(201, f)
@@ -875,10 +966,99 @@ export class MockApi {
     const notAllowed = () => fail(403, 'NOT_ALLOWED', "You can't do this.")
 
     if (p === '/salon/services' && method === 'GET') return ok(200, this.services)
+    if (p === '/salon/service-catalog' && method === 'GET') return ok(200, CATALOG)
+    if (p === '/salon/services/batch' && method === 'POST') {
+      if (!owner) return ownerOnly()
+      // SalonSetupService.addServices: each checked (TextCleaner), a name twice in the list (400), the limit, then a
+      // name an active service has (409, on save); new ones go after the salon's, in the order sent
+      const list = (body.services as Json[]).map((s) => ({ ...s, name: (s.name as string).trim().replace(/\s+/g, ' ') }))
+      const key = (n: string) => n.toLowerCase()
+      const seen = new Set<string>()
+      for (const [i, s] of list.entries()) {
+        if (((s.name as string).match(/[\p{L}\p{N}]/gu) ?? []).length < 2) {
+          return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { [`services[${i}].name`]: 'must have at least 2 letters or digits' })
+        }
+        if (seen.has(key(s.name as string))) {
+          return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { [`services[${i}].name`]: 'is in the list twice' })
+        }
+        seen.add(key(s.name as string))
+      }
+      if (this.services.filter((s) => s.active).length + list.length > 100) {
+        return fail(409, 'TOO_MANY_SERVICES', 'A salon can have up to 100 active services. Switch off ones you no longer offer.')
+      }
+      if (list.some((s) => this.services.some((x) => x.active && key(x.name as string) === key(s.name as string)))) {
+        return fail(409, 'SERVICE_NAME_TAKEN', 'There is already an active service with this name.')
+      }
+      const next = Math.max(-1, ...this.services.map((s) => s.sortOrder as number)) + 1
+      const added = list.map((s, i) => ({ id: `v${++this.n}`, active: true, sortOrder: next + i, version: 0, priceIsFrom: false, returnAfterDays: 14, ...s }))
+      this.services.push(...added)
+      return ok(201, added)
+    }
+    if (p === '/salon/hours' && method === 'GET') return ok(200, { version: hoursVersion(this.hours), days: this.hours })
+    if (p === '/salon/hours' && method === 'PUT') {
+      if (!owner) return ownerOnly()
+      if ((body.version ?? null) !== hoursVersion(this.hours)) return fail(409, 'HOURS_CHANGED', "Someone else saved the salon's hours. Reload and try again.")
+      const days = body.days as Json[]
+      if (!days.length) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { days: 'open at least one day' })
+      const byDay = new Map(days.map((d) => [d.weekday as number, d]))
+      // Barbers' hours must fit inside (SalonSetupService.setSalonHours)
+      const fits = (h: Json) => {
+        const d = byDay.get(h.weekday as number)
+        return Boolean(d && (d.open as string) <= (h.start as string) && (h.end as string) <= (d.close as string))
+      }
+      // Working barbers only: a switched-off one is cut to fit when he is switched on
+      const outside = this.staff.filter((s) => s.active && (s.hours as Json[]).some((h) => !fits(h)))
+      if (outside.length && !body.trimStaffHours) {
+        return fail(409, 'STAFF_HOURS_OUTSIDE', 'Some barbers work outside these hours. Change their hours first, or let the app cut them to fit.', {
+          staff: outside.map((s) => ({ staffId: s.id, name: s.name })),
+        })
+      }
+      // Cutting must not strand an upcoming booking (SalonSetupService.requireBookingsStillFit): all or nothing
+      const strandedBy = (s: Json) =>
+        this.appointments.filter((a) => {
+          if (a.staffId !== s.id || a.kind === 'BLOCK' || a.status !== 'CONFIRMED' || Date.parse(a.startsAt as string) <= Date.now()) return false
+          const local = new Date(Date.parse(a.startsAt as string) + IST)
+          const weekday = ((local.getUTCDay() + 6) % 7) + 1
+          const from = local.toISOString().slice(11, 16)
+          const to = new Date(Date.parse(a.endsAt as string) + IST).toISOString().slice(11, 16)
+          const d = byDay.get(weekday)
+          return !d || from < (d.open as string) || (to > (d.close as string) && !(to === '00:00' && d.close === '24:00'))
+        })
+      const stranded = outside.flatMap(strandedBy)
+      if (stranded.length) {
+        return fail(409, 'BOOKINGS_IN_THE_WAY', "Some of his upcoming bookings wouldn't fit any more. Reassign or cancel them first.", {
+          appointments: stranded.map((a) => ({ id: a.id, kind: a.kind, staffId: a.staffId, startsAt: a.startsAt, endsAt: a.endsAt })),
+        })
+      }
+      for (const s of outside) {
+        s.hours = (s.hours as Json[]).flatMap((h) => {
+          const d = byDay.get(h.weekday as number)
+          if (!d) return []
+          const start = (h.start as string) > (d.open as string) ? h.start : d.open
+          const end = (h.end as string) < (d.close as string) ? h.end : d.close
+          return (end as string) > (start as string) ? [{ weekday: h.weekday, start, end }] : []
+        })
+        s.version = (s.version as number) + 1
+      }
+      this.hours = [...days].sort((a, b) => (a.weekday as number) - (b.weekday as number))
+      return ok(200, { version: hoursVersion(this.hours), days: this.hours })
+    }
+    if (p === '/salon/ratings' && method === 'GET') {
+      if (!ownerOrHelper) return notAllowed()
+      const afterAt = url.searchParams.get('afterAt')
+      const start = afterAt ? this.ratings.findIndex((r) => r.bookingId === url.searchParams.get('afterId')) + 1 : 0
+      const items = this.ratings.slice(start, start + 30)
+      const last = items.at(-1)
+      return ok(200, {
+        summary: afterAt ? null : this.ratingSummary,
+        items,
+        next: items.length === 30 && last ? { afterAt: last.ratedAt, afterId: last.bookingId } : null,
+      })
+    }
     if (p === '/salon/services' && method === 'POST') {
       if (!owner) return ownerOnly()
       if (this.services.some((s) => s.active && s.name === body.name)) return fail(409, 'SERVICE_NAME_TAKEN', 'You already have a service with this name.')
-      const s = { id: `v${++this.n}`, active: true, sortOrder: 0, version: 0, priceIsFrom: false, ...body }
+      const s = { id: `v${++this.n}`, active: true, sortOrder: 0, version: 0, priceIsFrom: false, returnAfterDays: 14, ...body }
       this.services.push(s)
       return ok(201, s)
     }
@@ -893,10 +1073,27 @@ export class MockApi {
     }
     // Barbers' sign-in phones are for the owner only (SalonSetupService)
     if (p === '/salon/staff' && method === 'GET') return ok(200, owner ? this.staff : this.staff.map((s) => ({ ...s, loginPhone: null, invitedPhone: null })))
+    if (p === '/salon/staff/me' && method === 'POST') {
+      // SalonSetupService.addOwnerAsBarber: linked to his own sign-in, every active service, the salon's hours
+      if (!owner) return ownerOnly()
+      if (this.staff.some((x) => x.loginPhone === this.user.phone)) return fail(409, 'ALREADY_A_BARBER', 'You are already one of the barbers.')
+      if (this.noRoomForStaff()) return fail(409, 'TOO_MANY_STAFF', 'A salon can have up to 50 active barbers. Switch off ones who have left.')
+      const s = {
+        id: `st${++this.n}`, name: this.user.name ?? 'Owner', active: true,
+        serviceIds: this.services.filter((v) => v.active).map((v) => v.id),
+        hours: this.hours.map((d) => ({ weekday: d.weekday, start: d.open, end: d.close })),
+        loginPhone: this.user.phone, invitedPhone: null, photoFileId: null, version: 0,
+      }
+      this.staff.push(s)
+      this.joinClosures(s)
+      return ok(201, s)
+    }
     if (p === '/salon/staff' && method === 'POST') {
       if (!owner) return ownerOnly()
+      if (this.noRoomForStaff()) return fail(409, 'TOO_MANY_STAFF', 'A salon can have up to 50 active barbers. Switch off ones who have left.')
       const s = { id: `st${++this.n}`, name: body.name, active: true, serviceIds: [], hours: [], loginPhone: null, photoFileId: null, version: 0 }
       this.staff.push(s)
+      this.joinClosures(s)
       return ok(201, s)
     }
     const st = p.match(/^\/salon\/staff\/([^/]+)(\/login|\/photo|\/services|\/hours)?$/)
@@ -904,10 +1101,22 @@ export class MockApi {
       if (!owner) return ownerOnly()
       const s = this.staff.find((x) => x.id === st[1])
       if (!s) return fail(404, 'STAFF_NOT_FOUND', 'No such barber.')
+      if (!st[2] && method === 'DELETE') {
+        // SalonSetupService.removeStaff: not while he has upcoming bookings; then out of the list for good
+        // AppointmentStore.upcomingForStaff: a booking or walk-in still to come or still running
+        if (this.appointments.some((a) => a.staffId === s.id && (a.status === 'CONFIRMED' || a.status === 'IN_SERVICE') && Date.parse(a.endsAt as string) > Date.now())) {
+          return fail(409, 'STAFF_HAS_BOOKINGS', 'This barber still has upcoming bookings or walk-ins. Reassign or cancel them first.')
+        }
+        this.staff = this.staff.filter((x) => x !== s)
+        this.shopInvites = this.shopInvites.filter((v) => v.staffId !== s.id)
+        return ok(204, null)
+      }
       const bump = () => Object.assign(s, { version: (s.version as number) + 1 })
       if (st[2] === '/login') {
         // A sign-in is an invitation now (SalonSetupService.linkLogin): loginPhone stays null until he accepts
         if (method === 'DELETE') {
+          // SalonSetupService.unlink: the owner's own profile keeps his sign-in
+          if (s.loginPhone === this.user.phone) return fail(409, 'OWNER_PROFILE', 'This is your own barber profile. Switch it off or remove it instead.')
           s.loginPhone = null
           s.invitedPhone = null
           this.shopInvites = this.shopInvites.filter((v) => v.staffId !== s.id)
@@ -930,6 +1139,15 @@ export class MockApi {
         return ok(200, bump())
       }
       if (body.version !== s.version) return fail(409, 'STAFF_CHANGED', 'This barber was changed meanwhile. Reload.')
+      // A barber's hours must lie inside the salon's (SalonSetupService.requireInsideSalonHours)
+      if (st[2] === '/hours' && this.hours.length) {
+        for (const h of body.hours as Json[]) {
+          const d = this.hours.find((x) => x.weekday === h.weekday)
+          if (!d || (h.start as string) < (d.open as string) || (h.end as string) > (d.close as string)) {
+            return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { hours: d ? "is outside the salon's hours" : 'the salon is closed that day' })
+          }
+        }
+      }
       // New hours or services must not strand his upcoming bookings (SalonSetupService.requireBookingsStillFit)
       if (st[2] === '/services' || st[2] === '/hours') {
         const stranded = this.appointments.filter((a) => {
@@ -953,8 +1171,30 @@ export class MockApi {
         if (body.active === false && this.appointments.some((a) => a.staffId === s.id && a.status === 'CONFIRMED')) {
           return fail(409, 'STAFF_HAS_BOOKINGS', 'He has bookings coming up. Move or cancel them first.')
         }
+        if (body.active === true && !s.active && this.noRoomForStaff()) return fail(409, 'TOO_MANY_STAFF', 'A salon can have up to 50 active barbers. Switch off ones who have left.')
         if (body.name !== undefined) s.name = body.name
+        // Switched off, a barber's sign-in, membership and waiting invitation go (not the owner's own:
+        // SalonSetupService.unlink)
+        if (body.active === false && s.active && s.loginPhone !== this.user.phone) {
+          const phone = s.loginPhone
+          if (phone) this.members = this.members.filter((m) => m.phone !== phone)
+          s.loginPhone = null
+          s.invitedPhone = null
+          this.shopInvites = this.shopInvites.filter((v) => v.staffId !== s.id)
+        }
+        const switchedOn = body.active === true && !s.active
+        if (body.active === true && !s.active && this.hours.length) {
+          // Switched back on: his hours are cut to the salon's (SalonSetupService.fitToSalonHours)
+          s.hours = (s.hours as Json[]).flatMap((h) => {
+            const d = this.hours.find((x) => x.weekday === h.weekday)
+            if (!d) return []
+            const start = (h.start as string) > (d.open as string) ? h.start : d.open
+            const end = (h.end as string) < (d.close as string) ? h.end : d.close
+            return (end as string) > (start as string) ? [{ weekday: h.weekday, start, end }] : []
+          })
+        }
         if (body.active !== undefined) s.active = body.active
+        if (switchedOn) this.joinClosures(s)
       }
       return ok(200, bump())
     }
@@ -1275,16 +1515,23 @@ export class MockApi {
     if (p === '/salon/closures' && method === 'POST') {
       if (!owner) return ownerOnly()
       const from = new Date(istInstant(body.date, '00:00')).getTime()
-      const hit = this.staff.flatMap((st) => this.holdsBetween(st.id, from, from + 86400_000))
+      // SalonDayService.addClosure: the salon's own closed day (checked first), even with no barber yet; a CLOSED
+      // block for each working barber
+      if (this.closures.some((x) => x.date === body.date)) return fail(409, 'ALREADY_CLOSED', 'The salon is already closed that day.')
+      const working = this.staff.filter((st) => st.active)
+      const hit = working.flatMap((st) => this.holdsBetween(st.id, from, from + 86400_000))
       if (hit.length) return fail(409, 'BLOCK_CONFLICTS', 'Some appointments are in the way. Reassign or cancel them first.', { appointments: hit.map((a) => ({ id: a.id, kind: a.kind, staffId: a.staffId, startsAt: a.startsAt, endsAt: a.endsAt })) })
-      const c = { closureId: `c${++this.n}`, date: body.date, barbers: 2 }
+      const c = { closureId: `c${++this.n}`, date: body.date, barbers: 0 }
       this.closures.push(c)
+      for (const st of working) this.closedBlock(c, st)
       return ok(201, c)
     }
     const closure = p.match(/^\/salon\/closures\/([^/]+)$/)
     if (closure) {
       if (!owner) return ownerOnly()
+      if (!this.closures.some((c) => c.closureId === closure[1])) return fail(404, 'NOT_FOUND', 'No such appointment.')
       this.closures = this.closures.filter((c) => c.closureId !== closure[1])
+      for (const a of this.appointments) if (a.closureId === closure[1] && a.status === 'BLOCKED') a.status = 'REMOVED'
       return ok(204)
     }
 

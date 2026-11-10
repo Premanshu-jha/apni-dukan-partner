@@ -99,13 +99,16 @@ describe('services', () => {
     expect(toPaise('abc')).toBeNull()
   })
 
-  it('checks name, minutes and price against the backend’s limits', () => {
-    expect(checkService({ name: 'Haircut', minutes: '30', rupees: '200', from: false })).toEqual({})
-    expect(checkService({ name: 'H', minutes: '4', rupees: '200000', from: false })).toEqual({
+  it('checks name, minutes, price and the come-back days against the backend’s limits', () => {
+    expect(checkService({ name: 'Haircut', minutes: '30', rupees: '200', from: false, returnDays: '21' })).toEqual({})
+    expect(checkService({ name: 'Hair wash', minutes: '15', rupees: '50', from: false, returnDays: '0' })).toEqual({})
+    expect(checkService({ name: 'H', minutes: '4', rupees: '200000', from: false, returnDays: '181' })).toEqual({
       name: expect.any(String),
       minutes: expect.any(String),
       rupees: expect.any(String),
+      returnDays: expect.any(String),
     })
+    expect(checkService({ name: 'Haircut', minutes: '30', rupees: '200', from: false, returnDays: '' }).returnDays).toBeDefined()
   })
 })
 
@@ -193,6 +196,7 @@ describe('messages', () => {
     expect(safePath('/shops/me')).toBe('/')
     // "A shop for you" (SHOP_HANDOVER_REQUEST): the hand-over requests, with or without a shop
     expect(safePath('/handover')).toBe('/handover')
+    expect(safePath('/setup/document')).toBe('/setup/document')   // a removed registration document
     expect(safePath('/invites')).toBe('/invites')
     expect(safePath('/handover/../evil')).toBeNull()
     expect(safePath('/bookings/b1')).toBeNull()

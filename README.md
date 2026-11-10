@@ -331,6 +331,60 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.9.0 — 2026-11-10
+
+Needs the backend with V34–V36 (salon registration, opening hours, ratings).
+
+- **Registration in five steps:** Details, Photos (and papers), Services, Hours, Submit.
+  - *Registration document*, optional (many salons aren't registered): which one (Shops and Establishments
+    certificate, trade licence or Udyam certificate, any one), then a photo (made smaller first) or a PDF up to 10 MB.
+    Only the field team sees it; customers see "Registered" on the salon's card with it, "Unregistered" without.
+  - *Services*: common services to tick from the list, each with its suggested time and come-back days; a price for
+    each; "Add your own service"; all saved at once. Services already saved are listed and can be edited.
+  - *Opening hours*: open or closed (weekly off) per day, opening and closing time, "Same times every open day",
+    "Open till midnight".
+  - *Submit*: the review lists every part with Add/Change; Submit stays off until all are there. Here too: festival
+    holidays (optional) and "Do you cut hair here yourself?".
+- **Setup → Opening hours.** Barbers working outside new hours are named, with "Cut their hours to fit and save";
+  bookings that wouldn't fit are listed. Helpers see the hours. A barber's page has "Use the salon's hours", and hours
+  outside the salon's are refused with the reason.
+- **Come-back reminder per service.** "Remind customers to come back after (days)" on the service sheet (0 = never);
+  the list shows "back in 3 weeks".
+- **More → Ratings** (owner and helpers): average, count, what customers liked, and each rating with its comment
+  (only the salon sees comments). Customers see the average from 5 ratings on.
+- Review fixes: the barbers named as working outside new hours are cleared when the week is changed again (and "Cut
+  their hours" is off while a time is wrong), so nobody is cut without being named; a failed read in the background
+  no longer replaces the hours being edited; "Saved." goes when the next save starts; the review step says when it
+  couldn't read the services or hours (with Try again) instead of "missing", and no "Closed" week before hours are
+  set; a service saved by mistake can be removed on the Services step; each price, minutes and days box names its
+  service for screen readers; at most 30 services in one save; names that differ only in spaces count as the same; a
+  retry that finds the services already saved starts the list again; a failed change of the document's kind puts
+  the choice back; a PDF from a picker that gives no file type is accepted by its name; "midnight" instead of
+  "12:00 AM" for a salon open till the end of the day.
+- **Everything the owner gave at registration is editable later** (the owner only), under More → Salon:
+  - *Salon details*: name, owner's name, address and pin, GSTIN, Udyam. A new address or pin on a live salon is said
+    first ("goes to our field team for a check"), then saved on "Save and send for a check".
+  - *Photos and video*, with the same re-check said at the top.
+  - *Registration document*: add, change or remove it; the salon stays live; "Waiting for our team to check it" until
+    the field team checks it (customers see "Registered" only then). A document the field team removed comes as a
+    message with the reason.
+- **Festival holidays at registration:** Check and submit has the closed-days list ("Festival holidays
+  (optional)", above Submit). A holiday is the whole salon's, even before any barber is added; barbers added later are
+  off that day too. No day is picked until the owner picks one (one tap can't close tomorrow), and a day already
+  closed says so. The weekly off is set in the opening hours; leave and breaks stay per barber.
+- **The owner as a barber:** "Do you cut hair here yourself?" on Check and submit; "Yes, add me" makes him a barber
+  with his own sign-in, every service, the salon's hours and its closed days (changeable like any barber's). Later:
+  More → Barbers → "Add me as a barber". A second tap or another phone adding him first shows no error. His own
+  profile says "This is you" and has no "Remove his sign-in" (he couldn't invite his own number back); switching it
+  off keeps it his, removing it lets him add himself again. If the barbers can't be read, the question says so with
+  Try again; the answer is announced to screen readers.
+- **Remove a barber for good** (a contract barber who won't come back): "Remove barber" on his page, after moving his
+  upcoming bookings. Switching "Working here" off stays the way to pause one who comes and goes; switched back on,
+  his hours are cut to the salon's.
+- More review fixes: services saved at registration keep the order ticked; the services step keeps the page when a
+  background refresh fails; Continue waits for the document upload; a refused service names the service, and a name
+  needs 2 letters or digits; the document's kind follows a change from another phone.
+
 ### 0.8.0 — 2026-11-09
 
 - The late allowance is 10 minutes (backend PR #44): Start closes, and No-show opens, at the backend's `noShowFrom`

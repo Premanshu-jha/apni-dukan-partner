@@ -76,6 +76,9 @@ const FIELD_NAMES: Record<string, string> = {
   durationMinutes: 'The duration',
   pricePaise: 'The price',
   phone: 'That number',
+  hours: 'The hours:',
+  returnAfterDays: 'The come-back reminder',
+  fileId: 'The file',
 }
 
 /** "Too many tries from this network. Try again in 4 minutes." (from Retry-After; at least a minute). */

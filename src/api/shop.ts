@@ -15,6 +15,7 @@ import type {
   InviteResult,
   InviteView,
   Located,
+  RegistrationDocType,
   Shop,
   ShopDetailsIn,
   ShopMember,
@@ -108,6 +109,11 @@ export const shopApi = {
     api<Shop>('PUT', `${S}/me/photos`, { body: { version, ...photos } }),
   /** Set the salon video (owner): the file from videoApi.complete. A video it replaces is deleted. */
   setVideo: (version: number, fileId: string) => api<Shop>('PUT', `${S}/me/video`, { body: { version, fileId } }),
+  setRegistrationDoc: (version: number, type: RegistrationDocType, fileId: string) =>
+    api<Shop>('PUT', `${S}/me/registration-document`, { body: { version, type, fileId } }),
+  /** Remove it (owner): customers see "Unregistered" from now on. */
+  removeRegistrationDoc: (version: number) =>
+    api<Shop>('DELETE', `${S}/me/registration-document?version=${version}`),
   submit: (version: number) => api<Shop>('POST', `${S}/me/submit`, { body: { version } }),
   members: () => api<ShopMember[]>('GET', `${S}/me/members`),
   /** Invite a helper (owner): 202 with the same message for any number; they join when they accept. */

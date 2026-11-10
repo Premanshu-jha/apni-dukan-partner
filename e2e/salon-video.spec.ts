@@ -37,6 +37,9 @@ test('the owner records the salon video: it goes straight to storage, is saved o
   expect(calls[3].body).toMatchObject({ version: 3, fileId: expect.stringMatching(/^fv/) })
 
   await page.getByRole('button', { name: 'Continue' }).click()
+  // Services and hours are there already: straight on to the review
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await page.getByRole('link', { name: 'Keep these hours and continue' }).click()
   await expect(page.getByText('Salon video: added')).toBeVisible()
   await page.getByRole('button', { name: 'Submit for the visit' }).click()
   await expect(page).toHaveURL(/\/salon\/day$/)
@@ -240,7 +243,7 @@ test('while the video uploads the owner is kept from leaving by mistake', async 
   registering(api)
   api.r2Delay = 3000
   await page.goto('/register/photos')
-  await page.getByRole('heading', { name: 'Photos and video' }).click()   // a tap: the page may ask before closing
+  await page.getByRole('heading', { name: 'Photos and papers' }).click()   // a tap: the page may ask before closing
   await record(page)
   await expect(page.getByRole('progressbar', { name: 'Uploading the video' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()

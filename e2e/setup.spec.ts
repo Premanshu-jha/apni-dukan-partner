@@ -21,6 +21,7 @@ test('the owner adds a service, edits its price and switches one off', async ({ 
     durationMinutes: 20,
     pricePaise: 14950,
     priceIsFrom: false,
+    returnAfterDays: 14,
   })
 
   await page.getByRole('button', { name: /Haircut/ }).click()
@@ -59,7 +60,7 @@ test('a new owner’s checklist leads through barbers, skills and hours', async 
   await page.locator('#h-1-1-s').fill('15:00')
   await page.getByRole('button', { name: 'Copy Monday to Tue–Sat' }).click()
   await page.getByRole('button', { name: 'Save hours' }).click()
-  const hours = api.calls.find((c) => c.path.endsWith('/hours'))!.body as { hours: unknown[] }
+  const hours = api.calls.find((c) => c.method === 'PUT' && c.path.endsWith('/hours'))!.body as { hours: unknown[] }
   expect(hours.hours).toHaveLength(12)
   expect(hours.hours[0]).toEqual({ weekday: 1, start: '10:00', end: '14:00' })
 
