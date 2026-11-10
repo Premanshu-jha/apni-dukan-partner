@@ -23,6 +23,7 @@ const icons: Record<string, string> = {
   SHOP_APPROVED: '✓',
   SHOP_NOT_APPROVED: '!',
   SHOP_SUSPENDED: '!',
+  SHOP_DOCUMENT_REMOVED: '!',
   SHOP_REINSTATED: '✓',
   SHOP_HANDOVER_REQUEST: '⇄',
   SHOP_HANDOVER_ACCEPTED: '⇄',
@@ -39,6 +40,7 @@ const alarming = new Set([
   'SALON_WALK_IN_CANCELLED',
   'SHOP_NOT_APPROVED',
   'SHOP_SUSPENDED',
+  'SHOP_DOCUMENT_REMOVED',
   'SHOP_HANDOVER_DECLINED',
   'SHOP_INVITE_DECLINED',
 ])
@@ -50,7 +52,7 @@ const alarming = new Set([
 export function safePath(url: string | null): string | null {
   if (!url || !url.startsWith('/') || url.startsWith('//')) return null
   if (url.startsWith('/salon/')) return url
-  if (url === '/handover' || url === '/invites') return url
+  if (url === '/handover' || url === '/invites' || url === '/setup/document') return url
   if (url.startsWith('/shops/')) return '/'
   return null
 }

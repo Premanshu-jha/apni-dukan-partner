@@ -2,13 +2,46 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { fieldError, messageOf } from '../../api/errors'
-import { setupApi, useStaff, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
+import { addOwnerAsBarber, ownProfile, setupApi, useStaff, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import { Banner, Button, EmptyState, ErrorState, Field, Loading, Page, Pill, Sheet } from '../../components/ui'
 import { weekdayName } from '../../lib/ist'
 import { formatPhone } from '../../lib/phone'
 import { can } from '../../lib/roles'
+import { useSession } from '../../store/session'
 import type { Shift } from '../../api/types'
+
+/** The owner who cuts hair too: one tap adds him (once he is one, nothing shows). */
+function AddMe() {
+  const qc = useQueryClient()
+  const staff = useStaff()
+  const phone = useSession((s) => s.user?.phone ?? null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  if (!staff.data || ownProfile(staff.data, phone)) return null
+  return (
+    <>
+      <Button
+        variant="secondary"
+        busy={busy}
+        onClick={async () => {
+          setBusy(true)
+          setError(null)
+          try {
+            await addOwnerAsBarber(qc)
+          } catch (e) {
+            setError(messageOf(e))
+          } finally {
+            setBusy(false)
+          }
+        }}
+      >
+        Add me as a barber
+      </Button>
+      {error && <Banner tone="bad">{error}</Banner>}
+    </>
+  )
+}
 
 /** "Mon–Sat 10:00 AM–8:00 PM" style summary of a week, or "No hours yet". */
 export function weekText(hours: Shift[]): string {
@@ -53,6 +86,7 @@ export function StaffList() {
             </ul>
           )}
           {edit && <Button onClick={() => setAdding(true)}>+ Add a barber</Button>}
+          {shop.myRole === 'OWNER' && <AddMe />}
         </>
       )}
       {adding && <AddStaff onClose={() => setAdding(false)} />}

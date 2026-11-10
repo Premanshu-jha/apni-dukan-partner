@@ -3,10 +3,16 @@ import { lazy, Suspense, useContext, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, Outlet, useNavigate } from 'react-router'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
 import { fileApi, ShopContext, shopApi, shopKeys, useMyShop, useShop } from '../../api/shop'
-import type { GeocodePrecision, Shop, ShopDetailsIn } from '../../api/types'
+import type { GeocodePrecision, RegistrationDocType, Shop, ShopDetailsIn } from '../../api/types'
 import { LocationGuide } from '../../components/LocationGuide'
 import { PhotoPicker } from '../../components/PhotoPicker'
 import { readyForVisit } from '../../lib/salonVideo'
+import { clock12 } from '../../lib/ist'
+import { weekLines } from '../../lib/salonHours'
+import { addOwnerAsBarber, ownProfile, salonKeys, useSalonHours, useServices, useStaff } from '../../api/salon'
+import { ClosedDaysEditor } from '../day/Closures'
+import { SalonHoursEditor } from '../setup/SalonHours'
+import { docLabel, RegistrationDocCard } from './RegistrationDoc'
 import { SalonVideo } from './SalonVideo'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
 import {
@@ -61,8 +67,8 @@ export function RegisterLayout({ needShop }: { needShop: boolean }) {
   )
 }
 
-function Steps({ at }: { at: 1 | 2 | 3 }) {
-  const names = ['Details', 'Photos', 'Submit']
+export function Steps({ at }: { at: 1 | 2 | 3 | 4 | 5 }) {
+  const names = ['Details', 'Photos', 'Services', 'Hours', 'Submit']
   return (
     <ol className="flex gap-2" aria-label="Registration steps">
       {names.map((n, i) => (
@@ -71,7 +77,8 @@ function Steps({ at }: { at: 1 | 2 | 3 }) {
           aria-current={i + 1 === at ? 'step' : undefined}
           className={`flex-1 rounded-full py-1 text-center text-xs font-semibold ${i + 1 <= at ? 'bg-brand text-brand-ink' : 'bg-raised text-muted'}`}
         >
-          {i + 1}. {n}
+          <span className="sr-only">{i + 1}. </span>
+          {n}
         </li>
       ))}
     </ol>
@@ -125,7 +132,12 @@ export function checkDetails(f: Form): Partial<Record<keyof Form, string>> {
 }
 
 /** Step 1: the salon's details and its location pin. */
-export function RegisterDetails() {
+/**
+ * Step 1: the salon's details and its pin. With `edit`, the same form after registration (More → Salon → Salon
+ * details, the owner only): it stays on the page with "Saved.", and on a live salon a changed address or pin is saved
+ * only after the owner confirms it goes back to the field team.
+ */
+export function RegisterDetails({ edit = false }: { edit?: boolean }) {
   const qc = useQueryClient()
   const navigate = useNavigate()
   const shop = useContext(ShopContext)
@@ -163,6 +175,9 @@ export function RegisterDetails() {
   }, [form])
   /** The address fields were filled from the GPS point. */
   const [filled, setFilled] = useState(false)
+  /** Editing: saved just now; and the owner was asked to confirm a re-check (address or pin of a live salon). */
+  const [saved, setSaved] = useState(false)
+  const [confirmRecheck, setConfirmRecheck] = useState(false)
 
   // Nothing is on the backend before the first save: keep the typing on this phone meanwhile.
   useEffect(() => {
@@ -177,6 +192,8 @@ export function RegisterDetails() {
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setForm((f) => ({ ...f, [k]: value }))
+    setSaved(false)
+    setConfirmRecheck(false)
     if ((ADDRESS_FIELDS as readonly string[]).includes(k)) {
       setNeedFields(false)
       setSearchError(null)
@@ -307,18 +324,48 @@ export function RegisterDetails() {
       gstin: form.gstin.trim().toUpperCase() || null,
       udyamNumber: form.udyamNumber.trim().toUpperCase() || null,
     }
+    // A live salon's address or pin is what the field team checked: changing it sends the salon back to them
+    // (ShopService.update). Say so and save only on the second tap.
+    // As the backend compares them (TextCleaner squeezes inner spaces)
+    const same = (a: string, b: string) => a.replace(/\s+/g, ' ') === b.replace(/\s+/g, ' ')
+    const moves =
+      shop !== null &&
+      shop.status === 'APPROVED' &&
+      (!same(details.addressLine, shop.addressLine) ||
+        !same(details.area, shop.area) ||
+        !same(details.city, shop.city) ||
+        details.pincode !== shop.pincode ||
+        Math.abs(details.latitude - shop.latitude) > 1e-6 ||
+        Math.abs(details.longitude - shop.longitude) > 1e-6)
+    if (edit && moves && !confirmRecheck) {
+      setConfirmRecheck(true)
+      return
+    }
     setBusy(true)
+    setSaved(false)
     try {
-      const saved = shop
+      const result = shop
         ? await shopApi.update(shop.version, { ...details, gstin: details.gstin ?? '', udyamNumber: details.udyamNumber ?? '' })
         : await shopApi.create(details)
       forgetRegisterDraft()
-      qc.setQueryData(shopKeys.mine, saved)
-      navigate('/register/photos')
+      qc.setQueryData(shopKeys.mine, result)
+      if (edit) {
+        setSaved(true)
+        setConfirmRecheck(false)
+      } else {
+        navigate('/register/photos')
+      }
     } catch (e) {
       if (isApiError(e, 'ALREADY_HAS_SHOP') || isApiError(e, 'SHOP_CHANGED')) {
         // Registered from another tab or phone, or changed meanwhile: start from what the backend has.
         await qc.invalidateQueries({ queryKey: shopKeys.mine })
+        // Editing a live salon: the form shows the newest details, so the next Save can't undo the other change
+        const newest = qc.getQueryData<Shop>(shopKeys.mine)
+        if (edit && newest) {
+          setForm(formOf(newest))
+          setPin({ lat: newest.latitude, lng: newest.longitude, gps: null, zoom: 18, placement: 0 })
+          setConfirmRecheck(false)
+        }
       }
       setError(e)
     } finally {
@@ -332,9 +379,9 @@ export function RegisterDetails() {
 
   return (
     // A saved draft has no screen before this one ("/" comes back here), so no back arrow then
-    <Page back={shop ? undefined : '/start'} title="Register your salon">
-      <Steps at={1} />
-      {shop?.statusReason && <SentBack reason={shop.statusReason} />}
+    <Page back={edit ? '/setup' : shop ? undefined : '/start'} title={edit ? 'Salon details' : 'Register your salon'}>
+      {!edit && <Steps at={1} />}
+      {!edit && shop?.statusReason && <SentBack reason={shop.statusReason} />}
       <Card className="flex flex-col gap-4">
         <Field id="shop-name" label="Salon name" value={form.name} onChange={set('name')} maxLength={100} error={show('name')} />
         <Field id="owner-name" label="Owner’s name" value={form.ownerName} onChange={set('ownerName')} maxLength={100} autoComplete="name" error={show('ownerName')} />
@@ -423,13 +470,22 @@ export function RegisterDetails() {
       </Card>
 
       {generalError && <Banner tone="bad">{generalError}</Banner>}
+      {confirmRecheck && (
+        <Banner tone="warn">
+          A new address or pin goes to our field team for a check: your salon is hidden from customers until they
+          approve it again. Bookings already made stay. Tap Save again to go ahead.
+        </Banner>
+      )}
+      {saved && <Banner tone="good">Saved.</Banner>}
       <Button busy={busy} onClick={save}>
-        Save and continue
+        {edit ? (confirmRecheck ? 'Save and send for a check' : 'Save') : 'Save and continue'}
       </Button>
-      <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
-        Sign out
-      </Button>
-      {shop && <DraftExits name={shop.name} />}
+      {!edit && (
+        <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
+          Sign out
+        </Button>
+      )}
+      {!edit && shop && <DraftExits name={shop.name} />}
     </Page>
   )
 }
@@ -454,8 +510,12 @@ function DraftExits({ name }: { name: string }) {
   )
 }
 
-/** Step 2: the owner's photo (for the field team), the shop front (customers see it) and the salon video (field team). */
-export function RegisterPhotos() {
+/**
+ * Step 2: the owner's photo (for the field team), the shop front (customers see it) and the salon video (field team),
+ * and the optional registration document. With `edit`, the photos and video after registration (More → Salon →
+ * Photos and video, the owner only); the document has its own page there.
+ */
+export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
   const qc = useQueryClient()
   const navigate = useNavigate()
   const shop = useShop()
@@ -516,11 +576,56 @@ export function RegisterPhotos() {
     return run
   }
 
+  /** The registration document, after any photo or video save under way (each needs the version the last left). */
+  function setDocument(type: RegistrationDocType, fileId: string) {
+    const run = queue.current
+      .catch(() => undefined)
+      .then(async () => {
+        const latest = qc.getQueryData<Shop>(shopKeys.mine) ?? shop
+        try {
+          qc.setQueryData(shopKeys.mine, await shopApi.setRegistrationDoc(latest.version, type, fileId))
+        } catch (e) {
+          if (isApiError(e, 'SHOP_CHANGED')) await qc.invalidateQueries({ queryKey: shopKeys.mine })
+          throw e
+        }
+      })
+    queue.current = run
+    return run
+  }
+
+  /** A wrong document uploaded: off again (it's optional), after any save under way. */
+  function removeDocument() {
+    const run = queue.current
+      .catch(() => undefined)
+      .then(async () => {
+        const latest = qc.getQueryData<Shop>(shopKeys.mine) ?? shop
+        try {
+          qc.setQueryData(shopKeys.mine, await shopApi.removeRegistrationDoc(latest.version))
+        } catch (e) {
+          if (isApiError(e, 'SHOP_CHANGED')) await qc.invalidateQueries({ queryKey: shopKeys.mine })
+          throw e
+        }
+      })
+    queue.current = run
+    return run
+  }
+
   const [videoBusy, setVideoBusy] = useState(false)
+  const [docBusy, setDocBusy] = useState(false)
   const done = readyForVisit(shop)
   return (
-    <Page back="/register" title="Photos and video" leaveWarning={videoBusy ? LEAVE_DURING_UPLOAD : null}>
-      <Steps at={2} />
+    <Page
+      back={edit ? '/setup' : '/register'}
+      title={edit ? 'Photos and video' : 'Photos and papers'}
+      leaveWarning={videoBusy ? LEAVE_DURING_UPLOAD : docBusy ? LEAVE_DURING_DOCUMENT : null}
+    >
+      {!edit && <Steps at={2} />}
+      {edit && shop.status === 'APPROVED' && (
+        <Banner tone="warn">
+          A new photo or video goes to our field team for a check: your salon is hidden from customers until they
+          approve it again. Bookings already made stay.
+        </Banner>
+      )}
       <PhotoPicker
         label="Your photo"
         hint="A clear photo of your face. Only our field team sees it, to know who to meet."
@@ -536,26 +641,159 @@ export function RegisterPhotos() {
         upload={(p) => setPhoto('SHOP_PHOTO', p)}
       />
       <SalonVideo fileId={shop.shopVideoFileId ?? null} save={setVideo} onBusy={setVideoBusy} />
-      <Button disabled={!done || videoBusy} onClick={() => navigate('/register/review')}>
-        Continue
-      </Button>
-      {!done && <p className="text-center text-sm text-muted">Both photos and the salon video are needed.</p>}
+      {!edit && (
+        <>
+          <RegistrationDocCard
+            type={shop.registrationDocType ?? null}
+            fileId={shop.registrationDocFileId ?? null}
+            save={setDocument}
+            remove={removeDocument}
+            onBusy={setDocBusy}
+          />
+          {/* Not while the document is still on its way: its error would have nowhere to show */}
+          <Button disabled={!done || videoBusy || docBusy} onClick={() => navigate('/register/services')}>
+            Continue
+          </Button>
+          {!done && <p className="text-center text-sm text-muted">Both photos and the salon video are needed.</p>}
+        </>
+      )}
     </Page>
   )
 }
 
 const LEAVE_DURING_UPLOAD = 'The salon video is still uploading. Leave anyway? It will have to be sent again.'
+const LEAVE_DURING_DOCUMENT = 'The registration document is still uploading. Leave anyway? It may not be saved.'
 
-/** Step 3: check everything and ask for the field team's visit. */
+/** Step 4: the salon's opening hours and weekly off. */
+export function RegisterHours() {
+  const navigate = useNavigate()
+  const hours = useSalonHours()
+  return (
+    <Page back="/register/services" title="Opening hours">
+      <Steps at={4} />
+      {hours.isPending ? (
+        <Loading />
+      ) : hours.isError && !hours.data ? (
+        <ErrorState message={messageOf(hours.error)} onRetry={() => hours.refetch()} />
+      ) : (
+        <SalonHoursEditor
+          hours={hours.data}
+          saveLabel="Save and continue"
+          onSaved={() => navigate('/register/review')}
+        />
+      )}
+      {hours.data && hours.data.days.length > 0 && (
+        <Link to="/register/review" className="text-center text-sm text-link underline">
+          Keep these hours and continue
+        </Link>
+      )}
+    </Page>
+  )
+}
+
+/**
+ * "Do you cut hair here yourself?": yes adds the owner as a barber (his own sign-in, every service, the salon's
+ * hours), so customers can book his chair too. Once he is one, it says so.
+ */
+export function OwnerAsBarber() {
+  const qc = useQueryClient()
+  const staff = useStaff()
+  const phone = useSession((s) => s.user?.phone ?? null)
+  const [no, setNo] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  // After Yes or No the buttons go: the answer takes the focus, so a screen reader hears it and the place isn't lost
+  const answer = useRef<HTMLDivElement>(null)
+  const [answered, setAnswered] = useState(false)
+  useEffect(() => {
+    if (answered) answer.current?.focus()
+  }, [answered, no, staff.data])
+  if (staff.isError && !staff.data) {
+    return (
+      <Card>
+        <p className="font-semibold">Do you cut hair here yourself?</p>
+        <ErrorState message={`Couldn't read your barbers. ${messageOf(staff.error)}`} onRetry={() => staff.refetch()} />
+      </Card>
+    )
+  }
+  if (!staff.data) return null
+  const mine = ownProfile(staff.data, phone)
+  if (mine) {
+    return (
+      <Card>
+        <div ref={answer} tabIndex={-1} role="status" className="outline-none">
+          <p className="text-sm">
+            {mine.active
+              ? "You're one of the barbers: customers can book your chair. Change your services and hours in More → Barbers."
+              : "Your barber profile is switched off, so customers can't book your chair. Switch it on in More → Barbers."}
+          </p>
+        </div>
+      </Card>
+    )
+  }
+  if (no) {
+    return (
+      <div ref={answer} tabIndex={-1} role="status" className="text-sm text-muted outline-none">
+        Only your staff cut hair. If that changes, add yourself in More → Barbers.
+      </div>
+    )
+  }
+  async function addMe() {
+    setBusy(true)
+    setError(null)
+    try {
+      await addOwnerAsBarber(qc)
+      setAnswered(true)
+    } catch (e) {
+      setError(messageOf(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Card className="flex flex-col gap-3">
+      <div>
+        <p className="font-semibold">Do you cut hair here yourself?</p>
+        <p className="text-sm text-muted">
+          If yes, we'll add you as a barber, so customers can book your chair too. You'll do all your services in the
+          opening hours; change that any time in More → Barbers.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Button busy={busy} onClick={addMe}>
+          Yes, add me
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={busy}
+          onClick={() => {
+            setNo(true)
+            setAnswered(true)
+          }}
+        >
+          No, only staff
+        </Button>
+      </div>
+      {error && <Banner tone="bad">{error}</Banner>}
+    </Card>
+  )
+}
+
+/** Step 5: check everything and ask for the field team's visit. */
 export function RegisterReview() {
   const qc = useQueryClient()
   const navigate = useNavigate()
   const shop = useShop()
+  const services = useServices()
+  const hours = useSalonHours()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const photos = Boolean(shop.ownerPhotoFileId && shop.shopPhotoFileId)
   const video = Boolean(shop.shopVideoFileId)
-  const ready = readyForVisit(shop)
+  const doc = Boolean(shop.registrationDocFileId)
+  const offered = services.data?.filter((s) => s.active).length ?? 0
+  const open = hours.data?.days ?? []
+  const ready = readyForVisit(shop) && offered > 0 && open.length > 0
 
   async function submit() {
     setBusy(true)
@@ -568,14 +806,21 @@ export function RegisterReview() {
       if (isApiError(e, 'SHOP_CHANGED') || isApiError(e, 'PHOTOS_REQUIRED') || isApiError(e, 'WRONG_STATUS')) {
         await qc.invalidateQueries({ queryKey: shopKeys.mine })
       }
+      if (isApiError(e, 'REGISTRATION_INCOMPLETE')) {
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: shopKeys.mine }),
+          qc.invalidateQueries({ queryKey: salonKeys.services }),
+          qc.invalidateQueries({ queryKey: salonKeys.hours }),
+        ])
+      }
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <Page back="/register/photos" title="Check and submit">
-      <Steps at={3} />
+    <Page back="/register/hours" title="Check and submit">
+      <Steps at={5} />
       {shop.statusReason && <SentBack reason={shop.statusReason} />}
       <Card className="flex flex-col gap-3">
         <Line label="Salon" value={shop.name} />
@@ -600,9 +845,58 @@ export function RegisterReview() {
           {video ? 'Change' : 'Add'}
         </Link>
       </Card>
+      <Card className="flex items-center justify-between gap-2">
+        <span>Registration document: {doc ? docLabel(shop.registrationDocType) : 'not added (optional)'}</span>
+        <Link to="/register/photos" className="shrink-0 text-sm text-link underline">
+          {doc ? 'Change' : 'Add'}
+        </Link>
+      </Card>
+      {(services.isError || hours.isError) && !(services.data && hours.data) && (
+        <Banner tone="bad">
+          Couldn't read your services or hours. {messageOf(services.error ?? hours.error)}{' '}
+          <button
+            type="button"
+            className="underline"
+            onClick={() => {
+              void services.refetch()
+              void hours.refetch()
+            }}
+          >
+            Try again
+          </button>
+        </Banner>
+      )}
+      <Card className="flex items-center justify-between">
+        <span>Services: {!services.data ? '…' : offered ? `${offered} added` : 'missing'}</span>
+        <Link to="/register/services" className="text-sm text-link underline">
+          {offered ? 'Change' : 'Add'}
+        </Link>
+      </Card>
+      <Card className="flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <span>Opening hours{!hours.data ? ': …' : !open.length ? ': missing' : ''}</span>
+          <Link to="/register/hours" className="text-sm text-link underline">
+            {open.length ? 'Change' : 'Set'}
+          </Link>
+        </div>
+        {open.length > 0 && weekLines(open, clock12).map((l) => (
+          <p key={l} className="text-sm text-muted">
+            {l}
+          </p>
+        ))}
+      </Card>
+      <section aria-labelledby="holidays" className="flex flex-col gap-2">
+        <h2 id="holidays" className="font-semibold">
+          Festival holidays (optional)
+        </h2>
+        <p className="text-sm text-muted">
+          Days the whole salon is closed, such as Diwali. You can add more later in More → Closed days.
+        </p>
+        <ClosedDaysEditor optional />
+      </section>
+      <OwnerAsBarber />
       <p className="text-sm text-muted">
-        After you submit, our field team calls and visits to check the salon. Meanwhile you can add your services and
-        barbers.
+        After you submit, our field team calls and visits to check the salon. Meanwhile you can add your barbers.
       </p>
       {error && <Banner tone="bad">{error}</Banner>}
       <Button busy={busy} disabled={!ready} onClick={submit}>

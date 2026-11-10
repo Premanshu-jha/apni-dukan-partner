@@ -1,8 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { explain, isApiError, messageOf } from '../../api/errors'
-import { setupApi, useServices, useStaff, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
+import { setupApi, useSalonHours, useServices, useStaff, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
+import { salonShifts } from '../../lib/salonHours'
 import { fileApi, useShop } from '../../api/shop'
 import type { InTheWay, Shift, Staff } from '../../api/types'
 import { PhotoPicker } from '../../components/PhotoPicker'
@@ -12,6 +13,7 @@ import { formatPhone, normalizePhone } from '../../lib/phone'
 import { can } from '../../lib/roles'
 import { dayLink } from '../day/Today'
 import { loginText } from './Staff'
+import { useSession } from '../../store/session'
 
 /** Every change on this page reloads the barber list, so the next change sends the newest version. */
 function useAfterChange() {
@@ -45,6 +47,7 @@ export function StaffDetail() {
         {edit && <Login s={s} edit={edit} />}
         <Skills s={s} edit={edit} />
         <Hours s={s} edit={edit} />
+        {shop.myRole === 'OWNER' && <RemoveBarber s={s} />}
       </Fragment>
     </Page>
   )
@@ -101,6 +104,55 @@ export function BookingsInTheWay({ list }: { list: InTheWay[] | null }) {
   )
 }
 
+/**
+ * Remove a barber for good (a contract barber who won't come back): out of the list, his sign-in goes, his past
+ * bookings keep his name. Switching him off above keeps him for when he returns. The owner only.
+ */
+function RemoveBarber({ s }: { s: Staff }) {
+  const qc = useQueryClient()
+  const navigate = useNavigate()
+  const [asking, setAsking] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  async function remove() {
+    setBusy(true)
+    setError(null)
+    try {
+      await setupApi.removeStaff(s.id)
+      navigate('/setup/staff', { replace: true })
+      await refreshSalonWork(qc, SETUP_KEYS)
+    } catch (e) {
+      setError(explain(e))
+      setBusy(false)
+    }
+  }
+  return (
+    <Card className="flex flex-col gap-2">
+      <p className="font-medium">Remove {s.name}</p>
+      <p className="text-sm text-muted">
+        For a barber who won't come back. To pause one who comes and goes (a contract barber), switch off "Working
+        here" instead: his services and hours are kept for when he returns.
+      </p>
+      {asking ? (
+        <>
+          <p className="text-sm">Remove {s.name} for good? His past bookings keep his name.</p>
+          <Button variant="danger" busy={busy} onClick={remove}>
+            Remove {s.name}
+          </Button>
+          <Button variant="secondary" disabled={busy} onClick={() => setAsking(false)}>
+            Keep him
+          </Button>
+        </>
+      ) : (
+        <Button variant="secondary" onClick={() => setAsking(true)}>
+          Remove barber
+        </Button>
+      )}
+      {error && <Banner tone="bad">{error}</Banner>}
+    </Card>
+  )
+}
+
 function NameAndActive({ s, edit }: { s: Staff; edit: boolean }) {
   const [name, setName] = useState(s.name)
   const { busy, error, saved, run } = useSaver()
@@ -153,7 +205,19 @@ function StaffPhoto({ s }: { s: Staff }) {
 function Login({ s, edit }: { s: Staff; edit: boolean }) {
   const [phone, setPhone] = useState('')
   const { busy, error, saved, run } = useSaver()
+  const myPhone = useSession((x) => x.user?.phone ?? null)
   const normalized = normalizePhone(phone)
+  if (myPhone !== null && s.loginPhone === myPhone) {
+    // The owner's own profile: his sign-in stays on it (he couldn't invite his own number back)
+    return (
+      <Card>
+        <p className="font-medium">Your own profile</p>
+        <p className="text-sm text-muted">
+          This is you, signed in as the owner. If you stop cutting hair, switch this profile off, or remove it.
+        </p>
+      </Card>
+    )
+  }
   return (
     <Card className="flex flex-col gap-3">
       <div>
@@ -301,6 +365,8 @@ export function checkWeek(w: Week): string | null {
 
 function Hours({ s, edit }: { s: Staff; edit: boolean }) {
   const [week, setWeek] = useState<Week>(() => toWeek(s.hours))
+  const salonHours = useSalonHours()
+  const salonDays = salonHours.data?.days ?? []
   const { busy, error, saved, inTheWay, run } = useSaver()
   const problem = checkWeek(week)
   const changed = JSON.stringify(fromWeek(week)) !== JSON.stringify(fromWeek(toWeek(s.hours)))
@@ -320,6 +386,16 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
           </button>
         )}
       </div>
+      {salonDays.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <p className="text-sm text-muted">They must fit inside the salon's opening hours.</p>
+          {edit && (
+            <button type="button" className="self-start text-sm text-link underline" onClick={() => setWeek(toWeek(salonShifts(salonDays)))}>
+              Use the salon's hours
+            </button>
+          )}
+        </div>
+      )}
       <ul className="flex flex-col gap-3">
         {[1, 2, 3, 4, 5, 6, 7].map((d) => (
           <li key={d} className="flex flex-col gap-2 border-b border-line pb-3 last:border-0">
@@ -374,7 +450,7 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
       </ul>
       {edit && changed && problem && <Banner tone="warn">{problem}</Banner>}
       {edit && changed && (
-        <Button busy={busy} disabled={Boolean(problem)} onClick={() => run(() => setupApi.setHours(s.id, s.version, fromWeek(week)))}>
+        <Button busy={busy} disabled={Boolean(problem)} onClick={() => run(() => setupApi.setStaffHours(s.id, s.version, fromWeek(week)))}>
           Save hours
         </Button>
       )}

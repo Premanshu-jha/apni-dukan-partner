@@ -10,10 +10,23 @@ import { addDays, dateOfIst, dateTimeIst, dayLabel, timeIst, todayIst } from '..
 
 /** Close the whole salon for a day (a festival, a family function). Owner only. */
 export function Closures() {
+  return (
+    <Page back="/more" title="Closed days">
+      <ClosedDaysEditor />
+    </Page>
+  )
+}
+
+/**
+ * The salon's closed days (festival holidays): the whole salon, every barber, even before any barber is added
+ * (the registration review step uses it too). The weekly off is set in the opening hours; leave is per barber.
+ */
+export function ClosedDaysEditor({ optional = false }: { optional?: boolean }) {
   const qc = useQueryClient()
   const list = useQuery({ queryKey: salonKeys.closures, queryFn: dayApi.closures })
   const today = todayIst()
-  const [date, setDate] = useState(addDays(today, 1))
+  const [date, setDate] = useState('')   // picked on purpose: one tap mustn't close tomorrow
+  const Heading = optional ? 'h3' : 'h2'
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [inTheWay, setInTheWay] = useState<InTheWay[] | null>(null)
@@ -37,12 +50,20 @@ export function Closures() {
   }
 
   return (
-    <Page back="/more" title="Closed days">
+    <>
       <Card className="flex flex-col gap-3">
         <Field id="closed-date" label="Close the salon on" type="date" min={today} max={addDays(today, AHEAD_DAYS)} value={date} onChange={(e) => setDate(e.target.value)} />
-        <p className="text-sm text-muted">Nobody can book that day. Anything already booked must be moved or cancelled first.</p>
-        <Button busy={busy === 'add'} disabled={!date || date < today} onClick={() => act('add', () => dayApi.addClosure(date))}>
-          Close {date ? dayLabel(date) : ''}
+        <p className="text-sm text-muted">
+          The whole salon is closed: every barber, including ones you add later. Anything already booked must be moved or
+          cancelled first.
+        </p>
+        <Button
+          variant={optional ? 'secondary' : 'primary'}
+          busy={busy === 'add'}
+          disabled={!date || date < today}
+          onClick={() => act('add', () => dayApi.addClosure(date).then(() => setDate('')))}
+        >
+          {date ? `Close ${dayLabel(date)}` : 'Pick a day to close'}
         </Button>
       </Card>
       {error && <Banner tone="bad">{error}</Banner>}
@@ -61,7 +82,7 @@ export function Closures() {
         </Card>
       )}
 
-      <h2 className="text-sm font-semibold text-muted">Coming closed days</h2>
+      <Heading className="text-sm font-semibold text-muted">Coming closed days</Heading>
       {list.isPending ? (
         <Loading />
       ) : list.isError ? (
@@ -82,6 +103,6 @@ export function Closures() {
           ))}
         </ul>
       )}
-    </Page>
+    </>
   )
 }
