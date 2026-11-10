@@ -1,11 +1,16 @@
 import { useInfiniteQuery, useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { api } from './client'
+import { isApiError } from './errors'
 import { loadDay } from './dayBoard'
 import { applyUpcoming, pageOf, type UpcomingChanges, type UpcomingPage } from './upcomingList'
 import { cursorQuery, type AfterCursor } from './pages'
 import type {
   Appointment,
+  CatalogService,
+  OpenDay,
+  RatingsPage,
+  SalonHours,
   ClosureView,
   DayView,
   HistoryView,
@@ -25,6 +30,9 @@ export const salonKeys = {
   services: ['salon', 'services'] as const,
   staff: ['salon', 'staff'] as const,
   settings: ['salon', 'settings'] as const,
+  catalog: ['salon', 'service-catalog'] as const,
+  hours: ['salon', 'hours'] as const,
+  ratings: ['salon', 'ratings'] as const,
   day: (date: string) => ['salon', 'day', date] as const,
   days: ['salon', 'day'] as const,
   upcoming: ['salon', 'upcoming'] as const,
@@ -46,6 +54,8 @@ export interface ServiceIn {
   pricePaise: number
   priceIsFrom: boolean
   sortOrder?: number
+  /** Days after a visit to remind the customer to come back (0: never); 14 when left out. */
+  returnAfterDays?: number
 }
 
 // ---------- setup (reads: anyone in the salon; changes: owner only) ----------
@@ -53,6 +63,13 @@ export interface ServiceIn {
 export const setupApi = {
   services: () => api<ServiceItem[]>('GET', `${S}/services`),
   addService: (s: ServiceIn) => api<ServiceItem>('POST', `${S}/services`, { body: s }),
+  /** Several at once, all or none (registration). */
+  addServices: (services: ServiceIn[]) => api<ServiceItem[]>('POST', `${S}/services/batch`, { body: { services } }),
+  catalog: () => api<CatalogService[]>('GET', `${S}/service-catalog`),
+  hours: () => api<SalonHours>('GET', `${S}/hours`),
+  /** The whole week; trimStaffHours cuts barbers' hours outside it (else 409 STAFF_HOURS_OUTSIDE names them). */
+  setHours: (version: string | null, days: OpenDay[], trimStaffHours = false) =>
+    api<SalonHours>('PUT', `${S}/hours`, { body: { version, days, ...(trimStaffHours ? { trimStaffHours } : {}) } }),
   updateService: (id: string, version: number, change: Partial<ServiceIn> & { active?: boolean }) =>
     api<ServiceItem>('PATCH', `${S}/services/${id}`, { body: { version, ...change } }),
 
@@ -60,12 +77,16 @@ export const setupApi = {
   addStaff: (name: string) => api<Staff>('POST', `${S}/staff`, { body: { name } }),
   updateStaff: (id: string, version: number, change: { name?: string; active?: boolean }) =>
     api<Staff>('PATCH', `${S}/staff/${id}`, { body: { version, ...change } }),
+  /** The owner also cuts hair: a barber profile linked to his own sign-in (every service, the salon's hours). 201. */
+  addMeAsBarber: () => api<Staff>('POST', `${S}/staff/me`),
+  /** Remove a barber for good (owner): out of the list, his sign-in goes; past bookings keep his name. 204. */
+  removeStaff: (id: string) => api<void>('DELETE', `${S}/staff/${id}`),
   linkLogin: (id: string, phone: string) => api<Staff>('PUT', `${S}/staff/${id}/login`, { body: { phone } }),
   unlinkLogin: (id: string) => api<Staff>('DELETE', `${S}/staff/${id}/login`),
   setPhoto: (id: string, fileId: string | null) => api<Staff>('PUT', `${S}/staff/${id}/photo`, { body: { fileId } }),
   setServices: (id: string, version: number, serviceIds: string[]) =>
     api<Staff>('PUT', `${S}/staff/${id}/services`, { body: { version, serviceIds } }),
-  setHours: (id: string, version: number, hours: Shift[]) =>
+  setStaffHours: (id: string, version: number, hours: Shift[]) =>
     api<Staff>('PUT', `${S}/staff/${id}/hours`, { body: { version, hours } }),
 
   settings: () => api<Settings>('GET', `${S}/settings`),
@@ -76,6 +97,28 @@ export const setupApi = {
 export const useServices = () => useQuery({ queryKey: salonKeys.services, queryFn: setupApi.services })
 export const useStaff = () => useQuery({ queryKey: salonKeys.staff, queryFn: setupApi.staff })
 export const useSettings = () => useQuery({ queryKey: salonKeys.settings, queryFn: setupApi.settings })
+/** The catalog never changes while the app runs: read once. */
+export const useCatalog = () => useQuery({ queryKey: salonKeys.catalog, queryFn: setupApi.catalog, staleTime: Infinity })
+export const useSalonHours = () => useQuery({ queryKey: salonKeys.hours, queryFn: setupApi.hours })
+
+export const ratingsApi = {
+  page: (after: { afterAt: string; afterId: string } | null) =>
+    api<RatingsPage>(
+      'GET',
+      `${S}/ratings${after ? `?afterAt=${encodeURIComponent(after.afterAt)}&afterId=${encodeURIComponent(after.afterId)}` : ''}`,
+    ),
+}
+
+/** The salon's ratings, newest first, 30 a page ("Show more"); the summary is on the first page. */
+export function useRatings() {
+  return useInfiniteQuery({
+    queryKey: salonKeys.ratings,
+    initialPageParam: null as { afterAt: string; afterId: string } | null,
+    queryFn: ({ pageParam }) => ratingsApi.page(pageParam),
+    getNextPageParam: (last: RatingsPage) => last.next ?? undefined,
+    staleTime: 60_000,
+  })
+}
 
 // ---------- the day's work ----------
 
@@ -286,8 +329,34 @@ export function forgetBarberInvite(qc: QueryClient, staffId: string) {
   void qc.invalidateQueries({ queryKey: salonKeys.staff, refetchType: 'all' })
 }
 
+/**
+ * The owner's own barber profile, if he has one: the one signed in with his phone (it keeps his sign-in while switched
+ * off, and lets go of it only when removed).
+ */
+export function ownProfile(staff: Staff[] | undefined, phone: string | null): Staff | undefined {
+  return phone === null ? undefined : staff?.find((s) => s.loginPhone === phone)
+}
+
+/**
+ * Adds the owner as a barber. The barbers are read again whatever the answer, and this ends only once they are, so the
+ * question or button can't show again in between; 409 ALREADY_A_BARBER (another tab, a double tap) counts as done.
+ * Other errors are thrown.
+ */
+export async function addOwnerAsBarber(qc: QueryClient) {
+  try {
+    await setupApi.addMeAsBarber()
+  } catch (e) {
+    if (!isApiError(e, 'ALREADY_A_BARBER')) {
+      await qc.refetchQueries({ queryKey: salonKeys.staff })
+      throw e
+    }
+  }
+  refreshSalonWork(qc, SETUP_KEYS.filter((k) => k !== salonKeys.staff))
+  await qc.refetchQueries({ queryKey: salonKeys.staff })
+}
+
 /** The setup's queries (barbers, services, booking rules, who may add walk-ins): a setup change reads them again. */
-export const SETUP_KEYS: QueryKey[] = [salonKeys.services, salonKeys.staff, salonKeys.settings, salonKeys.members]
+export const SETUP_KEYS: QueryKey[] = [salonKeys.services, salonKeys.staff, salonKeys.settings, salonKeys.members, salonKeys.hours]
 
 /**
  * Whether anything comes after the capped coming-up list: the page after the last loaded booking, asked once (not

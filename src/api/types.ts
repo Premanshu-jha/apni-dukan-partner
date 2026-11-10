@@ -28,6 +28,9 @@ export interface ErrorBody {
 
 // ---------- the shop ----------
 
+/** Any one of these will do as the salon's registration document. */
+export type RegistrationDocType = 'SHOPS_ESTABLISHMENT' | 'TRADE_LICENCE' | 'UDYAM'
+
 /** CLOSED: its owner closed it for good (seen in the answer to closing; after that the owner has no shop). */
 export type ShopStatus = 'DRAFT' | 'PENDING_VISIT' | 'APPROVED' | 'SUSPENDED' | 'CLOSED'
 export type ShopType = 'KIRANA' | 'SALON'
@@ -56,6 +59,11 @@ export interface Shop {
   shopPhotoFileId: string | null
   /** The salon video (needed before Submit for visit); the owner's view only, null for helpers and barbers. */
   shopVideoFileId?: string | null
+  /** The registration document (optional; the owner can add, change or remove it any time); the owner's view only. */
+  registrationDocType?: RegistrationDocType | null
+  registrationDocFileId?: string | null
+  /** When our field team checked it (customers then see "Registered"); null if not yet or none. */
+  registrationDocCheckedAt?: string | null
   version: number
   createdAt: string
   updatedAt: string
@@ -102,7 +110,8 @@ export interface Described {
   formattedAddress: string
 }
 
-export type FilePurpose = 'SHOP_PHOTO' | 'OWNER_PHOTO' | 'STAFF_PHOTO' | 'SHOP_VIDEO'
+/** REG_DOC: the salon's registration document (a photo or a PDF); the owner only. */
+export type FilePurpose = 'SHOP_PHOTO' | 'OWNER_PHOTO' | 'STAFF_PHOTO' | 'SHOP_VIDEO' | 'REG_DOC'
 
 /** POST /files/video-uploads: where the phone sends the salon video itself (a one-time R2 link). */
 export interface VideoUploadLink {
@@ -161,9 +170,67 @@ export interface ServiceItem {
   priceIsFrom: boolean
   active: boolean
   sortOrder: number
+  /** Days after a visit the customer is reminded to come back for it; 0: no reminder. */
+  returnAfterDays: number
   version: number
   createdAt: string
   updatedAt: string
+}
+
+/** A common service to tick at registration (GET /salon/service-catalog): suggested time and come-back interval. */
+export interface CatalogService {
+  name: string
+  durationMinutes: number
+  returnAfterDays: number
+}
+
+/** One open day of the salon: weekday 1 = Monday … 7 = Sunday, "HH:mm" ("24:00" = midnight). */
+export interface OpenDay {
+  weekday: number
+  open: string
+  close: string
+}
+
+/** GET /salon/hours: the open days (a weekday left out is closed) and the version to send back. */
+export interface SalonHours {
+  /** null while none are set */
+  version: string | null
+  days: OpenDay[]
+}
+
+export type RatingTag = 'ON_TIME' | 'CLEAN' | 'FRIENDLY' | 'SKILLED' | 'GOOD_VALUE'
+
+export interface TagCount {
+  tag: RatingTag
+  label: string
+  count: number
+}
+
+export interface RatingSummary {
+  count: number
+  /** To one decimal; null with no ratings. */
+  average: number | null
+  tags: TagCount[]
+}
+
+/** One customer's rating of a visit, as the salon sees it (the comment is for the salon only). */
+export interface SalonRating {
+  bookingId: string
+  bookingNo: string
+  stars: number
+  tags: RatingTag[]
+  comment: string | null
+  services: string[]
+  customerName: string | null
+  visitAt: string
+  ratedAt: string
+}
+
+/** GET /salon/ratings: the summary on the first page only (null on later pages). */
+export interface RatingsPage {
+  summary: RatingSummary | null
+  items: SalonRating[]
+  next: { afterAt: string; afterId: string } | null
 }
 
 export interface Shift {
