@@ -183,7 +183,7 @@ test('a shift can end at midnight', async ({ page, context, api }) => {
   await page.getByRole('listitem').filter({ hasText: /^Tue/ }).getByRole('button', { name: 'Add hours' }).click()
   await page.getByLabel('Till midnight').nth(1).check()
   await page.getByRole('button', { name: 'Save hours' }).click()
-  const sent = api.calls.find((c) => c.path.endsWith('/hours'))!.body as { hours: Array<{ weekday: number; end: string }> }
+  const sent = api.calls.find((c) => c.method === 'PUT' && c.path.endsWith('/hours'))!.body as { hours: Array<{ weekday: number; end: string }> }
   expect(sent.hours).toEqual([
     { weekday: 1, start: '18:00', end: '24:00' },
     { weekday: 2, start: '10:00', end: '24:00' },
