@@ -1,0 +1,27 @@
+import { atSalon, expect, test } from './helpers'
+
+test('the owner changes the mobile number with both codes; the shop stays theirs and this phone stays signed in', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  api.takenPhones.add('9700000005')
+  await page.goto('/more')
+  await page.getByRole('link', { name: 'Change mobile number' }).click()
+  const number = page.getByLabel('New mobile number')
+  await number.fill('9848012345')
+  await expect(page.getByText('This is already your number.')).toBeVisible()
+  await number.fill('9700000005')
+  await page.getByRole('button', { name: 'Send codes' }).click()
+  await expect(page.getByText('This number already has its own Clozest account. Use another number.')).toBeVisible()
+  await number.fill('97000 00003')
+  await page.getByRole('button', { name: 'Send codes' }).click()
+  await expect(page.getByText('We sent a code to +91 97000 00003 and one to ravi@example.com.')).toBeVisible()
+  await page.getByLabel('Code sent to the new number').fill('123456')
+  await page.getByLabel('Code sent to your email').fill('654321')
+  await page.getByRole('button', { name: 'Change number' }).click()
+
+  await expect(page).toHaveURL(/\/more$/)
+  await expect(page.getByText(/Your mobile number is now \+91 97000 00003\. Other devices were signed out/)).toBeVisible()
+  await expect(page.getByText('Shine Unisex Salon', { exact: false }).first()).toBeVisible()
+  await page.reload()
+  await expect(page).toHaveURL(/\/more$/)
+  await expect(page.getByText('+91 97000 00003', { exact: true })).toBeVisible()
+})

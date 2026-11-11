@@ -11,6 +11,7 @@ import { Today } from '../features/day/Today'
 import { WalkIn } from '../features/day/WalkIn'
 import { Inbox } from '../features/notifications/Inbox'
 import { ChangeEmail } from '../features/profile/ChangeEmail'
+import { ChangePhone } from '../features/profile/ChangePhone'
 import { DeleteAccount } from '../features/profile/DeleteAccount'
 import { Profile } from '../features/profile/Profile'
 import { Rules } from '../features/setup/Rules'
@@ -93,6 +94,7 @@ export function App() {
               <Route path="/salon/time-off" element={<TimeOff />} />
               <Route path="/notifications" element={<Inbox />} />
               <Route path="/profile/email" element={<ChangeEmail />} />
+              <Route path="/profile/phone" element={<ChangePhone />} />
               <Route element={<RoleOnly roles={['OWNER', 'HELPER']} />}>
                 <Route path="/setup/services" element={<Services />} />
                 <Route path="/setup/staff" element={<StaffList />} />

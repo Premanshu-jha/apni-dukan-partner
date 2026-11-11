@@ -21,6 +21,11 @@ export const authApi = {
   sendChangeEmailPhoneCode: () => api<void>('POST', `${A}/email/change-phone-code`),
   sendDeleteCode: () => api<void>('POST', `${A}/me/delete-code`),
   deleteAccount: (code: string) => api<void>('POST', `${A}/me/delete`, { body: { code } }),
+  /** Changing the phone number: a code to the new number (and to the verified email, if any). */
+  sendPhoneChangeCode: (newPhone: string) => api<void>('POST', `${A}/me/phone/send-code`, { body: { newPhone } }),
+  /** Both codes right: the account moves to the new number; every other device is signed out, this one gets new tokens. */
+  changePhone: (newPhone: string, phoneCode: string, emailCode: string | null) =>
+    api<Tokens>('POST', `${A}/me/phone`, { body: { newPhone, phoneCode, emailCode, device: deviceName() } }),
   startRecovery: (email: string, newPhone: string, captchaToken: string | null) =>
     api<void>('POST', `${A}/recover/start`, { body: { email, newPhone, captchaToken }, auth: false }),
   completeRecovery: (email: string, emailCode: string, newPhone: string, phoneCode: string) =>

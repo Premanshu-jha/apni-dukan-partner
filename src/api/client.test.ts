@@ -1,5 +1,5 @@
 import { followOtherTabs, useSession } from '../store/session'
-import { api, refreshSession } from './client'
+import { api, refreshSession, replacingSession } from './client'
 import { ApiError } from './errors'
 import type { Tokens } from './types'
 
@@ -110,6 +110,30 @@ describe('api client', () => {
     useSession.setState({ accessToken: null })
     await api('GET', '/a').catch(() => {})
     expect(sent).toBe('refresh-9')
+  })
+
+  it('a refresh refused because the phone change just ended its token waits for the new pair and stays signed in', async () => {
+    let answerChange: (t: Tokens) => void = () => {}
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const u = String(url)
+      if (u.endsWith('/auth/me/phone')) {
+        return new Promise<Response>((done) => {
+          answerChange = (t) => done(json(200, t))
+        })
+      }
+      // The change has already ended every old token on the backend
+      if (u.endsWith('/auth/refresh')) return json(401, { code: 'INVALID_REFRESH_TOKEN', message: 'Sign in again.' })
+      return json(401, { code: 'SIGNED_OUT', message: 'x' })
+    })
+    const change = replacingSession(() => api<Tokens>('POST', '/api/v1/auth/me/phone', { body: {} }))
+    await Promise.resolve()
+    const refreshed = refreshSession()
+    answerChange({ ...tokens(7), user: { ...user, phone: '9700000003' } })
+    await change
+    expect(await refreshed).toBe(true)
+    expect(useSession.getState().status).toBe('signedIn')
+    expect(useSession.getState().refreshToken).toBe('refresh-7')
+    expect(useSession.getState().user?.phone).toBe('9700000003')
   })
 
   it('stays signed out when a refresh finishes after signing out, and ends the new token', async () => {
