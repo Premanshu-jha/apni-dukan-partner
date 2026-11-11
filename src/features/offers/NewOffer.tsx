@@ -150,7 +150,7 @@ export function NewOffer() {
                   <input type="checkbox" className="h-5 w-5" checked={serviceIds.includes(s.id)} onChange={() => toggle(s.id)} />
                   <span className="flex-1">{s.name}</span>
                   <span className="text-sm text-muted">
-                    <s>{rupees(s.pricePaise, s.priceIsFrom)}</s> {rupees(offerPrice(s.pricePaise, percentOff), s.priceIsFrom)}
+                    <s>{rupees(s.pricePaise, s.priceIsFrom)}</s> <span className="text-accent">{rupees(offerPrice(s.pricePaise, percentOff), s.priceIsFrom)}</span>
                   </span>
                 </label>
               </li>
@@ -205,14 +205,14 @@ export function NewOffer() {
       {preview ? (
         <Card className="flex flex-col gap-3">
           <p className="font-semibold">
-            {percentOff}% off · {offerWhen({ startsOn, endsOn, from: someHours ? from : null, until: someHours ? endTime(until) : null })}
+            <span className="text-accent">{percentOff}% off</span> · {offerWhen({ startsOn, endsOn, from: someHours ? from : null, until: someHours ? endTime(until) : null })}
           </p>
           <ul className="flex flex-col gap-1" aria-label="Prices in the offer">
             {preview.services.map((s) => (
               <li key={s.serviceId} className="flex justify-between gap-2 text-sm">
                 <span>{s.name}</span>
                 <span>
-                  <s className="text-muted">{rupees(s.pricePaise, s.priceIsFrom)}</s> <strong>{rupees(s.offerPricePaise, s.priceIsFrom)}</strong>
+                  <s className="text-muted">{rupees(s.pricePaise, s.priceIsFrom)}</s> <strong className="text-accent">{rupees(s.offerPricePaise, s.priceIsFrom)}</strong>
                 </span>
               </li>
             ))}
