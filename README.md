@@ -332,6 +332,12 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.11.1 — 2026-11-11
+
+- The day's address searches used up now says "Try again tomorrow" (it said "Try again in 1437 minutes").
+- The salon's pin can be moved with the keyboard: Tab to it, then the arrow keys (Shift: further).
+- Scenarios 201 and 303 in `docs/scenarios.md`.
+
 ### 0.11.0 — 2026-11-11
 
 Needs the backend with `POST /auth/me/phone/send-code` and `POST /auth/me/phone`.
