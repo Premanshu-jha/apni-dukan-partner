@@ -256,7 +256,7 @@ export class MockApi {
   /** Numbers with an account of their own (PHONE_IN_USE). */
   takenPhones = new Set<string>()
   /** Phone-change codes sent: new number → where the second went, wrong tries. Codes: 123456 (new number), 654321 (email), 111222 (current number). */
-  phoneChangeCodes = new Map<string, { second: 'EMAIL' | 'PHONE'; tries: number }>()
+  phoneChangeCodes = new Map<string, { second: 'EMAIL' | 'PHONE'; phoneTries: number; secondTries: number }>()
   /** Phone-change sends today (5 at most, taken numbers included). */
   phoneChangeTries = 0
   /** The next phone change goes through but its answer is lost on the way back. */
@@ -609,7 +609,7 @@ export class MockApi {
       if (this.takenPhones.has(phone)) return fail(409, 'PHONE_IN_USE', 'This phone number already has its own account')
       // The second code: to the verified email, else to the number the account has now
       const toEmail = this.user.emailVerified
-      this.phoneChangeCodes.set(phone, { second: toEmail ? 'EMAIL' : 'PHONE', tries: 0 })
+      this.phoneChangeCodes.set(phone, { second: toEmail ? 'EMAIL' : 'PHONE', phoneTries: 0, secondTries: 0 })
       return ok(200, toEmail
         ? { secondCodeTo: 'EMAIL', sentTo: `${this.user.email!.charAt(0)}***${this.user.email!.slice(this.user.email!.indexOf('@'))}` }
         : { secondCodeTo: 'PHONE', sentTo: `ending ${this.user.phone.slice(6)}` })
@@ -620,15 +620,22 @@ export class MockApi {
       if (!phone) return fail(400, 'INVALID_PHONE', 'Enter a 10-digit Indian mobile number')
       const sent = this.phoneChangeCodes.get(phone)
       if (!sent) return fail(400, 'CODE_EXPIRED', 'This code has expired. Ask for a new one.')
-      if (body.phoneCode !== '123456' || body.secondCode !== (sent.second === 'EMAIL' ? '654321' : '111222')) {
-        sent.tries++
-        if (sent.tries >= 5) {
+      // Checked one after the other, each with its own tries: the new number's code, then the second code (looked for
+      // where the account's second code goes now: none there if the email changed since the codes were sent)
+      const check = (which: 'phoneTries' | 'secondTries', right: boolean) => {
+        if (right) return null
+        sent[which]++
+        if (sent[which] >= 5) {
           this.phoneChangeCodes.delete(phone)
           return fail(429, 'TOO_MANY_ATTEMPTS', 'Too many wrong codes. Ask for a new one.')
         }
-        return fail(400, 'WRONG_CODE', 'That code is not correct', { attemptsLeft: 5 - sent.tries })
+        return fail(400, 'WRONG_CODE', 'That code is not correct', { attemptsLeft: 5 - sent[which] })
       }
-      if ((sent.second === 'EMAIL') !== this.user.emailVerified) return fail(400, 'SEND_CODES_AGAIN', 'Your account changed since the codes were sent. Send the codes again.')
+      const first = check('phoneTries', body.phoneCode === '123456')
+      if (first) return first
+      if ((sent.second === 'EMAIL') !== this.user.emailVerified) return fail(400, 'CODE_EXPIRED', 'This code has expired. Ask for a new one.')
+      const second = check('secondTries', body.secondCode === (sent.second === 'EMAIL' ? '654321' : '111222'))
+      if (second) return second
       // Refused under the lock: the codes stay for another try
       if (this.takenPhones.has(phone)) return fail(409, 'PHONE_IN_USE', 'This phone number already has its own account')
       this.phoneChangeCodes.delete(phone)

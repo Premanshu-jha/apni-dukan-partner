@@ -8,7 +8,7 @@ import { CodeInput } from '../../components/CodeInput'
 import { Banner, Button, Field, Page } from '../../components/ui'
 import { goBack } from '../../lib/nav'
 import { formatPhone, normalizePhone } from '../../lib/phone'
-import { flashPhoneChanged, rememberPhoneMove } from '../../lib/phoneMoved'
+import { flashPhoneChanged, rememberPhoneMove, takePhoneMove } from '../../lib/phoneMoved'
 import { useSession } from '../../store/session'
 
 /**
@@ -69,8 +69,15 @@ export function ChangePhone() {
         // The answer was lost: if the change went through, every old token has ended. Ask the backend which
         rememberPhoneMove(sentTo)
         const stillIn = await refreshSession()
-        if (!stillIn || useSession.getState().status !== 'signedIn') return   // ended: sign-in says the number may have moved
-        fail("Couldn't change your number (no answer). Your number is still the same. Try again.")
+        if (useSession.getState().status !== 'signedIn') return   // ended: sign-in says the number may have moved
+        if (stillIn) {
+          // The old tokens still work: the change didn't go through
+          takePhoneMove()
+          fail("Couldn't change your number (no answer). Your number is still the same. Try again.")
+        } else {
+          // No answer at all (offline): not known yet; if it went through, sign-in will say so
+          fail("No answer from Clozest, so we can't tell yet whether your number changed. Check your connection, then open this screen again.")
+        }
       } else if (isApiError(e, 'SEND_CODES_AGAIN')) {
         fail(`${messageOf(e)} Tap "Send the codes again".`)
       } else if (isApiError(e, 'PHONE_IN_USE')) {

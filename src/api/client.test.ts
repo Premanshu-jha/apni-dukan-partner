@@ -155,6 +155,25 @@ describe('api client', () => {
     expect(useSession.getState().refreshToken).toBe('refresh-9')
   })
 
+  it('another tab changed the number: a refused refresh swaps the pair it saved and carries on', async () => {
+    localStorage.setItem('adp.session', JSON.stringify({ refreshToken: 'refresh-8', user }))
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+      if (String(url).endsWith('/auth/refresh')) {
+        const sent = JSON.parse(String(init?.body)).refreshToken
+        return sent === 'refresh-8' ? json(200, tokens(10)) : json(401, { code: 'INVALID_REFRESH_TOKEN', message: 'x' })
+      }
+      return json(200, { ok: true })
+    })
+    // This tab read the old token just before the other tab saved its pair
+    useSession.setState({ refreshToken: 'refresh-1', accessToken: null })
+    localStorage.setItem('adp.session', JSON.stringify({ refreshToken: 'refresh-1', user }))
+    const run = refreshSession()
+    localStorage.setItem('adp.session', JSON.stringify({ refreshToken: 'refresh-8', user }))
+    expect(await run).toBe(true)
+    expect(useSession.getState().status).toBe('signedIn')
+    expect(useSession.getState().accessToken).toBe('access-10')
+  })
+
   it('stays signed out when a refresh finishes after signing out, and ends the new token', async () => {
     let release: (r: Response) => void = () => {}
     const calls: string[] = []

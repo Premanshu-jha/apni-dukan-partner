@@ -89,6 +89,21 @@ export function refreshSession(): Promise<boolean> {
     let used = refreshToken
     const swap = (token: string) =>
       send<Tokens>('POST', '/api/v1/auth/refresh', { body: { refreshToken: token, device: deviceName() }, auth: false })
+    /**
+     * A newer pair was saved meanwhile (the phone number changed, here or in another tab): carry on with it. This tab
+     * has its access token already when it made the change; another tab swaps the saved token once for its own pair.
+     */
+    const adopt = async (saved: string): Promise<boolean> => {
+      const now = useSession.getState()
+      if (now.refreshToken === saved && now.accessToken) return true
+      const fresh = await swap(saved)
+      if (useSession.getState().generation !== started) {
+        void send<void>('POST', '/api/v1/auth/logout', { body: { refreshToken: fresh.refreshToken }, auth: false }).catch(() => {})
+        return false
+      }
+      useSession.getState().signIn(fresh)
+      return true
+    }
     try {
       let tokens: Tokens
       try {
@@ -106,7 +121,7 @@ export function refreshSession(): Promise<boolean> {
       // A newer pair was saved while this was on its way (the phone number changed, which ended the token this one
       // was swapped for too): keep the newer one
       const savedNow = savedRefreshToken()
-      if (savedNow && savedNow !== used && savedNow !== tokens.refreshToken) return true
+      if (savedNow && savedNow !== used && savedNow !== tokens.refreshToken) return await adopt(savedNow)
       if (useSession.getState().generation !== started) {
         // Signed out while this was on its way: don't come back to life, and end the new token too.
         void send<void>('POST', '/api/v1/auth/logout', { body: { refreshToken: tokens.refreshToken }, auth: false }).catch(() => {})
@@ -120,7 +135,13 @@ export function refreshSession(): Promise<boolean> {
       // (at most 15 s: never stuck behind a call that is itself waiting for this refresh)
       if (replacing) await Promise.race([replacing.catch(() => {}), new Promise((r) => setTimeout(r, 15_000))])
       const saved = savedRefreshToken()
-      if (saved && saved !== used && useSession.getState().generation === started) return true
+      if (saved && saved !== used && useSession.getState().generation === started) {
+        try {
+          return await adopt(saved)
+        } catch {
+          /* the newer pair is refused too: as any refused refresh, below */
+        }
+      }
       // Only a definite "no" ends the session; a network blip keeps the saved session for the next try.
       if (e instanceof ApiError && (e.status === 401 || e.status === 403 || e.status === 400)) {
         if (useSession.getState().generation === started) {
