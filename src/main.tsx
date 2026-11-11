@@ -12,6 +12,8 @@ import { forgetThisPerson } from './features/profile/signOut'
 import { refreshSalonWork } from './api/salon'
 import { shopKeys } from './api/shop'
 import { followOtherTabs, useSession } from './store/session'
+import '@fontsource/poppins/600.css'
+import '@fontsource/poppins/700.css'
 import './index.css'
 
 const queryClient: QueryClient = new QueryClient({
