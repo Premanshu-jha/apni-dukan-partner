@@ -192,7 +192,7 @@ export class MockApi {
    * POST /shops/geocode (AddressLocator): where the typed address is, null for ADDRESS_NOT_FOUND, or 'off' for
    * GEOCODING_OFF (no Google key on the backend).
    */
-  geocode: Json | null | 'off' = { latitude: 28.6215, longitude: 77.3652, precision: 'STREET', formattedAddress: 'Ithum Tower, Sector 62, Noida, Uttar Pradesh 201309, India' }
+  geocode: Json | null | 'off' | 'used-up' = { latitude: 28.6215, longitude: 77.3652, precision: 'STREET', formattedAddress: 'Ithum Tower, Sector 62, Noida, Uttar Pradesh 201309, India' }
   /**
    * POST /shops/reverse-geocode: the address at the GPS point, null for ADDRESS_NOT_FOUND, 'off' for GEOCODING_OFF,
    * 'down' for GEOCODING_UNAVAILABLE.
@@ -790,6 +790,10 @@ export class MockApi {
       if (Object.keys(bad).length) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', bad)
       if (this.geocodeDelay) await new Promise((r) => setTimeout(r, this.geocodeDelay))
       if (this.geocode === 'off') return fail(503, 'GEOCODING_OFF', "Address search isn't available. Use your location.")
+      // The person's 10 Google lookups for the day are used up: Retry-After is what is left of the day's window
+      if (this.geocode === 'used-up') {
+        return ok(429, { code: 'TRY_LATER', message: 'Many address searches in a short time. Wait a little, or use your location.', details: {} }, { 'Retry-After': '80000' })
+      }
       if (!this.geocode) return fail(404, 'ADDRESS_NOT_FOUND', "Couldn't find that address. Check the pincode and area, or use your location.")
       return ok(200, this.geocode)
     }
