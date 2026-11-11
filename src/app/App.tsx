@@ -24,6 +24,8 @@ import { SalonDocumentPage } from '../features/shop/SalonDocument'
 import { RegisterServices } from '../features/shop/RegisterServices'
 import { SalonHoursPage } from '../features/setup/SalonHours'
 import { Ratings } from '../features/ratings/Ratings'
+import { NewOffer } from '../features/offers/NewOffer'
+import { Offers } from '../features/offers/Offers'
 import { ShopGate } from '../features/shop/ShopGate'
 import { CloseShop } from '../features/shop/CloseShop'
 import { HandOver } from '../features/shop/HandOver'
@@ -100,6 +102,7 @@ export function App() {
                 <Route path="/setup/rules" element={<Rules />} />
                 <Route path="/setup/hours" element={<SalonHoursPage />} />
                 <Route path="/salon/ratings" element={<Ratings />} />
+                <Route path="/salon/offers" element={<Offers />} />
               </Route>
               <Route element={<RoleOnly roles={['OWNER']} />}>
                 {/* What the owner gave at registration, editable any time */}
@@ -108,6 +111,7 @@ export function App() {
                 <Route path="/setup/document" element={<SalonDocumentPage />} />
                 <Route path="/team" element={<Team />} />
                 <Route path="/salon/closures" element={<Closures />} />
+                <Route path="/salon/offers/new" element={<NewOffer />} />
               </Route>
             </Route>
           </Route>

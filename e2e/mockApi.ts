@@ -59,6 +59,25 @@ export function addDays(date: string, n: number): string {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
+/** SalonOfferService.ownerView: ENDED (ended early, or past its last day), UPCOMING or RUNNING. */
+function offerState(o: Json): 'RUNNING' | 'UPCOMING' | 'ENDED' {
+  const v = o.offer as Json
+  if (o.endedAt || (v.endsOn as string) < todayIst()) return 'ENDED'
+  return (v.startsOn as string) > todayIst() ? 'UPCOMING' : 'RUNNING'
+}
+
+/** "12 Nov" for a yyyy-MM-dd date (SalonOfferService.DAY). */
+function shortDay(date: string): string {
+  const [, m, d] = date.split('-').map(Number)
+  return `${d} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1]}`
+}
+
+/** SalonOffer.priceOf: to the rupee, half up, never below ₹1. */
+function offerPriceOf(paise: number, pct: number): number {
+  if (paise <= 0) return paise
+  return Math.max(1, Math.floor((paise * (100 - pct) + 5000) / 10000)) * 100
+}
+
 export function istInstant(date: string, hhmm: string): string {
   const [y, m, d] = date.split('-').map(Number)
   const [h, min] = hhmm.split(':').map(Number)
@@ -147,6 +166,9 @@ export class MockApi {
   hours: Json[] = ALL_DAY.map((d) => ({ ...d }))
   /** The salon's ratings (GET /salon/ratings), newest first. */
   ratings: Json[] = []
+  /** Offers (OwnerOffer rows, newest first) and how many past customers would get the message (RECIPIENTS) */
+  offers: Json[] = []
+  offerCustomers = 3
   ratingSummary: Json = { count: 0, average: null, tags: [] }
   appointments: Json[] = []
   members: Json[] = []
@@ -479,6 +501,74 @@ export class MockApi {
       if (this.appointments.some((a) => a.closureId === c.closureId && a.staffId === st.id && a.status === 'BLOCKED')) continue
       this.closedBlock(c, st)
     }
+  }
+
+  /**
+   * SalonOfferService.check, in the same order, one error at a time as the backend: the request's own limits, the
+   * salon live, the times, the dates, the services, the booking window, the pause, the hours, time left, overlaps.
+   */
+  private checkOffer(body: Json): { all: boolean; priced: Json[] } | { err: [number, string, string, Json?] } {
+    const today = todayIst()
+    const bad = (field: string, problem: string) => ({ err: [400, 'VALIDATION_FAILED', 'Some fields are not valid', { [field]: problem }] as [number, string, string, Json] })
+    const pct = body.percentOff as number
+    if (!Number.isInteger(pct) || pct < 5) return bad('percentOff', 'must be greater than or equal to 5')
+    if (pct > 50) return bad('percentOff', 'must be less than or equal to 50')
+    if (this.shop?.status !== 'APPROVED') return { err: [409, 'SALON_NOT_LIVE', 'Offers can be published once your salon is live.'] }
+    if ((body.from == null) !== (body.until == null)) return bad(body.from == null ? 'from' : 'until', 'set both times, or neither')
+    const onStep = (t: string) => /^\d{2}:\d{2}$/.test(t) && Number(t.slice(3)) % 15 === 0
+    if (body.from != null && !onStep(body.from as string)) return bad('from', 'must be on a 15-minute step (:00, :15, :30 or :45)')
+    if (body.until != null && !onStep(body.until as string)) return bad('until', 'must be on a 15-minute step (:00, :15, :30 or :45)')
+    if (body.from != null && (body.from as string) >= (body.until as string)) return bad('until', 'must be after the start time')
+    if ((body.startsOn as string) < today) return bad('startsOn', 'must be today or later')
+    if ((body.endsOn as string) < (body.startsOn as string)) return bad('endsOn', 'must be on or after the first day')
+    if ((body.endsOn as string) > addDays(today, 90)) return bad('endsOn', 'must be at most 90 days from today')
+    const active = this.services.filter((s) => s.active)
+    if (!active.length) return { err: [409, 'NO_SERVICES', 'Add your services before an offer.'] }
+    const picked = (body.serviceIds ?? []) as string[]
+    if (picked.some((id) => !active.some((s) => s.id === id))) return bad('serviceIds', "must be your salon's services that are switched on")
+    const lastStart = addDays(today, this.settings.maxDaysAhead as number)
+    if ((body.startsOn as string) > lastStart) {
+      return { err: [409, 'OFFER_TOO_FAR', `Customers can book up to ${this.settings.maxDaysAhead} days ahead, so start the offer by ${shortDay(lastStart)}.`, { lastStart }] }
+    }
+    if (this.pausedUntil && Date.parse(this.pausedUntil) > Date.now() && Date.parse(this.pausedUntil) > Date.parse(istInstant(body.startsOn as string, (body.from as string) ?? '00:00'))) {
+      return { err: [409, 'SALON_PAUSED', 'Online bookings are paused. Resume them first, or start the offer after that.'] }
+    }
+    if (!this.hours.length) return { err: [409, 'NO_SALON_HOURS', 'Set your opening hours first.'] }
+    const outside: Json[] = []
+    let timeLeft = false
+    for (let d = body.startsOn as string; d <= (body.endsOn as string); d = addDays(d, 1)) {
+      const wd = ((new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7) + 1
+      const open = this.hours.find((h) => h.weekday === wd)
+      if (!open || this.closures.some((c) => c.date === d)) continue
+      if (body.from != null && ((body.from as string) < (open.open as string) || (body.until as string) > (open.close as string))) {
+        if (!outside.some((o) => o.weekday === wd)) outside.push({ weekday: wd, open: open.open, close: open.close })
+        continue
+      }
+      // Today: only if the offer's time (or the day's opening) still lasts past now
+      const nowHhmm = new Date(Date.now() + IST).toISOString().slice(11, 16)
+      timeLeft ||= d > today || (((body.until as string) ?? (open.close as string)) > nowHhmm)
+    }
+    const NAMES = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    if (outside.length) {
+      return { err: [409, 'OFFER_OUTSIDE_HOURS', `The offer's hours must be inside your opening hours: ${outside.map((o) => `${NAMES[o.weekday as number]} ${o.open}–${o.close}`).join(', ')}.`, { days: outside }] }
+    }
+    if (!timeLeft) return { err: [409, 'NO_OPEN_TIME', "Your salon isn't open at any time left in these dates."] }
+    const all = picked.length === 0
+    for (const other of this.offers) {
+      const o = other.offer as Json
+      if (offerState(other) === 'ENDED' || (o.endsOn as string) < (body.startsOn as string) || (o.startsOn as string) > (body.endsOn as string)) continue
+      const [af, at] = [(o.from as string) ?? '00:00', (o.until as string) ?? '24:00']
+      const [bf, bt] = [(body.from as string) ?? '00:00', (body.until as string) ?? '24:00']
+      if (af >= bt || bf >= at) continue
+      // One whose services are all switched off since covers nothing: not in the way
+      const stillOn = o.allServices ? active.map((s) => s.id as string) : (o.serviceIds as string[]).filter((id) => active.some((s) => s.id === id))
+      if (stillOn.length && (o.allServices || all || picked.some((id) => stillOn.includes(id)))) {
+        const when = `${o.startsOn === o.endsOn ? shortDay(o.startsOn as string) : `${shortDay(o.startsOn as string)} – ${shortDay(o.endsOn as string)}`}${o.from ? `, ${o.from}–${o.until}` : ''}`
+        return { err: [409, 'OFFER_OVERLAPS', `It overlaps your ${o.percentOff}% offer (${when}) on the same services. Pick other days, hours or services, or end that offer first.`, { offerId: o.id }] }
+      }
+    }
+    const priced = active.filter((s) => all || picked.includes(s.id as string)).map((s) => ({ serviceId: s.id, name: s.name, pricePaise: s.pricePaise, offerPricePaise: offerPriceOf(s.pricePaise as number, pct), priceIsFrom: s.priceIsFrom }))
+    return { all, priced }
   }
 
   private seesAll() {
@@ -1042,6 +1132,35 @@ export class MockApi {
       }
       this.hours = [...days].sort((a, b) => (a.weekday as number) - (b.weekday as number))
       return ok(200, { version: hoursVersion(this.hours), days: this.hours })
+    }
+    // ---- Offers (SalonOfferService) ----
+    if (p === '/salon/offers' && method === 'GET') {
+      if (!ownerOrHelper) return notAllowed()
+      return ok(200, this.offers.map((o) => ({ ...o, state: offerState(o) })))
+    }
+    if ((p === '/salon/offers' || p === '/salon/offers/preview') && method === 'POST') {
+      if (!owner) return ownerOnly()
+      const checked = this.checkOffer(body)
+      if ('err' in checked) return fail(...checked.err)
+      if (p === '/salon/offers/preview') return ok(200, { services: checked.priced, customers: this.offerCustomers })
+      const offer = {
+        offer: { id: `of${++this.n}`, percentOff: body.percentOff, allServices: checked.all, serviceIds: checked.all ? [] : [...body.serviceIds].sort(), startsOn: body.startsOn, endsOn: body.endsOn, from: body.from ?? null, until: body.until ?? null },
+        createdAt: new Date().toISOString(),
+        endedAt: null,
+        notified: this.offerCustomers,
+        bookings: 0,
+      }
+      this.offers.unshift(offer)
+      return ok(201, { ...offer, state: offerState(offer) })
+    }
+    const offerEnd = p.match(/^\/salon\/offers\/([^/]+)\/end$/)
+    if (offerEnd && method === 'POST') {
+      if (!owner) return ownerOnly()
+      const o = this.offers.find((x) => (x.offer as Json).id === offerEnd[1])
+      if (!o) return fail(404, 'OFFER_NOT_FOUND', 'No such offer.')
+      if (offerState(o) === 'ENDED') return fail(409, 'OFFER_OVER', 'This offer has already ended.')
+      o.endedAt = new Date().toISOString()
+      return ok(200, { ...o, state: offerState(o) })
     }
     if (p === '/salon/ratings' && method === 'GET') {
       if (!ownerOrHelper) return notAllowed()

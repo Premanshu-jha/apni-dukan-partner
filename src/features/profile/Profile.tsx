@@ -73,6 +73,7 @@ export function Profile() {
   const links = [
     rights.team && { to: '/team', text: 'Team and walk-in access' },
     rights.closures && { to: '/salon/closures', text: 'Closed days' },
+    rights.seeSetup && { to: '/salon/offers', text: 'Offers' },
     rights.seeSetup && { to: '/salon/ratings', text: 'Ratings' },
     { to: '/notifications', text: 'Messages' },
   ].filter(Boolean) as Array<{ to: string; text: string }>
