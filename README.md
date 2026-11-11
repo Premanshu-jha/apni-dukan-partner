@@ -85,6 +85,7 @@ there, and reviews walk the list against the code.
 | Salon: services, barbers, booking rules | `/setup`, `/setup/*` | Owner edits; helper looks |
 | Team | `/team` | Owner |
 | Closed days | `/salon/closures` | Owner |
+| Offers: the list, a new offer | `/salon/offers`, `/salon/offers/new` | Owner makes and ends them; helper looks |
 | More (profile, help, sign out, leave) | `/more` | Everyone |
 | Delete account | `/profile/delete` | Helpers, barbers, and anyone without a shop (an owner sees "Close or hand over your shop first", with links) |
 | Close the shop | `/shop/close` | Owner (any status) |
@@ -342,6 +343,27 @@ Needs the backend with `POST /auth/me/phone/send-code` and `POST /auth/me/phone`
 - A lost answer after the change went through: the sign-in screen says the number probably moved and fills it in.
   This device's notifications are registered again after the change; the "number is now …" notice shows once.
 - Scenarios 292–302 in `docs/scenarios.md`; end-to-end journey in `e2e/change-phone.spec.ts`.
+### 0.10.0 — 2026-11-11
+
+Needs the backend with V37–V39 (salon offers).
+
+- **Offers** (More → Offers): a discount the owner publishes whenever he likes, for quiet days or hours.
+  - *New offer*: the discount (10–30% in one tap, or any 5–50%), all services or some (each shows its price crossed
+    out next to the offer price), the first and last day, and "Only some hours" with a start and end time (the
+    salon's opening hours shown next to them; the backend refuses hours outside them, naming the days).
+  - The form checks itself first (the discount, a service picked, the days, both times); "See preview" then shows
+    both prices of each service and how many past customers the message goes to; any change asks for a new preview.
+  - "Publish and send": the message goes straight away to the salon's past customers who haven't turned offers off;
+    the list then says how many. An overlap with another offer on the same services is refused with its name (a
+    double tap too, so nobody is told twice).
+  - *The list*: each offer's discount, services, days and hours, "Running", "Coming up", "Ended" or "Ended early",
+    how many customers were told and the bookings it brought. "End offer now" (asks once more): new bookings at the
+    normal price, bookings already made keep theirs.
+  - The first day must be inside the booking window (customers can book only so far ahead) and the last day at
+    most 90 days away; "00:00" as the end time means midnight. A salon that never set its opening hours is sent to
+    set them first. A Publish whose answer was lost, tapped again, lands on the list as published.
+  - Helpers see the list; only the owner makes or ends offers. Running and coming offers come first in the list, so
+    each can be ended however many there are.
 
 ### 0.9.0 — 2026-11-10
 
