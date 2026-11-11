@@ -136,6 +136,25 @@ describe('api client', () => {
     expect(useSession.getState().user?.phone).toBe('9700000003')
   })
 
+  it("a refresh answered after the phone change saved a newer pair doesn't overwrite it", async () => {
+    let answerRefresh: (t: Tokens) => void = () => {}
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      if (String(url).endsWith('/auth/refresh')) {
+        return new Promise<Response>((done) => {
+          answerRefresh = (t) => done(json(200, t))
+        })
+      }
+      return json(200, { ok: true })
+    })
+    const refreshed = refreshSession()
+    await new Promise((r) => setTimeout(r, 0))
+    // The change's new pair is saved first (its tokens ended the pair the refresh is about to bring)
+    useSession.getState().signIn(tokens(9))
+    answerRefresh(tokens(2))
+    expect(await refreshed).toBe(true)
+    expect(useSession.getState().refreshToken).toBe('refresh-9')
+  })
+
   it('stays signed out when a refresh finishes after signing out, and ends the new token', async () => {
     let release: (r: Response) => void = () => {}
     const calls: string[] = []

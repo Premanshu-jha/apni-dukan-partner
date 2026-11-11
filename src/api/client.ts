@@ -103,6 +103,10 @@ export function refreshSession(): Promise<boolean> {
         used = newer
         tokens = await swap(newer)
       }
+      // A newer pair was saved while this was on its way (the phone number changed, which ended the token this one
+      // was swapped for too): keep the newer one
+      const savedNow = savedRefreshToken()
+      if (savedNow && savedNow !== used && savedNow !== tokens.refreshToken) return true
       if (useSession.getState().generation !== started) {
         // Signed out while this was on its way: don't come back to life, and end the new token too.
         void send<void>('POST', '/api/v1/auth/logout', { body: { refreshToken: tokens.refreshToken }, auth: false }).catch(() => {})

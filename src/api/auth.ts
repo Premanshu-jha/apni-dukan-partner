@@ -4,6 +4,13 @@ import type { Tokens, User } from './types'
 
 const A = '/api/v1/auth'
 
+/** Where a phone change's second code went: the verified email, or (without one) the number the account has now. */
+export interface PhoneChangeSent {
+  secondCodeTo: 'EMAIL' | 'PHONE'
+  /** Masked: "r***@gmail.com", "ending 2345". */
+  sentTo: string
+}
+
 export const authApi = {
   sendCode: (phone: string, captchaToken: string | null) =>
     api<void>('POST', `${A}/otp/send`, { body: { phone, captchaToken }, auth: false }),
@@ -21,11 +28,11 @@ export const authApi = {
   sendChangeEmailPhoneCode: () => api<void>('POST', `${A}/email/change-phone-code`),
   sendDeleteCode: () => api<void>('POST', `${A}/me/delete-code`),
   deleteAccount: (code: string) => api<void>('POST', `${A}/me/delete`, { body: { code } }),
-  /** Changing the phone number: a code to the new number (and to the verified email, if any). */
-  sendPhoneChangeCode: (newPhone: string) => api<void>('POST', `${A}/me/phone/send-code`, { body: { newPhone } }),
+  /** Changing the phone number: a code to the new number, and a second code (the answer says where it went). */
+  sendPhoneChangeCode: (newPhone: string) => api<PhoneChangeSent>('POST', `${A}/me/phone/send-code`, { body: { newPhone } }),
   /** Both codes right: the account moves to the new number; every other device is signed out, this one gets new tokens. */
-  changePhone: (newPhone: string, phoneCode: string, emailCode: string | null) =>
-    api<Tokens>('POST', `${A}/me/phone`, { body: { newPhone, phoneCode, emailCode, device: deviceName() } }),
+  changePhone: (newPhone: string, phoneCode: string, secondCode: string) =>
+    api<Tokens>('POST', `${A}/me/phone`, { body: { newPhone, phoneCode, secondCode, device: deviceName() } }),
   startRecovery: (email: string, newPhone: string, captchaToken: string | null) =>
     api<void>('POST', `${A}/recover/start`, { body: { email, newPhone, captchaToken }, auth: false }),
   completeRecovery: (email: string, emailCode: string, newPhone: string, phoneCode: string) =>

@@ -335,11 +335,13 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 Needs the backend with `POST /auth/me/phone/send-code` and `POST /auth/me/phone`.
 
-- **Change your mobile number** (More → Mobile → Change): a code to the new number, and one to your email if you
-  have one. The same account moves to the new number (the shop, your role and its history stay); other devices are
+- **Change your mobile number** (More → Mobile → Change): a code to the new number, and a second one to your email
+  (or, without one, to your current number). The same account moves to the new number (the shop, your role and its history stay); other devices are
   signed out, this one carries on. A number that already has an account is refused.
 - A refresh on its way while the number changes waits for the new tokens instead of signing out (`replacingSession`).
-- Scenarios 292–299 in `docs/scenarios.md`; end-to-end journey in `e2e/change-phone.spec.ts`.
+- A lost answer after the change went through: the sign-in screen says the number probably moved and fills it in.
+  This device's notifications are registered again after the change; the "number is now …" notice shows once.
+- Scenarios 292–302 in `docs/scenarios.md`; end-to-end journey in `e2e/change-phone.spec.ts`.
 
 ### 0.9.0 — 2026-11-10
 

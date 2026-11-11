@@ -1,12 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useLocation as useRouterLocation, useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { authApi } from '../../api/auth'
 import { shopApi, useShop } from '../../api/shop'
 import { can } from '../../lib/roles'
 import { fieldError, messageOf } from '../../api/errors'
 import { Banner, Button, Card, Field, Page, Sheet } from '../../components/ui'
 import { formatPhone } from '../../lib/phone'
+import { takePhoneChanged } from '../../lib/phoneMoved'
 import { SUPPORT_EMAIL } from '../../lib/config'
 import { useSession } from '../../store/session'
 import { NotificationsRow } from './Notifications'
@@ -16,7 +17,7 @@ import { signOutHere } from './signOut'
 export function Profile() {
   const qc = useQueryClient()
   const navigate = useNavigate()
-  const phoneChanged = (useRouterLocation().state as { phoneChanged?: string } | null)?.phoneChanged
+  const [phoneChanged] = useState(takePhoneChanged)
   const user = useSession((s) => s.user)!
   const shop = useShop()
   const rights = can(shop.myRole)
