@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 
 // Read from disk: Vitest hands CSS imports (even ?raw) to tests as empty strings.
 const css = readFileSync(`${process.cwd()}/src/index.css`, 'utf8')
@@ -27,7 +27,7 @@ function tint(fg: string, bg: string, alpha: number) {
 const SURFACES = ['bg', 'surface', 'raised'] as const
 
 test('the theme defines every role colour', () => {
-  for (const name of ['bg', 'surface', 'raised', 'line', 'ink', 'muted', 'brand', 'brand-ink', 'link', 'accent', 'good', 'warn', 'bad', 'scrim'])
+  for (const name of ['bg', 'surface', 'raised', 'line', 'ink', 'muted', 'brand', 'brand-deep', 'brand-ink', 'link', 'accent', 'good', 'warn', 'bad', 'scrim'])
     expect(vars[name], name).toMatch(/^#[0-9a-f]{6}$/i)
 })
 
@@ -39,9 +39,21 @@ test.each(['ink', 'muted', 'link', 'accent', 'good', 'warn', 'bad'])('%s text is
   }
 })
 
-test('buttons: brand-ink on brand is AA, and the brand blue (focus ring, borders) shows 3:1 on every surface', () => {
+test('buttons: brand-ink on brand and brand-deep is AA, and the brand blue (focus ring, borders) shows 3:1 on every surface', () => {
   expect(contrast(vars['brand-ink'], vars.brand)).toBeGreaterThanOrEqual(4.5)
+  // The main button fades from brand to brand-deep: its text must be readable over the whole fade
+  expect(contrast(vars['brand-ink'], vars['brand-deep'])).toBeGreaterThanOrEqual(4.5)
   for (const s of SURFACES) expect(contrast(vars.brand, vars[s]), `brand on ${s}`).toBeGreaterThanOrEqual(3)
+})
+
+test('brand blue is never used as text (it is under 4.5:1 on the navy surfaces; text uses link)', () => {
+  const offenders: string[] = []
+  for (const file of readdirSync(`${process.cwd()}/src`, { recursive: true, encoding: 'utf8' }))
+    if (/\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file)) {
+      const source = readFileSync(`${process.cwd()}/src/${file}`, 'utf8')
+      if (/\btext-brand(?![-\w])/.test(source)) offenders.push(file)
+    }
+  expect(offenders).toEqual([])
 })
 
 test('banners with navy text on a status colour are AA', () => {
