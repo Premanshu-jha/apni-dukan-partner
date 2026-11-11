@@ -332,6 +332,14 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.13.0 — 2026-11-11
+
+- **The logo's orange in the app.** Offers ("20% off" on running and upcoming offers, the new offer's preview), star
+  ratings (they were the warning yellow) and new messages (the bell's count, the unread dot) use the accent orange.
+  `src/theme.test.ts` checks navy on orange and text on an offer card are AA.
+- The service picker's offer prices and unread messages' cards are orange too.
+- Scenarios 311–312 in `docs/scenarios.md`.
+
 ### 0.12.0 — 2026-11-11
 
 - **New look from the Clozest logo.** The theme's colours (`src/index.css`) now come from the dark logo: background

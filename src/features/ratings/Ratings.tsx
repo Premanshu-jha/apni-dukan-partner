@@ -15,7 +15,7 @@ export const TAG_LABELS: Record<RatingTag, string> = {
 /** "★★★★☆" for 4 stars, with the number spoken for screen readers. */
 export function Stars({ stars }: { stars: number }) {
   return (
-    <span role="img" aria-label={`${stars} out of 5 stars`} className="text-warn">
+    <span role="img" aria-label={`${stars} out of 5 stars`} className="text-accent">
       <span aria-hidden>{'★'.repeat(stars) + '☆'.repeat(5 - stars)}</span>
     </span>
   )
@@ -67,7 +67,7 @@ function Summary({ summary }: { summary: RatingSummary }) {
   return (
     <Card className="flex flex-col gap-2">
       <p className="text-2xl font-semibold">
-        {summary.average === null ? '–' : summary.average.toFixed(1)} <span className="text-base text-warn">★</span>
+        {summary.average === null ? '–' : summary.average.toFixed(1)} <span className="text-base text-accent">★</span>
       </p>
       <p className="text-sm text-muted">
         {summary.count} rating{summary.count === 1 ? '' : 's'}

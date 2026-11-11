@@ -46,6 +46,16 @@ test('buttons: brand-ink on brand and brand-deep is AA, and the brand blue (focu
   for (const s of SURFACES) expect(contrast(vars.brand, vars[s]), `brand on ${s}`).toBeGreaterThanOrEqual(3)
 })
 
+test('orange (accent) highlights: the unread badge (navy on orange) and text on an orange-tinted card are AA', () => {
+  expect(contrast(vars.bg, vars.accent)).toBeGreaterThanOrEqual(4.5)
+  // Offer cards (accent/10) and unread messages (accent/5), on the page or on a surface
+  for (const under of ['bg', 'surface'] as const)
+    for (const alpha of [0.1, 0.05]) {
+      const card = tint(vars.accent, vars[under], alpha)
+      for (const text of ['ink', 'muted', 'accent', 'link']) expect(contrast(vars[text], card), `${text} on accent/${alpha * 100} over ${under}`).toBeGreaterThanOrEqual(4.5)
+    }
+})
+
 test('brand blue is never used as text (it is under 4.5:1 on the navy surfaces; text uses link)', () => {
   const offenders: string[] = []
   for (const file of readdirSync(`${process.cwd()}/src`, { recursive: true, encoding: 'utf8' }))

@@ -94,7 +94,7 @@ function OfferItem({ o, names, owner }: { o: OwnerOffer; names: Map<string, stri
     <li>
       <Card className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-lg font-semibold">{o.offer.percentOff}% off</p>
+          <p className={`text-lg font-semibold ${o.state === 'ENDED' || o.endedAt || ended ? '' : 'text-accent'}`}>{o.offer.percentOff}% off</p>
           <Pill tone={state.tone}>{o.endedAt ? 'Ended early' : state.text}</Pill>
         </div>
         <p className="text-sm">{offerWhat(o.offer, names)}</p>

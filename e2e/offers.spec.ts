@@ -41,6 +41,7 @@ test('the owner makes an offer for some services and hours, sees both prices and
   await expect(page.getByText('Published. 3 past customers were sent the offer.')).toBeVisible()
   const offers = page.getByRole('list', { name: 'Offers' })
   await expect(offers).toContainText('25% off')
+  await expect(offers.getByText('25% off', { exact: true })).toHaveClass(/text-accent/)   // a coming-up deal is the logo's orange
   await expect(offers).toContainText('Haircut, Beard trim')
   await expect(offers).toContainText('12:00–16:00')
   await expect(offers).toContainText('Coming up')

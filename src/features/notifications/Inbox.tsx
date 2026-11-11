@@ -104,7 +104,7 @@ export function Inbox() {
               <button
                 type="button"
                 onClick={() => open(m)}
-                className={`flex w-full gap-3 rounded-2xl border p-4 text-left transition hover:bg-raised ${m.read ? 'border-line bg-surface' : 'border-brand/50 bg-brand/5'}`}
+                className={`flex w-full gap-3 rounded-2xl border p-4 text-left transition hover:bg-raised ${m.read ? 'border-line bg-surface' : 'border-accent/40 bg-accent/5'}`}
               >
                 <span
                   aria-hidden
@@ -116,7 +116,7 @@ export function Inbox() {
                   <span className="flex items-start justify-between gap-2">
                     <span className={m.read ? 'font-medium' : 'font-semibold'}>{m.title}</span>
                     {!m.read && (
-                      <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand">
+                      <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent">
                         <span className="sr-only">Unread</span>
                       </span>
                     )}
