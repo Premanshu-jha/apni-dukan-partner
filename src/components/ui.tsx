@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
+import { useEffect, useRef, type ButtonHTMLAttributes, type Ref, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
 import { useNavigate } from 'react-router'
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost'
@@ -16,10 +16,12 @@ export function Button({
   className = '',
   children,
   disabled,
+  ref,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; busy?: boolean }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; busy?: boolean; ref?: Ref<HTMLButtonElement> }) {
   return (
     <button
+      ref={ref}
       type="button"
       {...rest}
       disabled={disabled || busy}
