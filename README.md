@@ -332,6 +332,23 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.12.0 — 2026-11-11
+
+- **New look from the Clozest logo.** The theme's colours (`src/index.css`) now come from the dark logo: background
+  `#0b0f26`, surfaces `#121736`/`#1a2048`, the logo's blue `#3d5bff` on buttons, borders and focus rings (the main
+  button fades into the pin's violet `#5b21e6`, with a soft blue glow), links `#8c9cff`, and `#ff8a1f`, a lighter cut
+  of the logo's orange `#ff7a00`, as the highlight colour (it was sky blue). `src/theme.test.ts` checks the theme's
+  text and button pairs are WCAG AA, now including white on the violet end of the button, and that brand blue is
+  never used as text (it is under 4.5:1 on the navy; text in the brand's colour uses link).
+- **The logo** (`src/components/Logo.tsx`) is drawn in code on the sign-in screens: the location pin is the "C", then
+  "LOZEST" and the orange sparkle. Screen readers hear "Clozest Partner".
+- **Poppins** (600, 700) for the logo and screen titles, bundled with the app (`@fontsource/poppins`), so the security
+  headers' `font-src 'self'` still holds. Body text keeps the phone's own font.
+- **Icons:** `public/icon.svg` is the new dark app icon; the PNGs, the manifest's colours, `theme-color` and the
+  offline page follow. The service worker's offline store is `offline-v2`, so installed apps store the new offline page.
+- Scenario 153 names the manifest "Clozest Partner" / "Clozest Pro".
+- Scenarios 305–310 in `docs/scenarios.md`.
+
 ### 0.11.1 — 2026-11-11
 
 - The day's address searches used up now says when they come back, in India time ("Try again after 11:15 PM", or
