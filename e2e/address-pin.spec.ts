@@ -344,3 +344,17 @@ test("the day's searches used up say so (not \"1437 minutes\"); the pin moves wi
   expect(saved.longitude).toBeGreaterThan(77.3652)
   expect(saved.latitude).toBeGreaterThan(28.6215)
 })
+
+test('arrow keys far from the middle: the map follows, so the pin stays in sight', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  await page.goto('/register')
+  await typeDetails(page)
+  await find(page).click()
+  const pin = page.locator('.leaflet-marker-icon')
+  await pin.focus()
+  for (let i = 0; i < 7; i++) await page.keyboard.press('Shift+ArrowDown')
+  await expect(pin).toBeInViewport()
+  const box = (await map(page).boundingBox())!
+  const at = (await pin.boundingBox())!
+  expect(at.y + at.height / 2).toBeLessThan(box.y + box.height)
+})
