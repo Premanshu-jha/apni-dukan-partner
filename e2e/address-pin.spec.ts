@@ -323,3 +323,24 @@ test('search turned off while the guide to turn location on shows: focus goes to
   await expect(page.getByText('Salon location', { exact: true })).toBeFocused()
 })
 
+
+test("the day's searches used up say so (not \"1437 minutes\"); the pin moves with the arrow keys", async ({ page, context, api }) => {
+  await signedIn(context, api)
+  await page.goto('/register')
+  await typeDetails(page)
+  api.geocode = 'used-up'
+  await find(page).click()
+  await expect(page.getByText("You've used today's address searches. Try again tomorrow, or use your location.")).toBeVisible()
+
+  api.geocode = { latitude: 28.6215, longitude: 77.3652, precision: 'STREET', formattedAddress: 'Ithum Tower, Noida' }
+  await find(page).click()
+  await expect(map(page)).toBeVisible()
+  await page.locator('.leaflet-marker-icon').focus()
+  await page.keyboard.press('Shift+ArrowRight')
+  await page.keyboard.press('ArrowUp')
+  await page.getByRole('button', { name: 'Save and continue' }).click()
+  await expect(page).toHaveURL(/\/register\/photos$/)
+  const saved = savedPoint(api)
+  expect(saved.longitude).toBeGreaterThan(77.3652)
+  expect(saved.latitude).toBeGreaterThan(28.6215)
+})
