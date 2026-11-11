@@ -22,6 +22,7 @@ const leaflet = vi.hoisted(() => {
       state.handlers[event] = fn
       return marker
     },
+    getElement: () => null,
     getLatLng: () => state.markerAt,
     setLatLng: ([lat, lng]: [number, number]) => {
       state.markerAt = { lat, lng }
