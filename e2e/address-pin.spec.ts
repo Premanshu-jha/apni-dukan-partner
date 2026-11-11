@@ -323,3 +323,66 @@ test('search turned off while the guide to turn location on shows: focus goes to
   await expect(page.getByText('Salon location', { exact: true })).toBeFocused()
 })
 
+
+test("the day's searches used up say so (not \"1437 minutes\"); the pin moves with the arrow keys", async ({ page, context, api }) => {
+  await signedIn(context, api)
+  await page.goto('/register')
+  await typeDetails(page)
+  api.geocode = 'used-up'
+  await find(page).click()
+  await expect(page.getByText(/^You've used your searches for new addresses for now\. Try again after (tomorrow, )?\d{1,2}:\d{2} [AP]M, or use your location\.$/)).toBeVisible()
+
+  api.geocode = { latitude: 28.6215, longitude: 77.3652, precision: 'STREET', formattedAddress: 'Ithum Tower, Noida' }
+  await find(page).click()
+  await expect(map(page)).toBeVisible()
+  await page.locator('.leaflet-marker-icon').focus()
+  await page.keyboard.press('Shift+ArrowRight')
+  await page.keyboard.press('ArrowUp')
+  // Screen readers hear where it went
+  await expect(page.locator('[aria-live="polite"].sr-only')).toHaveText('Pin moved north.')
+  await page.getByRole('button', { name: 'Save and continue' }).click()
+  await expect(page).toHaveURL(/\/register\/photos$/)
+  const saved = savedPoint(api)
+  expect(saved.longitude).toBeGreaterThan(77.3652)
+  expect(saved.latitude).toBeGreaterThan(28.6215)
+})
+
+test('arrow keys far from the middle: the map follows, so the pin stays in sight', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  await page.goto('/register')
+  await typeDetails(page)
+  await find(page).click()
+  const pin = page.locator('.leaflet-marker-icon')
+  await pin.focus()
+  for (let i = 0; i < 7; i++) await page.keyboard.press('Shift+ArrowDown')
+  await expect(pin).toBeInViewport()
+  const box = (await map(page).boundingBox())!
+  const at = (await pin.boundingBox())!
+  expect(at.y + at.height / 2).toBeLessThan(box.y + box.height)
+})
+
+test('an arrow-key move while a search is on its way wins: the late answer is dropped', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  await page.goto('/register')
+  await typeDetails(page)
+  await find(page).click()
+  await expect(map(page)).toBeVisible()
+  // A second search, slow; the owner moves the pin with the keyboard meanwhile
+  api.geocode = { latitude: 28.7, longitude: 77.4, precision: 'EXACT', formattedAddress: 'Elsewhere' }
+  api.geocodeDelay = 1500
+  await page.getByLabel(/Area/).fill('Sector 63')
+  const searches = () => api.calls.filter((c) => c.path === '/api/v1/shops/geocode').length
+  const before = searches()
+  await find(page).click()
+  // The second search really went out and is still on its way
+  await expect.poll(searches).toBe(before + 1)
+  await expect(find(page)).toBeDisabled()   // busy while it runs
+  await page.locator('.leaflet-marker-icon').focus()
+  await page.keyboard.press('Shift+ArrowLeft')
+  await page.waitForTimeout(2000)
+  await page.getByRole('button', { name: 'Save and continue' }).click()
+  await expect(page).toHaveURL(/\/register\/photos$/)
+  const saved = savedPoint(api)
+  expect(saved.latitude).toBeLessThan(28.7)   // not the late answer's point
+  expect(saved.longitude).toBeLessThan(77.3652)
+})
