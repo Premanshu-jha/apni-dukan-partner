@@ -332,6 +332,14 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.11.1 — 2026-11-11
+
+- The day's address searches used up now says when they come back, in India time ("Try again after 11:15 PM", or
+  "tomorrow, 9:30 AM": the window is 24 hours from the first search). It said "Try again in 1437 minutes".
+- The salon's pin can be moved with the keyboard: Tab to it, then the arrow keys (Shift: further); the map follows near
+  its edge, and screen readers hear each move ("Pin moved north.").
+- Scenarios 201, 303 and 304 in `docs/scenarios.md`.
+
 ### 0.11.0 — 2026-11-11
 
 Needs the backend with `POST /auth/me/phone/send-code` and `POST /auth/me/phone`.
