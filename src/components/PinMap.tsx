@@ -35,6 +35,9 @@ export function PinMap({
   const map = useRef<L.Map | null>(null)
   const marker = useRef<L.Marker | null>(null)
   const moved = useRef(onMove)
+  /** A polite live region: where the pin went, for screen readers. */
+  const said = useRef<HTMLSpanElement>(null)
+  const saying = useRef<number | undefined>(undefined)
   useEffect(() => {
     moved.current = onMove
   }, [onMove])
@@ -47,6 +50,27 @@ export function PinMap({
     mk.on('dragend', () => {
       const p = mk.getLatLng()
       moved.current(p.lat, p.lng)
+    })
+    // The keyboard: with the pin focused (Tab), the arrow keys move it a few metres (Shift: further), not the map
+    mk.getElement()?.addEventListener('keydown', (e: KeyboardEvent) => {
+      const step = e.shiftKey ? 40 : 8
+      const by = ({ ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0] } as Record<string, [number, number]>)[e.key]
+      if (!by) return
+      e.preventDefault()
+      e.stopPropagation()
+      const next = m.containerPointToLatLng(m.latLngToContainerPoint(mk.getLatLng()).add(L.point(by[0], by[1])))
+      mk.setLatLng(next)
+      // Near the edge: the map follows, so the focused pin stays in sight
+      if (!m.getBounds().pad(-0.15).contains(next)) m.panTo(next)
+      moved.current(next.lat, next.lng)
+      // Screen readers hear each move (cleared first, so the same move twice is said twice)
+      const words = ({ ArrowUp: 'north', ArrowDown: 'south', ArrowLeft: 'west', ArrowRight: 'east' } as Record<string, string>)[e.key]
+      if (said.current) said.current.textContent = ''
+      // Holding a key repeats it: only the last move is said
+      window.clearTimeout(saying.current)
+      saying.current = window.setTimeout(() => {
+        if (said.current) said.current.textContent = `Pin moved ${words}.`
+      }, 50)
     })
     m.on('click', (e: L.LeafletMouseEvent) => {
       mk.setLatLng(e.latlng)
@@ -80,11 +104,14 @@ export function PinMap({
   }, [lat, lng, zoom, placement])
 
   return (
-    <div
-      ref={box}
-      role="application"
-      aria-label="Map: drag the pin to your salon's door"
-      className="h-56 w-full overflow-hidden rounded-xl border border-line"
-    />
+    <>
+      <div
+        ref={box}
+        role="application"
+        aria-label="Map: drag the pin to your salon's door, or tab to the pin and use the arrow keys"
+        className="h-56 w-full overflow-hidden rounded-xl border border-line"
+      />
+      <span ref={said} aria-live="polite" className="sr-only" />
+    </>
   )
 }

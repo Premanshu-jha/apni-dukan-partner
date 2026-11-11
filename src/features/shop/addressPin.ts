@@ -45,6 +45,17 @@ export function resetAddressSearch(): void {
   searchOff = false
 }
 
+/**
+ * When a wait of `seconds` from now ends, in India time: "11:15 PM", or "tomorrow, 9:00 AM" when it ends on another
+ * day. The day's address searches run in a 24-hour window from the first one, not until midnight.
+ */
+export function waitEndsText(seconds: number, now: Date = new Date()): string {
+  const end = new Date(now.getTime() + seconds * 1000)
+  const day = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  const time = end.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit' })
+  return day(end) === day(now) ? time : `tomorrow, ${time}`
+}
+
 /** What a failed search means for the screen: hide the button, or the words to show. */
 export function searchFailure(e: unknown): { hide: true } | { hide: false; text: string } {
   const code = e instanceof ApiError ? e.code : 'UNKNOWN'
@@ -57,6 +68,13 @@ export function searchFailure(e: unknown): { hide: true } | { hide: false; text:
   }
   if (code === 'TRY_LATER' && e instanceof ApiError) {
     const minutes = Math.max(1, Math.ceil((e.retryAfterSeconds ?? 60) / 60))
+    // The day's lookups (10 a person, in 24 hours from the first) are used up: say when they come back
+    if (minutes > 60) {
+      return {
+        hide: false,
+        text: `You've used your searches for new addresses for now. Try again after ${waitEndsText(e.retryAfterSeconds ?? 0)}, or use your location.`,
+      }
+    }
     return {
       hide: false,
       text: `Many address searches in a short time. Try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}, or use your location.`,
