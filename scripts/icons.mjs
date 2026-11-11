@@ -7,7 +7,7 @@ import sharp from 'sharp'
 const pub = new URL('../public/', import.meta.url)
 const svg = await readFile(new URL('icon.svg', pub))
 // The app's background colour (the manifest's background_color)
-const BG = '#0b1220'
+const BG = '#0b0f26'
 
 /** The SVG drawn at this size (rendered large first, so the edges stay sharp). */
 const draw = (size) => sharp(svg, { density: 288 }).resize(size, size).png().toBuffer()
