@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ApiError } from '../../api/errors'
-import { addressSearchOff, canSearchAddress, fillEmpty, precisionHint, resetAddressSearch, searchFailure, zoomFor } from './addressPin'
+import { waitEndsText, addressSearchOff, canSearchAddress, fillEmpty, precisionHint, resetAddressSearch, searchFailure, zoomFor } from './addressPin'
 
 const address = { addressLine: 'Shop 12, Ithum Tower', area: 'Sector 62', city: 'Noida', pincode: '201309' }
 
@@ -42,6 +42,15 @@ describe('Find my salon on the map', () => {
       hide: false,
       text: 'Many address searches in a short time. Try again in 1 minute, or use your location.',
     })
+    // The hour's limit waits at most 3600 s: still minutes
+    expect(searchFailure(new ApiError(429, { code: 'TRY_LATER', message: 'x' }, 3600))).toEqual({
+      hide: false,
+      text: 'Many address searches in a short time. Try again in 60 minutes, or use your location.',
+    })
+    expect(searchFailure(new ApiError(429, { code: 'TRY_LATER', message: 'x' }, 80_000)).hide).toBe(false)
+    expect((searchFailure(new ApiError(429, { code: 'TRY_LATER', message: 'x' }, 80_000)) as { text: string }).text).toMatch(
+      /^You've used your searches for new addresses for now\. Try again after (tomorrow, )?\d{1,2}:\d{2} [AP]M, or use your location\.$/,
+    )
     const down = "Address search isn't working right now. Use your location, or try again later."
     expect(searchFailure(new ApiError(503, { code: 'GEOCODING_UNAVAILABLE', message: 'x' }))).toEqual({ hide: false, text: down })
     expect(searchFailure(ApiError.network())).toEqual({ hide: false, text: down })
@@ -82,5 +91,16 @@ describe('filling the address from the GPS point', () => {
     const full = { ...blank, addressLine: 'a', area: 'b', city: 'c', pincode: '110001' }
     expect(fillEmpty(full, at)).toBe(full)
     expect(fillEmpty({ ...blank, area: '  ' }, { ...at, area: '' }).area).toBe('  ')
+  })
+})
+
+describe('when the day\'s address searches come back', () => {
+  // 22:30 India time on 11 Nov (17:00 UTC)
+  const now = new Date('2026-11-11T17:00:00Z')
+
+  it('is a time today, or tomorrow with its time (a 24-hour window from the first search, not midnight)', () => {
+    expect(waitEndsText(2 * 3600, now)).toBe('tomorrow, 12:30 AM')
+    expect(waitEndsText(45 * 60, now)).toBe('11:15 PM')
+    expect(waitEndsText(11 * 3600, now)).toBe('tomorrow, 9:30 AM')
   })
 })
