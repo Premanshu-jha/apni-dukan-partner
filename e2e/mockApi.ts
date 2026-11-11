@@ -148,6 +148,14 @@ function normalizeMockPhone(input: unknown): string | null {
   return /^[6-9]\d{9}$/.test(d) ? d : null
 }
 
+/** PhoneNumbers.normalize: "+91 98480 12345" → "9848012345", or null. */
+function normalize(input: unknown): string | null {
+  let d = String(input ?? '').replace(/\D/g, '')
+  if (d.length === 12 && d.startsWith('91')) d = d.slice(2)
+  else if (d.length === 11 && d.startsWith('0')) d = d.slice(1)
+  return /^[6-9]\d{9}$/.test(d) ? d : null
+}
+
 export class MockApi {
   user: MockUser = { id: 'u1', phone: '9848012345', name: null, email: null, emailVerified: false, admin: false }
   /** Paths (with the query) answered 304 Not Modified, in order. */
@@ -266,7 +274,15 @@ export class MockApi {
     return `"n1-${etagOf(JSON.stringify(this.inbox) + what).replace(/"/g, '')}"`
   }
   private accessValid = new Set<string>()
-  refreshTokens = new Map<string, 'live' | 'rotated'>()
+  refreshTokens = new Map<string, 'live' | 'rotated' | 'revoked'>()
+  /** Numbers with an account of their own (PHONE_IN_USE). */
+  takenPhones = new Set<string>()
+  /** Phone-change codes sent: new number → where the second went, wrong tries. Codes: 123456 (new number), 654321 (email), 111222 (current number). */
+  phoneChangeCodes = new Map<string, { second: 'EMAIL' | 'PHONE'; phoneTries: number; secondTries: number }>()
+  /** Phone-change sends today (5 at most, taken numbers included). */
+  phoneChangeTries = 0
+  /** The next phone change goes through but its answer is lost on the way back. */
+  loseNextPhoneChange = false
 
   static completeUser(): MockUser {
     return { id: 'u1', phone: '9848012345', name: 'Ravi Kumar', email: 'ravi@example.com', emailVerified: true, admin: false }
@@ -674,6 +690,56 @@ export class MockApi {
       }
     }
 
+    // ---------- changing the phone number (AuthService.sendPhoneChangeCode, changePhone), in its order ----------
+    if (p === '/auth/me/phone/send-code') {
+      const phone = normalize(body.newPhone)
+      if (!phone) return fail(400, 'INVALID_PHONE', 'Enter a 10-digit Indian mobile number')
+      if (phone === this.user.phone) return fail(400, 'SAME_PHONE', 'This is already your number.')
+      if (++this.phoneChangeTries > 5) return fail(429, 'TOO_MANY_CODES', "You've asked for codes to change your number 5 times today. Try again tomorrow.")
+      if (this.takenPhones.has(phone)) return fail(409, 'PHONE_IN_USE', 'This phone number already has its own account')
+      // The second code: to the verified email, else to the number the account has now
+      const toEmail = this.user.emailVerified
+      this.phoneChangeCodes.set(phone, { second: toEmail ? 'EMAIL' : 'PHONE', phoneTries: 0, secondTries: 0 })
+      return ok(200, toEmail
+        ? { secondCodeTo: 'EMAIL', sentTo: `${this.user.email!.charAt(0)}***${this.user.email!.slice(this.user.email!.indexOf('@'))}` }
+        : { secondCodeTo: 'PHONE', sentTo: `ending ${this.user.phone.slice(6)}` })
+    }
+    if (p === '/auth/me/phone') {
+      if (!body.phoneCode || !body.secondCode) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { secondCode: 'must not be blank' })
+      const phone = normalize(body.newPhone)
+      if (!phone) return fail(400, 'INVALID_PHONE', 'Enter a 10-digit Indian mobile number')
+      const sent = this.phoneChangeCodes.get(phone)
+      if (!sent) return fail(400, 'CODE_EXPIRED', 'This code has expired. Ask for a new one.')
+      // Checked one after the other, each with its own tries: the new number's code, then the second code (looked for
+      // where the account's second code goes now: none there if the email changed since the codes were sent)
+      const check = (which: 'phoneTries' | 'secondTries', right: boolean) => {
+        if (right) return null
+        sent[which]++
+        if (sent[which] >= 5) {
+          this.phoneChangeCodes.delete(phone)
+          return fail(429, 'TOO_MANY_ATTEMPTS', 'Too many wrong codes. Ask for a new one.')
+        }
+        return fail(400, 'WRONG_CODE', 'That code is not correct', { attemptsLeft: 5 - sent[which] })
+      }
+      const first = check('phoneTries', body.phoneCode === '123456')
+      if (first) return first
+      if ((sent.second === 'EMAIL') !== this.user.emailVerified) return fail(400, 'CODE_EXPIRED', 'This code has expired. Ask for a new one.')
+      const second = check('secondTries', body.secondCode === (sent.second === 'EMAIL' ? '654321' : '111222'))
+      if (second) return second
+      // Refused under the lock: the codes stay for another try
+      if (this.takenPhones.has(phone)) return fail(409, 'PHONE_IN_USE', 'This phone number already has its own account')
+      this.phoneChangeCodes.delete(phone)
+      // Every earlier token ends (revoked: a refresh with one is refused, not reuse); this device gets a new pair
+      for (const t of this.refreshTokens.keys()) this.refreshTokens.set(t, 'revoked')
+      this.accessValid.clear()
+      this.user = { ...this.user, phone }
+      const tokens = this.tokens()
+      if (this.loseNextPhoneChange) {
+        this.loseNextPhoneChange = false
+        return route.abort('connectionreset')
+      }
+      return ok(200, tokens)
+    }
     if (p === '/auth/me' && method === 'GET') return ok(200, this.user)
     if (p === '/auth/me' && method === 'PATCH') {
       this.user = { ...this.user, name: body.name }

@@ -5,13 +5,16 @@ import { isApiError, messageOf } from '../../api/errors'
 import { Banner, Button, Field, Page } from '../../components/ui'
 import { Turnstile } from '../../components/Turnstile'
 import { TURNSTILE_SITE_KEY } from '../../lib/config'
-import { normalizePhone } from '../../lib/phone'
+import { formatPhone, normalizePhone } from '../../lib/phone'
+import { takePhoneMove } from '../../lib/phoneMoved'
 import { Brand } from './Brand'
 
 export function PhoneStep() {
   const navigate = useNavigate()
   const deleted = Boolean((useLocation().state as { deleted?: boolean } | null)?.deleted)
-  const [phone, setPhone] = useState('')
+  // A phone change whose answer was lost and which ended the session: it most likely went through
+  const [movedTo] = useState(takePhoneMove)
+  const [phone, setPhone] = useState(movedTo ?? '')
   const [captcha, setCaptcha] = useState<string | null>(null)
   const [resetKey, setResetKey] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -44,6 +47,11 @@ export function PhoneStep() {
     <Page>
       <Brand subtitle="For salon owners, helpers and barbers. Sign in with your mobile number." />
       {deleted && <Banner tone="info">Your account has been deleted.</Banner>}
+      {movedTo && (
+        <Banner tone="info">
+          Your number was probably changed to +91 {formatPhone(movedTo)}. Sign in with that number to keep your account.
+        </Banner>
+      )}
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         <Field
           id="phone"
