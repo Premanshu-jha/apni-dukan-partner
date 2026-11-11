@@ -48,6 +48,19 @@ export function PinMap({
       const p = mk.getLatLng()
       moved.current(p.lat, p.lng)
     })
+    // The keyboard: with the pin focused (Tab), the arrow keys move it a few metres (Shift: further), not the map
+    mk.getElement()?.addEventListener('keydown', (e: KeyboardEvent) => {
+      const step = e.shiftKey ? 40 : 8
+      const by = ({ ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0] } as Record<string, [number, number]>)[e.key]
+      if (!by) return
+      e.preventDefault()
+      e.stopPropagation()
+      const next = m.containerPointToLatLng(m.latLngToContainerPoint(mk.getLatLng()).add(L.point(by[0], by[1])))
+      mk.setLatLng(next)
+      // Near the edge: the map follows, so the focused pin stays in sight
+      if (!m.getBounds().pad(-0.15).contains(next)) m.panTo(next)
+      moved.current(next.lat, next.lng)
+    })
     m.on('click', (e: L.LeafletMouseEvent) => {
       mk.setLatLng(e.latlng)
       moved.current(e.latlng.lat, e.latlng.lng)
@@ -83,7 +96,7 @@ export function PinMap({
     <div
       ref={box}
       role="application"
-      aria-label="Map: drag the pin to your salon's door"
+      aria-label="Map: drag the pin to your salon's door, or tab to the pin and use the arrow keys"
       className="h-56 w-full overflow-hidden rounded-xl border border-line"
     />
   )
