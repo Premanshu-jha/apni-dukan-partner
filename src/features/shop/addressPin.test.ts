@@ -42,6 +42,15 @@ describe('Find my salon on the map', () => {
       hide: false,
       text: 'Many address searches in a short time. Try again in 1 minute, or use your location.',
     })
+    // The hour's limit waits at most 3600 s: still minutes
+    expect(searchFailure(new ApiError(429, { code: 'TRY_LATER', message: 'x' }, 3600))).toEqual({
+      hide: false,
+      text: 'Many address searches in a short time. Try again in 60 minutes, or use your location.',
+    })
+    expect(searchFailure(new ApiError(429, { code: 'TRY_LATER', message: 'x' }, 80_000))).toEqual({
+      hide: false,
+      text: "You've used today's address searches. Try again tomorrow, or use your location.",
+    })
     const down = "Address search isn't working right now. Use your location, or try again later."
     expect(searchFailure(new ApiError(503, { code: 'GEOCODING_UNAVAILABLE', message: 'x' }))).toEqual({ hide: false, text: down })
     expect(searchFailure(ApiError.network())).toEqual({ hide: false, text: down })

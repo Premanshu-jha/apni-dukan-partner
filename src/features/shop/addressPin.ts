@@ -57,6 +57,10 @@ export function searchFailure(e: unknown): { hide: true } | { hide: false; text:
   }
   if (code === 'TRY_LATER' && e instanceof ApiError) {
     const minutes = Math.max(1, Math.ceil((e.retryAfterSeconds ?? 60) / 60))
+    // The day's lookups (10 a person) are used up: the wait is hours, not minutes
+    if (minutes > 60) {
+      return { hide: false, text: "You've used today's address searches. Try again tomorrow, or use your location." }
+    }
     return {
       hide: false,
       text: `Many address searches in a short time. Try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}, or use your location.`,
