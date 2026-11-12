@@ -58,7 +58,7 @@ export function CloseShop() {
     ? 'Your shop changed a moment ago (on another phone, or by the field team). It has been read again: check and try again.'
     : isApiError(error, 'NO_SHOP')
       ? "You're no longer the owner of this shop (it was handed over or closed already)."
-      : error
+      : error && !isApiError(error, 'EDIT_LOCKED')   // the code sheet asks for it instead (EditGate)
         ? messageOf(error)
         : null
 

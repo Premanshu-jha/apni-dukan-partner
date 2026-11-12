@@ -920,7 +920,7 @@ export class MockApi {
       if (moved && this.shop.addressLocked) return fail(409, 'ADDRESS_LOCKED', 'Your address was verified by our field team, so only they can change it. Ask them with Request address change.')
       const nothing = Object.keys(change).every((k) => (k === 'gstin' || k === 'udyamNumber' ? norm(change[k]) === this.shop![k] : change[k] === this.shop![k]))
       if (nothing) return ok(200, this.shop)
-      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', 'To change your verified details, confirm with the code we send to your phone first.')
+      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
       const papers = (change.gstin !== undefined && norm(change.gstin) !== this.shop.gstin)
         || (change.udyamNumber !== undefined && norm(change.udyamNumber) !== this.shop.udyamNumber)
       this.recheckIfLive(papers)
@@ -933,7 +933,7 @@ export class MockApi {
       const newPhoto = (body.ownerPhotoFileId !== undefined && body.ownerPhotoFileId !== this.shop.ownerPhotoFileId)
         || (body.shopPhotoFileId !== undefined && body.shopPhotoFileId !== this.shop.shopPhotoFileId)
       if (!newPhoto) return ok(200, this.shop)
-      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', 'To change your verified details, confirm with the code we send to your phone first.')
+      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
       this.recheckIfLive(
         (body.ownerPhotoFileId !== undefined && body.ownerPhotoFileId !== this.shop.ownerPhotoFileId)
           || (body.shopPhotoFileId !== undefined && body.shopPhotoFileId !== this.shop.shopPhotoFileId),
@@ -958,7 +958,7 @@ export class MockApi {
       const f = this.files.find((x) => x.id === body.fileId && x.purpose === 'SHOP_VIDEO')
       if (!f) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { fileId: 'must be a video uploaded with POST /files/video-uploads' })
       if (f.id === this.shop.shopVideoFileId) return ok(200, this.shop)
-      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', 'To change your verified details, confirm with the code we send to your phone first.')
+      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
       this.recheckIfLive(f.id !== this.shop.shopVideoFileId)
       this.shop = { ...this.shop, shopVideoFileId: f.id, version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
@@ -970,7 +970,7 @@ export class MockApi {
       const f = this.files.find((x) => x.id === body.fileId && x.purpose === 'REG_DOC')
       if (!f) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { fileId: 'must be a photo or PDF uploaded with purpose REG_DOC' })
       if (f.id === this.shop.registrationDocFileId && body.type === this.shop.registrationDocType) return ok(200, this.shop)
-      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', 'To change your verified details, confirm with the code we send to your phone first.')
+      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
       // ShopService.setRegistrationDoc: the salon stays as it is; the new document waits for the field team's check
       this.shop = { ...this.shop, registrationDocType: body.type, registrationDocFileId: f.id, registrationDocCheckedAt: null, version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
@@ -980,7 +980,7 @@ export class MockApi {
       if (this.shop.type !== 'SALON') return fail(409, 'NOT_A_SALON', 'The registration document is only for salons.')
       if (Number(url.searchParams.get('version')) !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
       if (this.shop.registrationDocFileId) {
-        if (this.editLocked()) return fail(403, 'EDIT_LOCKED', 'To change your verified details, confirm with the code we send to your phone first.')
+        if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
         this.shop = { ...this.shop, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, version: (this.shop.version as number) + 1 }
       }
       return ok(200, this.shop)
@@ -1017,7 +1017,7 @@ export class MockApi {
       }
       if (!this.shop.addressLocked) return fail(409, 'ADDRESS_NOT_LOCKED', "Your address isn't verified yet: change it yourself in Salon details.")
       if (this.shop.status === 'SUSPENDED' || this.shop.status === 'CLOSED') return fail(409, 'WRONG_STATUS', `${this.shop.status === 'SUSPENDED' ? 'Your shop is suspended' : 'Your shop is closed'}, so it can't ask for a new address. Write to us from More → Need help.`, { status: this.shop.status })
-      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', 'To change your verified details, confirm with the code we send to your phone first.')
+      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
       const same = ['addressLine', 'area', 'city', 'pincode'].every((k) => String(body[k]).trim() === this.shop![k])
         && body.latitude === this.shop.latitude && body.longitude === this.shop.longitude
       if (same) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { addressLine: 'is the address you have now; change the address or move the pin' })
@@ -1132,6 +1132,7 @@ export class MockApi {
       if (!this.shop) return this.closedShop ? ok(200, this.closedShop) : noShop()
       if (this.role !== 'OWNER') return shopOwnerOnly()
       if (body.version !== this.shop.version) return shopChanged()
+      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
       const reason = typeof body.reason === 'string' && body.reason.trim() ? body.reason.trim() : null
       if (reason !== null && reason.length < 2) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { reason: 'must be 2 to 200 characters' })
       const closed = { ...this.shop, status: 'CLOSED', statusReason: reason, version: (this.shop.version as number) + 1 }
@@ -1163,6 +1164,8 @@ export class MockApi {
       // POST: the phone is read first, then the day's count (a refused try counts too), then version, own number, one waiting
       const phone = normalizeMockPhone(body?.phone)
       if (!phone) return fail(400, 'INVALID_PHONE', 'Enter a 10-digit Indian mobile number')
+      // ShopOwnershipService.requestHandover: the code before the day's count
+      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
       if (++this.handoverAsks > 5) {
         return ok(429, { code: 'TOO_MANY_REQUESTS', message: 'Too many hand-over requests today. Try again tomorrow.', details: {} }, { 'Retry-After': '3600' })
       }
