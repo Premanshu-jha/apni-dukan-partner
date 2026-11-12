@@ -478,3 +478,12 @@ export interface IncomingInvite {
   createdAt: string
   expiresAt: string
 }
+
+/** POST /helpdesk/tickets: the ticket made from "Need help". */
+export interface HelpTicket {
+  id: string
+  /** CLZ-1042 */
+  number: string
+  /** The verified email our reply goes to. */
+  sentTo: string
+}
