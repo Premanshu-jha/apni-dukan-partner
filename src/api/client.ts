@@ -237,6 +237,9 @@ async function send<T>(method: string, path: string, opts: Options, fresh = fals
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/** Sent on the window when the backend answers 403 EDIT_LOCKED (EditGate listens). */
+export const EDIT_LOCKED_EVENT = 'clozest:edit-locked'
+
 /**
  * Calls the backend. Refreshes the session once on a 401, and waits and tries once more when the backend
  * says SERVICE_BUSY (only for reads and for calls that carry an Idempotency-Key, which are safe to repeat).
@@ -256,6 +259,9 @@ export async function api<T>(method: string, path: string, opts: Options = {}): 
       if (useSession.getState().refreshToken) throw ApiError.network()
       throw e
     }
+    // A verified salon's edit was refused because the 15 minutes from the phone code ran out: the edit screen asks
+    // for a new code (EditGate) over what was typed, so nothing is lost
+    if (e.code === 'EDIT_LOCKED') window.dispatchEvent(new Event(EDIT_LOCKED_EVENT))
     const repeatable = method === 'GET' || Boolean(opts.headers?.['Idempotency-Key'])
     // Only SERVICE_BUSY is a short blip. 503 PHOTOS_BUSY (many photos being cleaned at once) lasts about a minute:
     // never repeated here, its message ("Try again in a minute") goes to the screen.

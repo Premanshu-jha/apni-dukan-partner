@@ -4,6 +4,8 @@ import { useSession } from '../store/session'
 import { api, refreshSession } from './client'
 import { ApiError, isApiError } from './errors'
 import type {
+  AddressIn,
+  AddressRequest,
   Described,
   FileLink,
   FilePurpose,
@@ -37,6 +39,9 @@ export const shopKeys = {
   /** Invitations waiting for my phone. Not under 'shop': it is about the person, shop or not. */
   incomingInvites: ['me', 'invites'] as const,
   photo: (id: string) => ['file', id] as const,
+  /** My latest request for a new address (owner), waiting or decided. */
+  /** Not under 'shop': a refresh of the shop mustn't swap the request under a form being typed. */
+  addressRequest: ['address-request'] as const,
 }
 
 /** My shop, or null when this person has none yet (404 NO_SHOP). */
@@ -111,6 +116,14 @@ export const shopApi = {
   setVideo: (version: number, fileId: string) => api<Shop>('PUT', `${S}/me/video`, { body: { version, fileId } }),
   setRegistrationDoc: (version: number, type: RegistrationDocType, fileId: string) =>
     api<Shop>('PUT', `${S}/me/registration-document`, { body: { version, type, fileId } }),
+  /** Ask the field team for a new address and pin (owner, once the address is verified). 201 with the request. */
+  requestAddress: (version: number, address: AddressIn) =>
+    api<AddressRequest>('POST', `${S}/me/address-request`, { body: { version, ...address } }),
+  /** My latest request, whatever became of it; null if I never asked (204). */
+  addressRequest: async (): Promise<AddressRequest | null> =>
+    (await api<AddressRequest | undefined>('GET', `${S}/me/address-request`)) ?? null,
+  /** Take the waiting request back. 204. */
+  cancelAddressRequest: (version: number) => api<void>('DELETE', `${S}/me/address-request?version=${version}`),
   /** Remove it (owner): customers see "Unregistered" from now on. */
   removeRegistrationDoc: (version: number) =>
     api<Shop>('DELETE', `${S}/me/registration-document?version=${version}`),
@@ -163,6 +176,11 @@ export const shopApi = {
     return { shop, renewed }
   },
   decline: (id: string) => api<void>('POST', `/api/v1/me/handover/${encodeURIComponent(id)}/decline`),
+}
+
+/** My latest address change request (owner of a verified salon). */
+export function useAddressRequest(enabled: boolean) {
+  return useQuery({ queryKey: shopKeys.addressRequest, queryFn: shopApi.addressRequest, enabled })
 }
 
 /** My shop's waiting hand-over request (owner screens). */

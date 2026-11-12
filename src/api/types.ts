@@ -92,6 +92,25 @@ export interface ShopDetailsIn {
   udyamNumber: string | null
 }
 
+/** A new address and pin (an address change request to the field team). */
+export interface AddressIn extends GeocodeIn {
+  latitude: number
+  longitude: number
+}
+
+/**
+ * The owner's request to change a verified address (POST /shops/me/address-request). PENDING: waits for the field team
+ * (the salon keeps its old address meanwhile); APPROVED: it is the salon's address now; DECLINED: see reason;
+ * CANCELLED: taken back, or the field team set the address themselves.
+ */
+export interface AddressRequest extends AddressIn {
+  id: string
+  status: 'PENDING' | 'APPROVED' | 'DECLINED' | 'CANCELLED'
+  reason: string | null
+  createdAt: string
+  decidedAt: string | null
+}
+
 /** POST /shops/geocode: the typed address (registration, before the shop exists). */
 export interface GeocodeIn {
   addressLine: string
