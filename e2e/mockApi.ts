@@ -159,6 +159,8 @@ function normalize(input: unknown): string | null {
 
 export class MockApi {
   user: MockUser = { id: 'u1', phone: '9848012345', name: null, email: null, emailVerified: false, admin: false }
+  /** "Need help" tickets sent, in order. */
+  tickets: Array<{ app: string; subject: string | null; message: string }> = []
   /** Paths (with the query) answered 304 Not Modified, in order. */
   notModified: string[] = []
   calls: Call[] = []
@@ -806,6 +808,19 @@ export class MockApi {
     if (p === '/auth/me' && method === 'PATCH') {
       this.user = { ...this.user, name: body.name }
       return ok(200, this.user)
+    }
+    // "Need help" (TicketService.ask): a verified email and a name; a message of 10 to 5,000 characters
+    if (p === '/helpdesk/tickets' && method === 'POST') {
+      if (!this.user.emailVerified || !this.user.name) {
+        return fail(403, 'PROFILE_INCOMPLETE', 'Verify your email and tell us your name first.', {
+          missing: [...(this.user.emailVerified ? [] : ['email']), ...(this.user.name ? [] : ['name'])],
+        })
+      }
+      const text = String(body.message ?? '').trim()
+      if (text.length < 10 || text.length > 5000) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { message: 'write 10 to 5000 characters' })
+      const n = 1001 + this.tickets.length
+      this.tickets.push({ app: body.app, subject: body.subject ?? null, message: text })
+      return ok(201, { id: `t${n}`, number: `CLZ-${n}`, sentTo: this.user.email })
     }
     if (p === '/auth/email/send-code') return ok(202)
     if (p === '/auth/email/verify') {

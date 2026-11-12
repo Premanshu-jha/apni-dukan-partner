@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { Navigate, Outlet } from 'react-router'
+import { Link, Navigate, Outlet } from 'react-router'
 import { messageOf } from '../../api/errors'
 import { ShopContext, shopKeys, useMyShop } from '../../api/shop'
 import { Button, EmptyState, ErrorState, Loading, Page } from '../../components/ui'
@@ -40,9 +40,15 @@ function KiranaSoon() {
         body="This app is for salons for now. We'll let you know when kirana shops can use it."
         action={
           <div className="flex flex-col gap-2">
-            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-link underline">
-              {SUPPORT_EMAIL}
-            </a>
+            <Link to={`/help?${new URLSearchParams({ about: 'Kirana partner' })}`} className="text-link underline">
+              Write to support
+            </Link>
+            <p className="text-sm text-muted">
+              Or email{' '}
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="text-link underline [overflow-wrap:anywhere]">
+                {SUPPORT_EMAIL}
+              </a>
+            </p>
             <Button variant="ghost" onClick={() => signOutHere(qc)}>
               Sign out
             </Button>
