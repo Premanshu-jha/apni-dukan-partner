@@ -335,8 +335,22 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 ### 0.14.0 — 2026-11-12
 
 - **A verified address is locked** (needs backend V41): once our field team approved the salon, the address fields
-  are read-only, there is no GPS or address search, the pin shows as a map, and the screen says whom to write to
-  (`addressLocked` on `GET /shops/me`). The field team changes it; an in-app request comes next round.
+  are read-only, there is no GPS or address search, and the pin shows as a map (`addressLocked` on `GET /shops/me`).
+- **Request address change** (needs backend V44; `AddressRequest.tsx`, `RegisterDetails` in request mode): from Salon
+  details or the salon card in More, the owner types the new address and places the pin (GPS, address search, drag)
+  and sends it to the field team. The salon keeps its old address, live and bookable, until they approve it. The page
+  shows a waiting request (change it, or Cancel the request) and a declined one with the reason. New message
+  `SHOP_ADDRESS_DECLINED` (opens the page); `SHOP_ADDRESS_CHANGED` now has its icon.
+- **One code before editing a verified salon** (`EditGate.tsx`): on Salon details, Photos and video, Registration
+  document and Request address change everything can be read and typed, and a bar says changes need a code, with
+  Start editing (More's Edit opens the code sheet straight away). One code opens every edit for 15 minutes ("Editing is
+  on until … · Done"), counted from the backend's `secondsLeft`, not the phone's clock. If the time runs out while
+  typing, the sheet comes up over the form (the client sends `clozest:edit-locked` on 403 `EDIT_LOCKED`); closing it
+  keeps what was typed. A salon still registering (a draft) asks for nothing; services, hours, barbers and offers
+  never do. Reading or cancelling an address request needs no code.
+- **Salon info for barbers** (`SalonInfo.tsx`, More → Salon info): the offers on now or coming, the opening hours and
+  the services with price and time, read only.
+- Messages: a fix the field team asked for (`SHOP_FIX_ASKED`, `/setup`) now opens the Salon tab (`safePath` refused it).
 - **A live salon stays live while our field team re-checks a change**: a new photo, video, GSTIN or Udyam number no
   longer hides the salon or locks its helpers and barbers out. The owner sees "Our field team is checking your changes
   since …" (`RecheckWaiting`) on Today, Salon details and Photos, and in More; a fix the team asks for shows with its
@@ -354,7 +368,7 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
   number become dashes), leaving with unsaved changes asks first (and nothing counts as unsaved right after Save),
   re-taking the location asks to check the address, both name fields say which is which. A map that can't load says
   so instead of failing the screen (`MapBoundary`).
-- Scenarios 253–254 updated, 313–334 added in `docs/scenarios.md`.
+- Scenarios 253–254 updated, 313–357 added in `docs/scenarios.md`.
 
 ### 0.13.0 — 2026-11-11
 
