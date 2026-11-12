@@ -129,17 +129,38 @@ test('a half-done registration comes back where it was, with the field team’s 
   await signedIn(context, api)
   api.shop = MockApi.shopOf({ status: 'DRAFT', statusReason: 'The board in the photo is not readable.', shopPhotoFileId: null })
   await page.goto('/')
-  await expect(page).toHaveURL(/\/register$/)
+  // Sent back: the review, with the field team's reason and a link to each step
+  await expect(page).toHaveURL(/\/register\/review$/)
+  await expect(page.getByText('The board in the photo is not readable.')).toBeVisible()
+  await page.getByRole('link', { name: 'Edit details or move the pin' }).click()
+  await expect(page).toHaveURL(/\/register\?from=review$/)
   await expect(page.getByText('The board in the photo is not readable.')).toBeVisible()
   await expect(page.getByLabel('Salon name')).toHaveValue('Shine Unisex Salon')
   await page.getByLabel('GSTIN').fill('27aapfu0939f1zv')
   await page.getByRole('button', { name: 'Save and continue' }).click()
-  await expect(page).toHaveURL(/\/register\/photos$/)
+  // Opened from the review: back to it, not on to Photos
+  await expect(page).toHaveURL(/\/register\/review$/)
   const patch = api.calls.find((c) => c.method === 'PATCH')!
   expect(patch.body).toMatchObject({ version: 3, gstin: '27AAPFU0939F1ZV', udyamNumber: '' })
   // The board screens stay closed until it is submitted
   await page.goto('/salon/day')
+  await expect(page).toHaveURL(/\/register\/review$/)
+})
+
+test('an owner coming back to a registration lands on the first step not done, and the step pills jump', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  api.shop = MockApi.shopOf({ status: 'DRAFT', shopPhotoFileId: null })
+  await page.goto('/')
+  await expect(page).toHaveURL(/\/register\/photos$/)
+  // Every step is one tap away once the salon is saved
+  await page.getByRole('link', { name: /Details/ }).click()
   await expect(page).toHaveURL(/\/register$/)
+  await page.getByRole('link', { name: /Hours/ }).click()
+  await expect(page).toHaveURL(/\/register\/hours$/)
+  await page.getByRole('link', { name: /Submit/ }).click()
+  await expect(page).toHaveURL(/\/register\/review$/)
+  // The pin as a map, not numbers
+  await expect(page.getByLabel("Map: your salon's pin, where customers find you")).toBeVisible()
 })
 
 test('typing is kept on the phone before the first save, and a stale save reloads the shop', async ({ page, context, api }) => {
@@ -166,7 +187,7 @@ test('the "do you cut hair" question: No is kept and says where to change it; a 
   await expect(page.getByText("Couldn't read your barbers")).toBeVisible()
   await page.getByRole('button', { name: 'Try again' }).click()
   await page.getByRole('button', { name: 'No, only staff' }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'add yourself in More → Barbers' })).toBeFocused()
+  await expect(page.getByRole('status').filter({ hasText: 'add yourself in the Salon tab → Barbers' })).toBeFocused()
   expect(api.calls.some((c) => c.path === '/api/v1/salon/staff/me')).toBe(false)
 })
 

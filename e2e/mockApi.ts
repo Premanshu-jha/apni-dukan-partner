@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { BrowserContext, Route } from '@playwright/test'
+import { validGstin } from '../src/lib/gstin'
 
 /**
  * A fake backend for the end-to-end tests. Shapes follow the backend's records (AuthResponses, ShopResponse,
@@ -304,6 +305,25 @@ export class MockApi {
     if (role === 'HELPER') this.walkIns = false
   }
 
+  /**
+   * Shop.requestRecheck: a live shop that changed what was checked waits for the field team, staying APPROVED; the
+   * change answers a fix the team asked for (the reason goes).
+   */
+  private recheckIfLive(changed: boolean) {
+    if (!changed || !this.shop || this.shop.status !== 'APPROVED') return
+    this.shop = { ...this.shop, recheckSince: this.shop.recheckSince ?? new Date().toISOString(), statusReason: null }
+  }
+
+  /** The field team asked the owner to fix something on the live salon's re-check (ShopAdminService.askToFix). */
+  askToFix(reason: string) {
+    this.shop = {
+      ...this.shop!,
+      statusReason: reason,
+      recheckSince: this.shop!.recheckSince ?? new Date().toISOString(),
+      version: (this.shop!.version as number) + 1,   // saved, as the backend does
+    }
+  }
+
   static shopOf(over: Json = {}): Json {
     return {
       id: 'shop1',
@@ -328,10 +348,13 @@ export class MockApi {
       registrationDocType: 'TRADE_LICENCE',
       registrationDocFileId: 'f-doc',
       registrationDocCheckedAt: '2026-10-01T05:00:00Z',
+      recheckSince: null,
       version: 3,
       createdAt: '2026-11-01T00:00:00Z',
       updatedAt: '2026-11-01T00:00:00Z',
       ...over,
+      // ShopResponse.addressLocked: verified by the field team (approved, or approved before)
+      addressLocked: over.addressLocked ?? !['DRAFT', 'PENDING_VISIT'].includes((over.status as string | undefined) ?? 'APPROVED'),
     }
   }
 
@@ -778,7 +801,10 @@ export class MockApi {
         this.shop = this.addedToShop
         this.role = this.shop.myRole as Role
       }
-      return this.shop ? ok(200, this.shop) : fail(404, 'NO_SHOP', 'You have no shop yet.')
+      if (!this.shop) return fail(404, 'NO_SHOP', 'You have no shop yet.')
+      // ShopResponse: recheckSince is the owner's only; a barber gets no statusReason (forBarber)
+      const mine = this.role === 'OWNER' ? this.shop : { ...this.shop, recheckSince: null, ...(this.role === 'BARBER' ? { statusReason: null } : {}) }
+      return ok(200, mine)
     }
     if (p === '/shops/geocode' && method === 'POST') {
       // The same checks as ShopRequests.Geocode, then AddressLocator's answers
@@ -824,15 +850,29 @@ export class MockApi {
       if (!this.shop || this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can do this.')
       if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
       const { version: _v, ...change } = body
-      // ShopService.update: a live shop's new address or pin goes back to the field team
+      // ShopService.gstin / udyam: checked and stored as the backend does (spaces removed, capitals)
+      const norm = (v: unknown) => (v === '' || v === undefined ? null : String(v).replace(/\s+/g, '').toUpperCase())
+      const bad: Json = {}
+      if (change.gstin !== undefined && norm(change.gstin) !== null && !validGstin(norm(change.gstin)!)) bad.gstin = 'is not a valid GSTIN (15 characters, e.g. 27AAPFU0939F1ZV); check for a typo'
+      if (change.udyamNumber !== undefined && norm(change.udyamNumber) !== null && !/^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$/.test(norm(change.udyamNumber)!)) bad.udyamNumber = 'is not a valid Udyam number (e.g. UDYAM-TS-02-0012345)'
+      if (Object.keys(bad).length) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', bad)
+      // ShopService.update: a verified address can't be moved by the owner (409 ADDRESS_LOCKED); a live shop's new
+      // GSTIN or Udyam number waits for the field team's re-check and stays APPROVED (the first change's time stays)
       const moved = ['addressLine', 'area', 'city', 'pincode', 'latitude', 'longitude'].some((k) => change[k] !== undefined && change[k] !== this.shop![k])
-      if (moved && this.shop.status === 'APPROVED') change.status = 'PENDING_VISIT'
-      this.shop = { ...this.shop, ...change, gstin: change.gstin === '' ? null : change.gstin, udyamNumber: change.udyamNumber === '' ? null : change.udyamNumber, version: (this.shop.version as number) + 1 }
+      if (moved && this.shop.addressLocked) return fail(409, 'ADDRESS_LOCKED', 'Your address was verified by our field team, so only they can change it. Ask them to change it for you.')
+      const papers = (change.gstin !== undefined && norm(change.gstin) !== this.shop.gstin)
+        || (change.udyamNumber !== undefined && norm(change.udyamNumber) !== this.shop.udyamNumber)
+      this.recheckIfLive(papers)
+      this.shop = { ...this.shop, ...change, gstin: change.gstin === undefined ? this.shop.gstin : norm(change.gstin), udyamNumber: change.udyamNumber === undefined ? this.shop.udyamNumber : norm(change.udyamNumber), version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
     }
     if (p === '/shops/me/photos') {
       if (!this.shop) return fail(404, 'NO_SHOP', 'You have no shop yet.')
       if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
+      this.recheckIfLive(
+        (body.ownerPhotoFileId !== undefined && body.ownerPhotoFileId !== this.shop.ownerPhotoFileId)
+          || (body.shopPhotoFileId !== undefined && body.shopPhotoFileId !== this.shop.shopPhotoFileId),
+      )
       this.shop = {
         ...this.shop,
         ownerPhotoFileId: body.ownerPhotoFileId ?? this.shop.ownerPhotoFileId,
@@ -852,6 +892,7 @@ export class MockApi {
       if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
       const f = this.files.find((x) => x.id === body.fileId && x.purpose === 'SHOP_VIDEO')
       if (!f) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { fileId: 'must be a video uploaded with POST /files/video-uploads' })
+      this.recheckIfLive(f.id !== this.shop.shopVideoFileId)
       this.shop = { ...this.shop, shopVideoFileId: f.id, version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
     }
