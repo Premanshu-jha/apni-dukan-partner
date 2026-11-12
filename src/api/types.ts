@@ -64,6 +64,16 @@ export interface Shop {
   registrationDocFileId?: string | null
   /** When our field team checked it (customers then see "Registered"); null if not yet or none. */
   registrationDocCheckedAt?: string | null
+  /**
+   * When our field team's re-check of a live salon's changes started waiting (the address or pin, a photo, the video,
+   * the GSTIN or Udyam number changed); null when nothing waits. The salon stays live meanwhile. The owner's view only.
+   */
+  recheckSince?: string | null
+  /**
+   * The address and pin were verified by our field team: the owner can't change them any more (409 ADDRESS_LOCKED);
+   * the field team does. Missing from an older backend (then the save says so).
+   */
+  addressLocked?: boolean
   version: number
   createdAt: string
   updatedAt: string
