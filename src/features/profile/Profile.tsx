@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { lazy, Suspense, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { authApi } from '../../api/auth'
-import { shopApi, useShop } from '../../api/shop'
+import { shopApi, useAddressRequest, useShop } from '../../api/shop'
 import { can } from '../../lib/roles'
 import { fieldError, messageOf } from '../../api/errors'
 import { Banner, Button, Card, Field, Loading, Page, Sheet } from '../../components/ui'
@@ -36,6 +36,7 @@ export function Profile() {
   const [confirmAll, setConfirmAll] = useState(false)
   const [showPin, setShowPin] = useState(false)
   const owner = shop.myRole === 'OWNER'
+  const addressAsked = useAddressRequest(owner && Boolean(shop.addressLocked))
 
   async function saveName() {
     setBusy(true)
@@ -84,6 +85,7 @@ export function Profile() {
     rights.closures && { to: '/salon/closures', text: 'Closed days' },
     rights.seeSetup && { to: '/salon/offers', text: 'Offers' },
     rights.seeSetup && { to: '/salon/ratings', text: 'Ratings' },
+    !rights.seeSetup && { to: '/salon/info', text: 'Salon info: hours, services, offers' },
     { to: '/notifications', text: 'Messages' },
   ].filter(Boolean) as Array<{ to: string; text: string }>
 
@@ -100,7 +102,7 @@ export function Profile() {
         <div className="flex items-start justify-between gap-3">
           <p className="min-w-0 font-semibold break-words">{shop.name}</p>
           {owner && (
-            <Link to="/setup/details" state={{ from: '/more' }} className="shrink-0 text-sm text-link" aria-label="Edit salon details">
+            <Link to="/setup/details" state={{ from: '/more', edit: true }} className="shrink-0 text-sm text-link" aria-label="Edit salon details">
               Edit
             </Link>
           )}
@@ -108,6 +110,18 @@ export function Profile() {
         <p className="text-sm text-muted break-words">
           {shop.addressLine}, {shop.area}, {shop.city} {shop.pincode}
         </p>
+        {owner && shop.addressLocked && shop.status !== 'SUSPENDED' && shop.status !== 'CLOSED' && (
+          <p className="text-sm break-words">
+            {addressAsked.data?.status === 'PENDING' && (
+              <span className="text-muted">
+                New address waiting for our field team: {addressAsked.data.addressLine}, {addressAsked.data.area}.{' '}
+              </span>
+            )}
+            <Link to="/setup/address" state={{ from: '/more' }} className="text-link underline">
+              {addressAsked.data?.status === 'PENDING' ? 'See the request' : 'Request address change'}
+            </Link>
+          </p>
+        )}
         <p className="text-sm text-muted break-words">Owner: {shop.ownerName}</p>
         {owner && (
           <p className="text-sm text-muted break-words">

@@ -1,10 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { lazy, Suspense, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
 import { fileApi, ShopContext, shopApi, shopKeys, useMyShop, usePhotoLink, useShop } from '../../api/shop'
-import type { GeocodePrecision, RegistrationDocType, Shop, ShopDetailsIn } from '../../api/types'
-import { SUPPORT_EMAIL } from '../../lib/config'
+import type { AddressIn, AddressRequest, GeocodePrecision, RegistrationDocType, Shop, ShopDetailsIn } from '../../api/types'
 import { LocationGuide } from '../../components/LocationGuide'
 import { MapBoundary } from '../../components/MapBoundary'
 import { PhotoPicker } from '../../components/PhotoPicker'
@@ -128,6 +127,11 @@ type Form = Omit<ShopDetailsIn, 'latitude' | 'longitude' | 'gstin' | 'udyamNumbe
 
 const empty: Form = { name: '', ownerName: '', addressLine: '', area: '', city: '', pincode: '', gstin: '', udyamNumber: '' }
 
+/** The address fields of a request, as the form holds them. */
+function addressOf(a: AddressIn): Pick<Form, 'addressLine' | 'area' | 'city' | 'pincode'> {
+  return { addressLine: a.addressLine, area: a.area, city: a.city, pincode: a.pincode }
+}
+
 function formOf(shop: Shop): Form {
   return {
     name: shop.name,
@@ -175,7 +179,17 @@ export function checkDetails(f: Form): Partial<Record<keyof Form, string>> {
  * details, the owner only): it stays on the page with "Saved.", and on a live salon a changed address or pin is saved
  * only after the owner confirms it goes back to the field team.
  */
-export function RegisterDetails({ edit = false }: { edit?: boolean }) {
+export function RegisterDetails({
+  edit = false,
+  request = null,
+}: {
+  edit?: boolean
+  /**
+   * Asking the field team for a new address (a verified salon, AddressRequestPage): only the address and pin, starting
+   * from the request still waiting (else the salon's own); Send goes to them instead of saving.
+   */
+  request?: { start: AddressIn | null; waiting: boolean; onSent: (r: AddressRequest) => void; top: ReactNode } | null
+}) {
   const qc = useQueryClient()
   const navigate = useNavigate()
   // Opened from the review's "Edit details" (or a step pill there): saving goes back to it, not on to Photos
@@ -183,11 +197,21 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
   const fromReview = !edit && new URLSearchParams(location.search).get('from') === 'review'
   const shop = useContext(ShopContext)
   const userId = useSession((s) => s.user?.id)
-  /** Verified by the field team: the address and pin are theirs to change now (the backend refuses ADDRESS_LOCKED). */
-  const locked = Boolean(shop?.addressLocked)
-  const [form, setForm] = useState<Form>(() => (shop ? formOf(shop) : { ...empty, ...loadRegisterDraft<Form>(userId) }))
+  /**
+   * Verified by the field team: the address and pin are theirs to change now (the backend refuses ADDRESS_LOCKED); the
+   * owner asks them (request mode, where they can be typed and moved again).
+   */
+  const locked = Boolean(shop?.addressLocked) && !request
+  const start = request?.start ?? null
+  const [form, setForm] = useState<Form>(() =>
+    shop ? { ...formOf(shop), ...(start ? addressOf(start) : {}) } : { ...empty, ...loadRegisterDraft<Form>(userId) },
+  )
   const [pin, setPin] = useState<Pin | null>(() =>
-    shop ? { lat: shop.latitude, lng: shop.longitude, gps: null, zoom: 18, placement: 0 } : null,
+    start
+      ? { lat: start.latitude, lng: start.longitude, gps: null, zoom: 18, placement: 0 }
+      : shop
+        ? { lat: shop.latitude, lng: shop.longitude, gps: null, zoom: 18, placement: 0 }
+        : null,
   )
   /**
    * The details as last loaded or saved, to tell unsaved changes: the form as the backend stored it (capitals,
@@ -195,7 +219,11 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
    * taken for one made here.
    */
   const [baseline, setBaseline] = useState<{ form: Form; lat: number; lng: number } | null>(() =>
-    shop ? { form: formOf(shop), lat: shop.latitude, lng: shop.longitude } : null,
+    shop
+      ? start
+        ? { form: { ...formOf(shop), ...addressOf(start) }, lat: start.latitude, lng: start.longitude }
+        : { form: formOf(shop), lat: shop.latitude, lng: shop.longitude }
+      : null,
   )
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState<LocateError | null>(null)
@@ -244,7 +272,10 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
     void permissionState().then((s) => setBlocked(s === 'denied'))
   }, [locError])
 
-  const problems = checkDetails(form)
+  // Asking for a new address checks only the address (the other fields aren't on screen to fix)
+  const problems = request
+    ? Object.fromEntries(Object.entries(checkDetails(form)).filter(([k]) => (ADDRESS_FIELDS as readonly string[]).includes(k)))
+    : checkDetails(form)
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setForm((f) => ({ ...f, [k]: value }))
@@ -402,6 +433,38 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
     }
     setBusy(true)
     setSaved(false)
+    if (request && shop) {
+      try {
+        const sent = await shopApi.requestAddress(shop.version, {
+          addressLine: details.addressLine,
+          area: details.area,
+          city: details.city,
+          pincode: details.pincode,
+          latitude: details.latitude,
+          longitude: details.longitude,
+        })
+        setCheckAddress(false)
+        setBaseline({ form: { ...form, ...addressOf(sent) }, lat: sent.latitude, lng: sent.longitude })
+        setForm((f) => ({ ...f, ...addressOf(sent) }))
+        // The salon has a new version (the field team's decision must see this request)
+        await qc.invalidateQueries({ queryKey: shopKeys.mine })
+        request.onSent(sent)
+        setSaved(true)
+      } catch (e) {
+        // Changed meanwhile, or the answer was lost on the way (it may have gone through): read both again, so the
+        // page shows what waits now and the next Send has the salon's version
+        if (isApiError(e, 'SHOP_CHANGED') || isApiError(e, 'NETWORK') || (isApiError(e) && e.status === 0)) {
+          await Promise.all([
+            qc.invalidateQueries({ queryKey: shopKeys.mine }),
+            qc.invalidateQueries({ queryKey: shopKeys.addressRequest }),
+          ])
+        }
+        setError(e)
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
     try {
       const result = shop
         ? await shopApi.update(shop.version, { ...details, gstin: details.gstin ?? '', udyamNumber: details.udyamNumber ?? '' })
@@ -457,30 +520,42 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
   // Field errors show under their fields; the banner is for everything else.
-  const generalError = error && !Object.keys(empty).some((k) => fieldError(error, k)) ? messageOf(error) : null
+  // EDIT_LOCKED: the code sheet comes up instead (EditGate), and after the code Save works
+  const generalError =
+    error && !isApiError(error, 'EDIT_LOCKED') && !Object.keys(empty).some((k) => fieldError(error, k)) ? messageOf(error) : null
 
   return (
     // A saved draft has no screen before this one ("/" comes back here), so no back arrow then
     <Page
-      back={edit ? cameFrom(location, '/setup') : shop ? undefined : '/start'}
-      title={edit ? 'Salon details' : 'Register your salon'}
+      back={request ? cameFrom(location, '/setup/details') : edit ? cameFrom(location, '/setup') : shop ? undefined : '/start'}
+      title={request ? 'Request address change' : edit ? 'Salon details' : 'Register your salon'}
       leaveWarning={dirty ? UNSAVED : null}
     >
-      {!edit && <Steps at={1} linked={shop !== null} leaveWarning={dirty ? UNSAVED : null} />}
+      {!edit && !request && <Steps at={1} linked={shop !== null} leaveWarning={dirty ? UNSAVED : null} />}
       {edit && <RecheckWaiting />}
-      {!edit && shop?.statusReason && <SentBack reason={shop.statusReason} />}
+      {!edit && !request && shop?.statusReason && <SentBack reason={shop.statusReason} />}
+      {request?.top}
       <Card className="flex flex-col gap-4">
-        <Field id="shop-name" label="Salon name" value={form.name} onChange={set('name')} maxLength={100} error={show('name')} />
-        <Field
-          id="owner-name"
-          label="Owner’s name"
-          hint="The salon owner’s name for our records. Your own sign-in name is changed in More."
-          value={form.ownerName}
-          onChange={set('ownerName')}
-          maxLength={100}
-          autoComplete="name"
-          error={show('ownerName')}
-        />
+        {request ? (
+          <p className="text-sm text-muted">
+            Type the new address and put the pin on the new door. Our field team checks it; until they approve it,
+            customers see your salon at the old address and can book as usual.
+          </p>
+        ) : (
+          <>
+            <Field id="shop-name" label="Salon name" value={form.name} onChange={set('name')} maxLength={100} error={show('name')} />
+            <Field
+              id="owner-name"
+              label="Owner’s name"
+              hint="The salon owner’s name for our records. Your own sign-in name is changed in More."
+              value={form.ownerName}
+              onChange={set('ownerName')}
+              maxLength={100}
+              autoComplete="name"
+              error={show('ownerName')}
+            />
+          </>
+        )}
         <Field id="address" label="Shop number, building, street" value={form.addressLine} onChange={set('addressLine')} maxLength={200} readOnly={locked} error={show('addressLine')} />
         <Field id="area" label="Area" value={form.area} onChange={set('area')} maxLength={100} readOnly={locked} error={show('area')} />
         <div className="grid grid-cols-2 gap-3">
@@ -488,10 +563,22 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
           <Field id="pincode" label="Pincode" inputMode="numeric" value={form.pincode} onChange={set('pincode')} maxLength={6} readOnly={locked} error={show('pincode')} />
         </div>
         {locked && (
-          <p id="address-locked" className="text-sm text-muted">
-            Your address and pin were verified by our field team, so only they can change them. If you moved or
-            something is wrong, write to {SUPPORT_EMAIL} with your shop code {shop?.shopCode} and the new address.
-          </p>
+          <div id="address-locked" className="flex flex-col gap-1 text-sm">
+            <p className="text-muted">
+              Your address and pin were verified by our field team, so only they can change them. Moved, or something
+              is wrong? Send them the new one.
+            </p>
+            <Link
+              to="/setup/address"
+              state={{ from: edit ? '/setup/details' : '/register' }}
+              className="self-start text-link underline"
+              onClick={(e) => {
+                if (dirty && !window.confirm(UNSAVED)) e.preventDefault()
+              }}
+            >
+              Request address change
+            </Link>
+          </div>
         )}
       </Card>
 
@@ -583,11 +670,13 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
       </Card>
       )}
 
+      {!request && (
       <Card className="flex flex-col gap-4">
         <p className="text-sm text-muted">Optional. You can add these later.</p>
         <Field id="gstin" label="GSTIN" value={form.gstin} onChange={set('gstin')} maxLength={20} autoCapitalize="characters" placeholder="27AAPFU0939F1ZV" error={show('gstin')} />
         <Field id="udyam" label="Udyam number" value={form.udyamNumber} onChange={set('udyamNumber')} maxLength={25} autoCapitalize="characters" placeholder={UDYAM_EXAMPLE} error={show('udyamNumber')} />
       </Card>
+      )}
 
       {generalError && <Banner tone="bad">{generalError}</Banner>}
       {confirmRecheck && (
@@ -596,16 +685,16 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
           Tap Save again to go ahead.
         </Banner>
       )}
-      {saved && <Banner tone="good">Saved.</Banner>}
+      {saved && <Banner tone="good">{request ? 'Sent to our field team. Your salon keeps its address until they approve it.' : 'Saved.'}</Banner>}
       <Button busy={busy} onClick={save}>
-        {edit ? (confirmRecheck ? 'Save and send for a check' : 'Save') : 'Save and continue'}
+        {request ? (request.waiting ? 'Send the changed request' : 'Send to the field team') : edit ? (confirmRecheck ? 'Save and send for a check' : 'Save') : 'Save and continue'}
       </Button>
-      {!edit && (
+      {!edit && !request && (
         <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
           Sign out
         </Button>
       )}
-      {!edit && shop && <DraftExits name={shop.name} />}
+      {!edit && !request && shop && <DraftExits name={shop.name} />}
     </Page>
   )
 }

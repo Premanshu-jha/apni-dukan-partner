@@ -22,6 +22,9 @@ import { StaffDetail } from '../features/setup/StaffDetail'
 import { Home } from '../features/shop/Home'
 import { RegisterDetails, RegisterHours, RegisterLayout, RegisterPhotos, RegisterReview } from '../features/shop/Register'
 import { SalonDocumentPage } from '../features/shop/SalonDocument'
+import { AddressRequestPage } from '../features/shop/AddressRequest'
+import { EditGate } from '../features/shop/EditGate'
+import { SalonInfo } from '../features/setup/SalonInfo'
 import { RegisterServices } from '../features/shop/RegisterServices'
 import { SalonHoursPage } from '../features/setup/SalonHours'
 import { Ratings } from '../features/ratings/Ratings'
@@ -80,6 +83,8 @@ export function App() {
             <Route element={<RoleOnly roles={['OWNER']} />}>
               <Route path="/shop/close" element={<CloseShop />} />
               <Route path="/shop/handover" element={<HandOver />} />
+              {/* Also from a draft that was verified before (sent back): its address is the field team's too */}
+              <Route path="/setup/address" element={<EditGate><AddressRequestPage /></EditGate>} />
             </Route>
           </Route>
           <Route element={<PastRegistration />}>
@@ -97,6 +102,8 @@ export function App() {
               <Route path="/notifications" element={<Inbox />} />
               <Route path="/profile/email" element={<ChangeEmail />} />
               <Route path="/profile/phone" element={<ChangePhone />} />
+              {/* Anyone in the salon: hours, services, offers (a barber's only view of them) */}
+              <Route path="/salon/info" element={<SalonInfo />} />
               <Route element={<RoleOnly roles={['OWNER', 'HELPER']} />}>
                 <Route path="/setup/services" element={<Services />} />
                 <Route path="/setup/staff" element={<StaffList />} />
@@ -107,10 +114,10 @@ export function App() {
                 <Route path="/salon/offers" element={<Offers />} />
               </Route>
               <Route element={<RoleOnly roles={['OWNER']} />}>
-                {/* What the owner gave at registration, editable any time */}
-                <Route path="/setup/details" element={<RegisterDetails edit />} />
-                <Route path="/setup/photos" element={<RegisterPhotos edit />} />
-                <Route path="/setup/document" element={<SalonDocumentPage />} />
+                {/* What the owner gave at registration, editable any time (once verified: after a phone code) */}
+                <Route path="/setup/details" element={<EditGate><RegisterDetails edit /></EditGate>} />
+                <Route path="/setup/photos" element={<EditGate><RegisterPhotos edit /></EditGate>} />
+                <Route path="/setup/document" element={<EditGate><SalonDocumentPage /></EditGate>} />
                 <Route path="/team" element={<Team />} />
                 <Route path="/salon/closures" element={<Closures />} />
                 <Route path="/salon/offers/new" element={<NewOffer />} />

@@ -23,6 +23,8 @@ const icons: Record<string, string> = {
   SHOP_APPROVED: '✓',
   SHOP_RECHECKED: '✓',
   SHOP_FIX_ASKED: '!',
+  SHOP_ADDRESS_CHANGED: '✓',
+  SHOP_ADDRESS_DECLINED: '!',
   SHOP_NOT_APPROVED: '!',
   SHOP_SUSPENDED: '!',
   SHOP_DOCUMENT_REMOVED: '!',
@@ -42,6 +44,7 @@ const alarming = new Set([
   'SALON_WALK_IN_CANCELLED',
   'SHOP_NOT_APPROVED',
   'SHOP_FIX_ASKED',
+  'SHOP_ADDRESS_DECLINED',
   'SHOP_SUSPENDED',
   'SHOP_DOCUMENT_REMOVED',
   'SHOP_HANDOVER_DECLINED',
@@ -49,13 +52,16 @@ const alarming = new Set([
 ])
 
 /**
- * Only this app's own pages are opened from a message: the day board, the start for shop news, or the hand-over
- * requests ("A shop for you": /handover), invitations to join a shop (/invites).
+ * Only this app's own pages are opened from a message: the day board, the start for shop news, the hand-over
+ * requests ("A shop for you": /handover), invitations to join a shop (/invites), and the owner's Salon tab, document
+ * and address request.
  */
 export function safePath(url: string | null): string | null {
   if (!url || !url.startsWith('/') || url.startsWith('//')) return null
   if (url.startsWith('/salon/')) return url
-  if (url === '/handover' || url === '/invites' || url === '/setup/document') return url
+  if (url === '/handover' || url === '/invites') return url
+  // The owner's salon screens a message about his salon points to (a fix asked for, an address declined)
+  if (url === '/setup' || url === '/setup/document' || url === '/setup/address') return url
   if (url.startsWith('/shops/')) return '/'
   return null
 }
