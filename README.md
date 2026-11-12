@@ -30,7 +30,7 @@ npm run dev                    # http://localhost:5174 (5173 is the customer app
 | --- | --- | --- |
 | `VITE_API_URL` | The backend's address, no trailing slash | `http://localhost:8080` or `https://apni-dukan-backend-production.up.railway.app` |
 | `VITE_TURNSTILE_SITE_KEY` | Cloudflare Turnstile **site** key (public). Leave empty when the backend has no `TURNSTILE_SECRET_KEY` | `0x4AAAAAAA…` |
-| `VITE_SUPPORT_EMAIL` | Where partners write for help (More). Default `support@apnidukan.in` | `support@apnidukan.in` |
+| `VITE_SUPPORT_EMAIL` | The support address shown under "Need help" (More, the form). Default `support@clozest.in` | `support@clozest.in` |
 | `VITE_MAP_TILES` | Map tiles for the location pin. Default OpenStreetMap's, fine for low traffic (see its tile policy) | empty |
 
 All are public values baked into the page at build time. No secret ever goes in this app.
@@ -331,6 +331,18 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 (set `shops.status` to `APPROVED`).
 
 ## Changelog
+
+### 0.16.0 — 2026-11-12
+
+- **Need help** (`/help`, needs backend V46): owners, helpers and barbers write to support in the app; it becomes a
+  ticket (CLZ-1001) and the reply comes by email. Support sees their salon and role with it, so no shop code is
+  needed. What is typed is kept until it's sent; a double tap sends once. More's help card opens it ("Write to
+  support", the address still shown), and so does the kirana "coming soon" page.
+- The support address is **support@clozest.in** (it was a domain we don't use).
+- Sign-up is unchanged: the email is still asked right after the phone code.
+- After review: Need help is also on every registration step, the not-live page and Start; the draft is kept per
+  person; an email no longer verified reads the profile again instead of bouncing; the support address is a mail link.
+- Scenarios 362–370 added in `docs/scenarios.md`.
 
 ### 0.15.0 — 2026-11-12
 
