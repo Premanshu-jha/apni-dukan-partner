@@ -9,7 +9,7 @@ test('a verified salon is edited after a code to the owner’s phone; one code o
   await page.getByRole('link', { name: 'Edit salon details' }).click()
   const sheet = page.getByRole('dialog', { name: "Confirm it's you" })
   await expect(sheet).toBeVisible()
-  await expect(sheet.getByText('lets you change everything for 15 minutes', { exact: false })).toBeVisible()
+  await expect(sheet.getByText('lets you change everything on this phone for 15 minutes', { exact: false })).toBeVisible()
   // Not now: the details stay on screen to read; the bar offers the code again
   await sheet.getByRole('button', { name: 'Not now' }).click()
   await expect(sheet).toHaveCount(0)
@@ -144,4 +144,52 @@ test('a barber sees the salon’s hours, services and offers, read only', async 
   await expect(page.getByText('Haircut', { exact: false }).first()).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Opening hours' })).toBeVisible()
   await expect(page.getByRole('button', { name: /Save|Edit|Add/ })).toHaveCount(0)
+})
+
+test('closing or handing over a verified salon needs the code on this phone too', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  api.editUntil = null
+  await page.goto('/more')
+  await page.getByRole('link', { name: 'Hand over Shine Unisex Salon' }).click()
+  await expect(page.getByText('Your salon is verified: this needs a code we send to your phone.')).toBeVisible()
+  await page.getByLabel('Their mobile number').fill('9811100000')
+  await page.getByRole('button', { name: 'Send request' }).click()
+  const sheet = page.getByRole('dialog', { name: "Confirm it's you" })
+  await expect(sheet).toBeVisible()
+  expect(api.ownHandover).toBeNull()
+  await sheet.getByRole('button', { name: 'Send code' }).click()
+  await sheet.getByLabel('SMS code').fill('123456')
+  await sheet.getByRole('button', { name: 'Confirm' }).click()
+  // No red "confirm with the code" left behind; what was typed stays: send it again
+  await expect(page.getByText("confirm it's you with the code", { exact: false })).toHaveCount(0)
+  await expect(page.getByLabel('Their mobile number')).not.toHaveValue('')
+  await page.getByRole('button', { name: 'Send request' }).click()
+  await expect(page.getByText('Waiting for an answer')).toBeVisible()
+
+  // Closing after Done (off again): the code is asked, the reason and the tick stay, then it closes
+  await page.getByRole('button', { name: 'Done' }).click()
+  await page.goto('/shop/close')
+  await page.getByLabel('Why are you closing? (optional)').fill('Moving to Pune')
+  await page.getByLabel(/I understand that Shine Unisex Salon closes for good/).check()
+  await page.getByRole('button', { name: 'Close Shine Unisex Salon for good' }).click()
+  await expect(sheet).toBeVisible()
+  expect(api.shop!.status).toBe('APPROVED')
+  await sheet.getByRole('button', { name: 'Send code' }).click()
+  await sheet.getByLabel('SMS code').fill('123456')
+  await sheet.getByRole('button', { name: 'Confirm' }).click()
+  await expect(page.getByLabel('Why are you closing? (optional)')).toHaveValue('Moving to Pune')
+  await expect(page.getByLabel(/I understand that Shine Unisex Salon closes for good/)).toBeChecked()
+  await page.getByRole('button', { name: 'Close Shine Unisex Salon for good' }).click()
+  await expect(page).toHaveURL(/\/start$/)
+})
+
+test('a salon sent back to registration after it was approved closes without a code', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  api.editUntil = null
+  api.shop = { ...api.shop!, status: 'DRAFT', addressLocked: true, statusReason: 'Fix the photo' }
+  await page.goto('/shop/close')
+  await expect(page.getByRole('button', { name: 'Get the code' })).toHaveCount(0)
+  await page.getByLabel(/closes for good/).check()
+  await page.getByRole('button', { name: /for good$/ }).click()
+  await expect(page).toHaveURL(/\/start$/)
 })
