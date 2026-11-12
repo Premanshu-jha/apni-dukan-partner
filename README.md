@@ -332,6 +332,30 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.14.0 — 2026-11-12
+
+- **A verified address is locked** (needs backend V41): once our field team approved the salon, the address fields
+  are read-only, there is no GPS or address search, the pin shows as a map, and the screen says whom to write to
+  (`addressLocked` on `GET /shops/me`). The field team changes it; an in-app request comes next round.
+- **A live salon stays live while our field team re-checks a change**: a new photo, video, GSTIN or Udyam number no
+  longer hides the salon or locks its helpers and barbers out. The owner sees "Our field team is checking your changes
+  since …" (`RecheckWaiting`) on Today, Salon details and Photos, and in More; a fix the team asks for shows with its
+  reason. New messages: `SHOP_RECHECKED`, `SHOP_FIX_ASKED`, `SHOP_ADDRESS_CHANGED`. A GSTIN or Udyam change asks first.
+- **Photos fixable on the spot** (`PhotoPicker`): Take photo / Choose from gallery under each photo, Retake / Choose
+  another once one is there, Try again after a failed upload (the same photo), busy from the pick, a clear message for
+  a HEIC photo, a leave warning while uploading; a barber's photo opens the back camera.
+- **Registration picks up where the owner stopped** (`Home`): the first step not done, or the review (with the field
+  team's reason, now on every step). The step pills are links; "Edit details" and "Change" from the review come back
+  to it. The review shows the pin on a map and small photos.
+- **The salon card in More**: full address, owner, GSTIN and Udyam (owner), shop code with Copy, Edit, Photos and
+  video, Registration document, the pin on a map; nothing cut off; Back returns to More. **Closed days, Offers and
+  Ratings** also in the Salon tab; every hint says "the Salon tab →".
+- **Salon details**: GSTIN and Udyam checked on the phone as the backend does (`src/lib/gstin.ts`; spaces in an Udyam
+  number become dashes), leaving with unsaved changes asks first (and nothing counts as unsaved right after Save),
+  re-taking the location asks to check the address, both name fields say which is which. A map that can't load says
+  so instead of failing the screen (`MapBoundary`).
+- Scenarios 253–254 updated, 313–334 added in `docs/scenarios.md`.
+
 ### 0.13.0 — 2026-11-11
 
 - **The logo's orange in the app.** Offers ("20% off" on running and upcoming offers, the new offer's preview), star
