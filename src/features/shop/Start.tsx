@@ -105,6 +105,9 @@ export function Start() {
       <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
         Sign out
       </Button>
+      <Link to="/help" className="py-2 text-center text-sm text-link underline">
+        Need help? Write to support
+      </Link>
       <Link to="/profile/delete" className="py-2 text-center text-sm text-bad underline">
         Delete my account
       </Link>

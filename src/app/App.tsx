@@ -37,6 +37,7 @@ import { HandoverPage } from '../features/shop/HandoverOffers'
 import { InvitesPage } from '../features/shop/InviteOffers'
 import { Start } from '../features/shop/Start'
 import { Team } from '../features/team/Team'
+import { NeedHelp } from '../features/help/NeedHelp'
 import { EmptyState, Page } from '../components/ui'
 import { FinishingProfile, PastRegistration, RoleOnly, SignedIn, SignedOutOnly } from './guards'
 import { Bare, Shell } from './Shell'
@@ -63,6 +64,7 @@ export function App() {
           <Route path="/handover" element={<HandoverPage />} />
           <Route path="/invites" element={<InvitesPage />} />
           <Route path="/profile/delete" element={<DeleteAccount />} />
+          <Route path="/help" element={<NeedHelp />} />
           <Route element={<RegisterLayout needShop={false} />}>
             <Route path="/register" element={<RegisterDetails />} />
           </Route>

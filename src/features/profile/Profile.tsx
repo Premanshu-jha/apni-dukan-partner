@@ -222,11 +222,18 @@ export function Profile() {
       <Card className="flex flex-col gap-1">
         <p className="font-medium">Need help?</p>
         <p className="text-sm text-muted">
-          A problem with a booking, the app or your salon's listing? Write to us with your shop code.
+          A problem with a booking, the app or your salon's listing? Write to us: we see your salon with your message
+          and reply by email.
         </p>
-        <a href={`mailto:${SUPPORT_EMAIL}`} className="text-sm text-link underline">
-          {SUPPORT_EMAIL}
-        </a>
+        <Link to="/help" className="text-sm text-link underline">
+          Write to support
+        </Link>
+        <p className="text-sm text-muted">
+          Or email{' '}
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-link underline [overflow-wrap:anywhere]">
+            {SUPPORT_EMAIL}
+          </a>
+        </p>
       </Card>
 
       <div className="flex flex-col gap-2">

@@ -66,6 +66,10 @@ export function RegisterLayout({ needShop }: { needShop: boolean }) {
   return (
     <ShopContext.Provider value={mine}>
       <Outlet />
+      {/* Stuck on a step, or sent back by the field team: help is one tap away on every step */}
+      <Link to="/help" className="pb-6 text-center text-sm text-link underline">
+        Need help? Write to support
+      </Link>
     </ShopContext.Provider>
   )
 }
