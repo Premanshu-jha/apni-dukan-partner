@@ -332,6 +332,16 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.15.0 — 2026-11-12
+
+- **The edit code is per device** (needs backend V45): a code entered on this phone unlocks editing on this phone
+  only; another phone signed in to the same account asks for its own. Nothing changes on screen.
+- **Closing or handing over a verified salon needs the code too**: Close and Hand over have the same bar and code
+  sheet as the edit screens (`EditGate ending`: "this needs a code", Get the code, Confirm); what was typed (the
+  reason, the tick, the number) stays while the code is entered, and no red "confirm with the code" is left behind.
+  A draft asks for nothing.
+- Scenarios 358–361 in `docs/scenarios.md`.
+
 ### 0.14.0 — 2026-11-12
 
 - **A verified address is locked** (needs backend V41): once our field team approved the salon, the address fields
