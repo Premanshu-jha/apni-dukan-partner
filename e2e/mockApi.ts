@@ -284,6 +284,44 @@ export class MockApi {
   phoneChangeTries = 0
   /** The next phone change goes through but its answer is lost on the way back. */
   loseNextPhoneChange = false
+  /**
+   * Editing a verified salon is on until this time (EditUnlockStore); null: off. On by default, so tests about
+   * other things edit as an owner who entered the code; the code's own tests set it to null. The code is 123456.
+   */
+  editUntil: string | null = '2099-01-01T00:00:00Z'
+  /** Edit codes sent (POST /auth/me/edit-code). */
+  editCodesSent = 0
+  /** The owner's address change requests, newest last (AddressRequestStore). */
+  addressRequests: Json[] = []
+
+  /** ShopService.requireUnlocked: a verified salon's details need the edit code in the last 15 minutes. */
+  private editLocked(): boolean {
+    return Boolean(this.shop?.addressLocked) && this.shop?.status !== 'DRAFT' && !(this.editUntil && Date.parse(this.editUntil) > Date.now())
+  }
+
+  /** The live salon waits for a re-check only because of an address request (ShopService.endRecheckIfNothingLeft). */
+  private recheckOnlyForAddress = false
+
+  /** The request is gone: a re-check it alone started ends. */
+  private endAddressRecheck() {
+    if (this.recheckOnlyForAddress && this.shop) this.shop = { ...this.shop, recheckSince: null, statusReason: null }
+    this.recheckOnlyForAddress = false
+  }
+
+  /** The field team decides the owner's waiting address request (ShopAdminService.approve / declineAddressRequest). */
+  decideAddressRequest(approve: boolean, reason: string | null = null) {
+    const r = this.addressRequests.find((x) => x.status === 'PENDING')
+    if (!r) return
+    r.status = approve ? 'APPROVED' : 'DECLINED'
+    r.reason = approve ? null : reason
+    r.decidedAt = new Date().toISOString()
+    const moved = approve
+      ? { addressLine: r.addressLine, area: r.area, city: r.city, pincode: r.pincode, latitude: r.latitude, longitude: r.longitude, recheckSince: null, statusReason: null }
+      : {}
+    this.shop = { ...this.shop!, ...moved, version: (this.shop!.version as number) + 1 }
+    if (approve) this.recheckOnlyForAddress = false
+    else this.endAddressRecheck()
+  }
 
   static completeUser(): MockUser {
     return { id: 'u1', phone: '9848012345', name: 'Ravi Kumar', email: 'ravi@example.com', emailVerified: true, admin: false }
@@ -311,6 +349,7 @@ export class MockApi {
    */
   private recheckIfLive(changed: boolean) {
     if (!changed || !this.shop || this.shop.status !== 'APPROVED') return
+    this.recheckOnlyForAddress = false
     this.shop = { ...this.shop, recheckSince: this.shop.recheckSince ?? new Date().toISOString(), statusReason: null }
   }
 
@@ -779,6 +818,25 @@ export class MockApi {
     // a booking pause come through failOnce, as SalonAccountDeletion.checkCanDelete answers them
     const ownerRefused = () =>
       fail(409, 'SHOP_OWNER', 'You own a shop on Apni Dukan. Close it or hand it over before deleting your account.')
+    // Unlocking a verified salon's details (AuthService.sendEditCode / unlockEditing, EditUnlockStore)
+    if (p === '/auth/me/edit-code' && method === 'POST') {
+      if (!this.shop || this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', "Only a shop's owner needs this code.")
+      this.editCodesSent++
+      return ok(202)
+    }
+    if (p === '/auth/me/edit-unlock' && method === 'POST') {
+      if (body.code !== '123456') return fail(400, 'WRONG_CODE', 'That code is not correct', { attemptsLeft: 4 })
+      this.editUntil = new Date(Date.now() + 15 * 60_000).toISOString()
+      return ok(200, { until: this.editUntil, secondsLeft: 900 })
+    }
+    if (p === '/auth/me/edit-unlock' && method === 'GET') {
+      const left = this.editUntil ? Math.max(0, Math.floor((Date.parse(this.editUntil) - Date.now()) / 1000)) : 0
+      return ok(200, { until: left > 0 ? this.editUntil : null, secondsLeft: left })
+    }
+    if (p === '/auth/me/edit-unlock' && method === 'DELETE') {
+      this.editUntil = null
+      return ok(204)
+    }
     if (p === '/auth/me/delete-code') return this.shop && this.role === 'OWNER' ? ownerRefused() : ok(202)
     if (p === '/auth/me/delete') {
       if (body.code !== '123456') return fail(400, 'WRONG_CODE', 'That code is not correct', { attemptsLeft: 4 })
@@ -859,7 +917,10 @@ export class MockApi {
       // ShopService.update: a verified address can't be moved by the owner (409 ADDRESS_LOCKED); a live shop's new
       // GSTIN or Udyam number waits for the field team's re-check and stays APPROVED (the first change's time stays)
       const moved = ['addressLine', 'area', 'city', 'pincode', 'latitude', 'longitude'].some((k) => change[k] !== undefined && change[k] !== this.shop![k])
-      if (moved && this.shop.addressLocked) return fail(409, 'ADDRESS_LOCKED', 'Your address was verified by our field team, so only they can change it. Ask them to change it for you.')
+      if (moved && this.shop.addressLocked) return fail(409, 'ADDRESS_LOCKED', 'Your address was verified by our field team, so only they can change it. Ask them with Request address change.')
+      const nothing = Object.keys(change).every((k) => (k === 'gstin' || k === 'udyamNumber' ? norm(change[k]) === this.shop![k] : change[k] === this.shop![k]))
+      if (nothing) return ok(200, this.shop)
+      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', 'To change your verified details, confirm with the code we send to your phone first.')
       const papers = (change.gstin !== undefined && norm(change.gstin) !== this.shop.gstin)
         || (change.udyamNumber !== undefined && norm(change.udyamNumber) !== this.shop.udyamNumber)
       this.recheckIfLive(papers)
@@ -869,6 +930,10 @@ export class MockApi {
     if (p === '/shops/me/photos') {
       if (!this.shop) return fail(404, 'NO_SHOP', 'You have no shop yet.')
       if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
+      const newPhoto = (body.ownerPhotoFileId !== undefined && body.ownerPhotoFileId !== this.shop.ownerPhotoFileId)
+        || (body.shopPhotoFileId !== undefined && body.shopPhotoFileId !== this.shop.shopPhotoFileId)
+      if (!newPhoto) return ok(200, this.shop)
+      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', 'To change your verified details, confirm with the code we send to your phone first.')
       this.recheckIfLive(
         (body.ownerPhotoFileId !== undefined && body.ownerPhotoFileId !== this.shop.ownerPhotoFileId)
           || (body.shopPhotoFileId !== undefined && body.shopPhotoFileId !== this.shop.shopPhotoFileId),
@@ -892,6 +957,8 @@ export class MockApi {
       if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
       const f = this.files.find((x) => x.id === body.fileId && x.purpose === 'SHOP_VIDEO')
       if (!f) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { fileId: 'must be a video uploaded with POST /files/video-uploads' })
+      if (f.id === this.shop.shopVideoFileId) return ok(200, this.shop)
+      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', 'To change your verified details, confirm with the code we send to your phone first.')
       this.recheckIfLive(f.id !== this.shop.shopVideoFileId)
       this.shop = { ...this.shop, shopVideoFileId: f.id, version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
@@ -902,6 +969,8 @@ export class MockApi {
       if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
       const f = this.files.find((x) => x.id === body.fileId && x.purpose === 'REG_DOC')
       if (!f) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { fileId: 'must be a photo or PDF uploaded with purpose REG_DOC' })
+      if (f.id === this.shop.registrationDocFileId && body.type === this.shop.registrationDocType) return ok(200, this.shop)
+      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', 'To change your verified details, confirm with the code we send to your phone first.')
       // ShopService.setRegistrationDoc: the salon stays as it is; the new document waits for the field team's check
       this.shop = { ...this.shop, registrationDocType: body.type, registrationDocFileId: f.id, registrationDocCheckedAt: null, version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
@@ -911,9 +980,61 @@ export class MockApi {
       if (this.shop.type !== 'SALON') return fail(409, 'NOT_A_SALON', 'The registration document is only for salons.')
       if (Number(url.searchParams.get('version')) !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
       if (this.shop.registrationDocFileId) {
+        if (this.editLocked()) return fail(403, 'EDIT_LOCKED', 'To change your verified details, confirm with the code we send to your phone first.')
         this.shop = { ...this.shop, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, version: (this.shop.version as number) + 1 }
       }
       return ok(200, this.shop)
+    }
+    // ---- Address change requests (AddressRequestService) ----
+    if (p === '/shops/me/address-request') {
+      if (!this.shop) return fail(404, 'NO_SHOP', 'You have no shop yet.')
+      if (this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can change the address.')
+      const latest = this.addressRequests.at(-1)
+      if (method === 'GET') return latest ? ok(200, latest) : ok(204)
+      if (method === 'POST') {
+        // ShopRequests.AddressRequest (@Valid): before anything else
+        const bad: Json = {}
+        if (typeof body.version !== 'number') bad.version = 'must not be null'
+        if (typeof body.addressLine !== 'string' || body.addressLine.trim().length < 5 || body.addressLine.length > 200) bad.addressLine = 'size must be between 5 and 200'
+        if (typeof body.area !== 'string' || body.area.trim().length < 2 || body.area.length > 100) bad.area = 'size must be between 2 and 100'
+        if (typeof body.city !== 'string' || body.city.trim().length < 2 || body.city.length > 60) bad.city = 'size must be between 2 and 60'
+        if (!/^[1-9]\d{5}$/.test(body.pincode ?? '')) bad.pincode = 'must be a 6-digit pincode'
+        if (!(body.latitude >= 6 && body.latitude <= 37.6)) bad.latitude = 'must be greater than or equal to 6.0'
+        if (!(body.longitude >= 68 && body.longitude <= 97.5)) bad.longitude = 'must be greater than or equal to 68.0'
+        if (Object.keys(bad).length) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', bad)
+      }
+      const version = method === 'DELETE' ? Number(url.searchParams.get('version')) : body.version
+      if (version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone else saved changes to this shop. Reload and try again.')
+      const waiting = this.addressRequests.find((x) => x.status === 'PENDING')
+      if (method === 'DELETE') {
+        if (waiting) {
+          waiting.status = 'CANCELLED'
+          waiting.decidedAt = new Date().toISOString()
+          this.shop = { ...this.shop, version: (this.shop.version as number) + 1 }
+          this.endAddressRecheck()
+        }
+        return ok(204)
+      }
+      if (!this.shop.addressLocked) return fail(409, 'ADDRESS_NOT_LOCKED', "Your address isn't verified yet: change it yourself in Salon details.")
+      if (this.shop.status === 'SUSPENDED' || this.shop.status === 'CLOSED') return fail(409, 'WRONG_STATUS', `${this.shop.status === 'SUSPENDED' ? 'Your shop is suspended' : 'Your shop is closed'}, so it can't ask for a new address. Write to us from More → Need help.`, { status: this.shop.status })
+      if (this.editLocked()) return fail(403, 'EDIT_LOCKED', 'To change your verified details, confirm with the code we send to your phone first.')
+      const same = ['addressLine', 'area', 'city', 'pincode'].every((k) => String(body[k]).trim() === this.shop![k])
+        && body.latitude === this.shop.latitude && body.longitude === this.shop.longitude
+      if (same) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { addressLine: 'is the address you have now; change the address or move the pin' })
+      if (waiting) {
+        waiting.status = 'CANCELLED'
+        waiting.decidedAt = new Date().toISOString()
+      }
+      const made = {
+        id: `ar${++this.n}`, addressLine: body.addressLine.trim(), area: body.area.trim(), city: body.city.trim(), pincode: body.pincode,
+        latitude: body.latitude, longitude: body.longitude, status: 'PENDING', reason: null, createdAt: new Date().toISOString(), decidedAt: null,
+      }
+      this.addressRequests.push(made)
+      const waitedBefore = Boolean(this.shop.recheckSince)
+      this.recheckIfLive(true)
+      if (!waitedBefore && this.shop.status === 'APPROVED') this.recheckOnlyForAddress = true
+      this.shop = { ...this.shop, version: (this.shop.version as number) + 1 }
+      return ok(201, made)
     }
     if (p === '/shops/me/submit') {
       if (!this.shop) return fail(404, 'NO_SHOP', 'You have no shop yet.')
@@ -1245,6 +1366,14 @@ export class MockApi {
       return ok(200, { version: hoursVersion(this.hours), days: this.hours })
     }
     // ---- Offers (SalonOfferService) ----
+    if (p === '/salon/offers/current' && method === 'GET') {
+      // Anyone in the salon: running and to come, without the owner's numbers
+      // SalonOfferStore.current: soonest first, then the bigger discount
+      const v = (o: Json) => o.offer as Json
+      const current = this.offers.filter((o) => offerState(o) !== 'ENDED').sort((a, b) =>
+        (v(a).startsOn as string).localeCompare(v(b).startsOn as string) || (v(b).percentOff as number) - (v(a).percentOff as number))
+      return ok(200, current.map((o) => ({ offer: o.offer, state: offerState(o) })))
+    }
     if (p === '/salon/offers' && method === 'GET') {
       if (!ownerOrHelper) return notAllowed()
       return ok(200, this.offers.map((o) => ({ ...o, state: offerState(o) })))
