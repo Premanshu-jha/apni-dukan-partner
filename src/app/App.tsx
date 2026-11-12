@@ -81,8 +81,9 @@ export function App() {
             <Route path="/shops/me" element={<Navigate to="/" replace />} />
             {/* The owner, at any status (a draft too): closing or handing over */}
             <Route element={<RoleOnly roles={['OWNER']} />}>
-              <Route path="/shop/close" element={<CloseShop />} />
-              <Route path="/shop/handover" element={<HandOver />} />
+              {/* A verified shop closes or is handed over only after the phone code, as its details are changed */}
+              <Route path="/shop/close" element={<EditGate ending><CloseShop /></EditGate>} />
+              <Route path="/shop/handover" element={<EditGate ending><HandOver /></EditGate>} />
               {/* Also from a draft that was verified before (sent back): its address is the field team's too */}
               <Route path="/setup/address" element={<EditGate><AddressRequestPage /></EditGate>} />
             </Route>

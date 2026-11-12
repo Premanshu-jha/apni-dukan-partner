@@ -31,14 +31,14 @@ function counted(u: EditUnlock, at = Date.now()): Unlock {
 
 /**
  * Around the screens that change a verified salon's details (Salon details, Photos and video, Registration document,
- * Request address change). The backend takes those changes only within 15 minutes of a code sent to the owner's own
- * phone (403 EDIT_LOCKED otherwise), so a phone left signed in can't be used to change them. Everything can be read
+ * Request address change) or end it (Close, Hand over). The backend takes those changes only within 15 minutes of a code sent to the owner's own
+ * phone, on that device only (403 EDIT_LOCKED otherwise), so a phone left signed in can't be used to change them. Everything can be read
  * and typed as usual; a bar on top says so, with Start editing (the code sheet; it also opens by itself when More's
  * Edit was tapped, or when a save was refused because the time ran out). One code turns every edit on for 15
  * minutes: the bar then counts down, with Done. Closing the sheet only closes it: what was typed stays, and Save works
  * after the code. A salon still registering (a draft) asks for nothing.
  */
-export function EditGate({ children }: { children: ReactNode }) {
+export function EditGate({ children, ending = false }: { children: ReactNode; ending?: boolean }) {
   const shop = useShop()
   const needed = Boolean(shop.addressLocked) && shop.status !== 'DRAFT'
   const qc = useQueryClient()
@@ -97,7 +97,7 @@ export function EditGate({ children }: { children: ReactNode }) {
         {on ? (
           <>
             <span>
-              Editing is on until {timeIst(new Date(end).toISOString())} ({minutes} min left)
+              {ending ? 'Confirmed' : 'Editing is on'} until {timeIst(new Date(end).toISOString())} ({minutes} min left)
             </span>
             <button type="button" className="shrink-0 text-link underline" onClick={done}>
               Done
@@ -105,15 +105,20 @@ export function EditGate({ children }: { children: ReactNode }) {
           </>
         ) : (
           <>
-            <span>Your salon is verified: changes need a code we send to your phone.</span>
+            <span>
+              {ending
+                ? 'Your salon is verified: this needs a code we send to your phone.'
+                : 'Your salon is verified: changes need a code we send to your phone.'}
+            </span>
             <button type="button" className="shrink-0 text-link underline" onClick={() => setAsking(true)}>
-              Start editing
+              {ending ? 'Get the code' : 'Start editing'}
             </button>
           </>
         )}
       </div>
       {children}
       <UnlockSheet
+        ending={ending}
         open={asking && !on && !unlock.isPending}
         loadError={unlock.isError ? unlock.error : null}
         onUnlocked={(u) => {
@@ -128,11 +133,14 @@ export function EditGate({ children }: { children: ReactNode }) {
 }
 
 function UnlockSheet({
+  ending,
   open,
   loadError,
   onUnlocked,
   onClose,
 }: {
+  /** Closing or handing over, not editing: the words say so */
+  ending: boolean
   open: boolean
   loadError: unknown
   onUnlocked: (u: EditUnlock) => void
@@ -186,8 +194,8 @@ function UnlockSheet({
     <Sheet open={open} title="Confirm it's you" onClose={onClose}>
       <div className="flex flex-col gap-3">
         <p className="text-muted">
-          Your salon is verified, so we check it's you before a change. One code to +91 {formatPhone(phone ?? null)} lets
-          you change everything for 15 minutes.
+          Your salon is verified, so we check it's you first. One code to +91 {formatPhone(phone ?? null)}{' '}
+          {ending ? 'confirms it on this phone for 15 minutes.' : 'lets you change everything on this phone for 15 minutes.'}
         </p>
         {loadError !== null && <Banner tone="warn">{messageOf(loadError)}</Banner>}
         <Button variant={sentAt === null ? 'primary' : 'secondary'} busy={busy && code.length !== 6} disabled={wait > 0} onClick={send}>
@@ -195,7 +203,7 @@ function UnlockSheet({
         </Button>
         <CodeInput id="edit-code" label="SMS code" value={code} onChange={setCode} autoFocus={sentAt !== null} />
         <Button busy={busy && code.length === 6} disabled={code.length !== 6} onClick={check}>
-          Start editing
+          {ending ? 'Confirm' : 'Start editing'}
         </Button>
         {error && <Banner tone="bad">{error}</Banner>}
         <Button variant="ghost" onClick={onClose}>

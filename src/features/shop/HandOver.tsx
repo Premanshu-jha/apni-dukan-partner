@@ -69,7 +69,7 @@ export function HandOver() {
       ? 'Your shop changed a moment ago. It has been read again: send the request again.'
       : isApiError(error, 'NO_SHOP')
         ? "You're no longer the owner of this shop."
-        : error
+        : error && !isApiError(error, 'EDIT_LOCKED')   // the code sheet asks for it instead (EditGate)
           ? messageOf(error)
           : null
 
