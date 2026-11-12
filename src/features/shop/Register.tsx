@@ -1,11 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { lazy, Suspense, useContext, useEffect, useRef, useState } from 'react'
-import { Link, Navigate, Outlet, useNavigate } from 'react-router'
+import { lazy, Suspense, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
-import { fileApi, ShopContext, shopApi, shopKeys, useMyShop, useShop } from '../../api/shop'
+import { fileApi, ShopContext, shopApi, shopKeys, useMyShop, usePhotoLink, useShop } from '../../api/shop'
 import type { GeocodePrecision, RegistrationDocType, Shop, ShopDetailsIn } from '../../api/types'
+import { SUPPORT_EMAIL } from '../../lib/config'
 import { LocationGuide } from '../../components/LocationGuide'
+import { MapBoundary } from '../../components/MapBoundary'
 import { PhotoPicker } from '../../components/PhotoPicker'
+import { compact, normUdyam, validGstin, validUdyam } from '../../lib/gstin'
 import { readyForVisit } from '../../lib/salonVideo'
 import { clock12 } from '../../lib/ist'
 import { weekLines } from '../../lib/salonHours'
@@ -13,6 +16,7 @@ import { addOwnerAsBarber, ownProfile, salonKeys, useSalonHours, useServices, us
 import { ClosedDaysEditor } from '../day/Closures'
 import { SalonHoursEditor } from '../setup/SalonHours'
 import { docLabel, RegistrationDocCard } from './RegistrationDoc'
+import { RecheckWaiting } from './RecheckWaiting'
 import { SalonVideo } from './SalonVideo'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
 import {
@@ -67,20 +71,52 @@ export function RegisterLayout({ needShop }: { needShop: boolean }) {
   )
 }
 
-export function Steps({ at }: { at: 1 | 2 | 3 | 4 | 5 }) {
+/** Each step's screen, in order. */
+export const STEP_PATHS = ['/register', '/register/photos', '/register/services', '/register/hours', '/register/review'] as const
+
+/**
+ * The step pills. Once the salon is saved (step 1 done), each pill is a link: the owner jumps straight to the step
+ * he wants to fix instead of tapping Back or Continue through the others (the review step still checks everything).
+ */
+export function Steps({
+  at,
+  linked = at > 1,
+  leaveWarning = null,
+}: {
+  at: 1 | 2 | 3 | 4 | 5
+  linked?: boolean
+  /** Asked before a pill leaves the page (unsaved typing, an upload under way). */
+  leaveWarning?: string | null
+}) {
   const names = ['Details', 'Photos', 'Services', 'Hours', 'Submit']
   return (
     <ol className="flex gap-2" aria-label="Registration steps">
-      {names.map((n, i) => (
-        <li
-          key={n}
-          aria-current={i + 1 === at ? 'step' : undefined}
-          className={`flex-1 rounded-full py-1 text-center text-xs font-semibold ${i + 1 <= at ? 'bg-brand text-brand-ink' : 'bg-raised text-muted'}`}
-        >
-          <span className="sr-only">{i + 1}. </span>
-          {n}
-        </li>
-      ))}
+      {names.map((n, i) => {
+        const look = `block flex-1 rounded-full py-1 text-center text-xs font-semibold ${i + 1 <= at ? 'bg-brand text-brand-ink' : 'bg-raised text-muted'}`
+        const text = (
+          <>
+            <span className="sr-only">{i + 1}. </span>
+            {n}
+          </>
+        )
+        return (
+          <li key={n} className="flex flex-1" aria-current={i + 1 === at ? 'step' : undefined}>
+            {linked && i + 1 !== at ? (
+              <Link
+                to={STEP_PATHS[i]}
+                className={`${look} underline-offset-2 hover:underline`}
+                onClick={(e) => {
+                  if (leaveWarning && !window.confirm(leaveWarning)) e.preventDefault()
+                }}
+              >
+                {text}
+              </Link>
+            ) : (
+              <span className={look}>{text}</span>
+            )}
+          </li>
+        )
+      })}
     </ol>
   )
 }
@@ -126,25 +162,40 @@ export function checkDetails(f: Form): Partial<Record<keyof Form, string>> {
   if (!len(f.area, 2, 100)) e.area = 'Enter the area or locality'
   if (!len(f.city, 2, 60)) e.city = 'Enter the city'
   if (!/^[1-9]\d{5}$/.test(f.pincode.trim())) e.pincode = 'Enter the 6-digit pincode'
-  if (f.gstin.trim() && f.gstin.trim().length !== 15) e.gstin = 'A GSTIN has 15 letters and digits'
-  if (f.udyamNumber.trim().length > 25) e.udyamNumber = 'Too long for an Udyam number'
+  // The backend's own checks (a typo in any one character of a GSTIN is caught by its last character)
+  if (f.gstin.trim() && compact(f.gstin).length !== 15) e.gstin = 'A GSTIN has 15 letters and digits'
+  else if (f.gstin.trim() && !validGstin(f.gstin)) e.gstin = 'This GSTIN has a typo: check each letter and digit'
+  if (f.udyamNumber.trim() && !validUdyam(f.udyamNumber)) e.udyamNumber = `Write it like ${UDYAM_EXAMPLE}`
   return e
 }
 
 /** Step 1: the salon's details and its location pin. */
 /**
- * Step 1: the salon's details and its pin. With `edit`, the same form after registration (More → Salon → Salon
+ * Step 1: the salon's details and its pin. With `edit`, the same form after registration (the Salon tab → Salon
  * details, the owner only): it stays on the page with "Saved.", and on a live salon a changed address or pin is saved
  * only after the owner confirms it goes back to the field team.
  */
 export function RegisterDetails({ edit = false }: { edit?: boolean }) {
   const qc = useQueryClient()
   const navigate = useNavigate()
+  // Opened from the review's "Edit details" (or a step pill there): saving goes back to it, not on to Photos
+  const location = useLocation()
+  const fromReview = !edit && new URLSearchParams(location.search).get('from') === 'review'
   const shop = useContext(ShopContext)
   const userId = useSession((s) => s.user?.id)
+  /** Verified by the field team: the address and pin are theirs to change now (the backend refuses ADDRESS_LOCKED). */
+  const locked = Boolean(shop?.addressLocked)
   const [form, setForm] = useState<Form>(() => (shop ? formOf(shop) : { ...empty, ...loadRegisterDraft<Form>(userId) }))
   const [pin, setPin] = useState<Pin | null>(() =>
     shop ? { lat: shop.latitude, lng: shop.longitude, gps: null, zoom: 18, placement: 0 } : null,
+  )
+  /**
+   * The details as last loaded or saved, to tell unsaved changes: the form as the backend stored it (capitals,
+   * squeezed spaces), so a save never leaves a false "not saved", and a change made on another phone meanwhile isn't
+   * taken for one made here.
+   */
+  const [baseline, setBaseline] = useState<{ form: Form; lat: number; lng: number } | null>(() =>
+    shop ? { form: formOf(shop), lat: shop.latitude, lng: shop.longitude } : null,
   )
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState<LocateError | null>(null)
@@ -178,6 +229,11 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
   /** Editing: saved just now; and the owner was asked to confirm a re-check (address or pin of a live salon). */
   const [saved, setSaved] = useState(false)
   const [confirmRecheck, setConfirmRecheck] = useState(false)
+  /**
+   * The pin was taken again from GPS while the address fields were already filled (so nothing was filled from it):
+   * the owner is asked to check the address still matches the new pin. Cleared when he edits an address field.
+   */
+  const [checkAddress, setCheckAddress] = useState(false)
 
   // Nothing is on the backend before the first save: keep the typing on this phone meanwhile.
   useEffect(() => {
@@ -195,6 +251,7 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
     setSaved(false)
     setConfirmRecheck(false)
     if ((ADDRESS_FIELDS as readonly string[]).includes(k)) {
+      setCheckAddress(false)
       setNeedFields(false)
       setSearchError(null)
       if (found) {
@@ -239,6 +296,7 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
       setFilled(false)
       // Only worth asking (it uses the same Google budget) while an address field is still empty
       if (ADDRESS_FIELDS.some((k) => !formNow.current[k].trim())) void fillFromPoint(fix, tap)
+      else setCheckAddress(true)
     } catch (e) {
       if (tap === latest.current) setLocError(e as LocateError)
     } finally {
@@ -321,25 +379,26 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
       pincode: form.pincode.trim(),
       latitude: round6(pin.lat),
       longitude: round6(pin.lng),
-      gstin: form.gstin.trim().toUpperCase() || null,
-      udyamNumber: form.udyamNumber.trim().toUpperCase() || null,
+      gstin: compact(form.gstin) || null,
+      udyamNumber: normUdyam(form.udyamNumber) || null,
     }
-    // A live salon's address or pin is what the field team checked: changing it sends the salon back to them
-    // (ShopService.update). Say so and save only on the second tap.
-    // As the backend compares them (TextCleaner squeezes inner spaces)
-    const same = (a: string, b: string) => a.replace(/\s+/g, ' ') === b.replace(/\s+/g, ' ')
-    const moves =
-      shop !== null &&
-      shop.status === 'APPROVED' &&
-      (!same(details.addressLine, shop.addressLine) ||
-        !same(details.area, shop.area) ||
-        !same(details.city, shop.city) ||
-        details.pincode !== shop.pincode ||
-        Math.abs(details.latitude - shop.latitude) > 1e-6 ||
-        Math.abs(details.longitude - shop.longitude) > 1e-6)
-    if (edit && moves && !confirmRecheck) {
+    // A live salon's GSTIN and Udyam number are what the field team checked: changing one puts the salon in their
+    // re-check (ShopService.update; it stays live). Say so first and save only on the second tap. (Its address can't
+    // change: locked.) Compared as the backend stores them.
+    const live = shop !== null && shop.status === 'APPROVED'
+    const papers = live && ((details.gstin ?? null) !== (shop.gstin ?? null) || (details.udyamNumber ?? null) !== (shop.udyamNumber ?? null))
+    if (edit && papers && !confirmRecheck) {
       setConfirmRecheck(true)
       return
+    }
+    // Locked: the address fields are read-only, so only the other details are sent (the backend would refuse a move)
+    if (locked && shop) {
+      details.addressLine = shop.addressLine
+      details.area = shop.area
+      details.city = shop.city
+      details.pincode = shop.pincode
+      details.latitude = shop.latitude
+      details.longitude = shop.longitude
     }
     setBusy(true)
     setSaved(false)
@@ -349,7 +408,13 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
         : await shopApi.create(details)
       forgetRegisterDraft()
       qc.setQueryData(shopKeys.mine, result)
-      if (edit) {
+      setCheckAddress(false)
+      // The form as stored now: nothing unsaved any more
+      setForm(formOf(result))
+      setBaseline({ form: formOf(result), lat: result.latitude, lng: result.longitude })
+      if (fromReview) {
+        navigate('/register/review')
+      } else if (edit) {
         setSaved(true)
         setConfirmRecheck(false)
       } else {
@@ -363,6 +428,7 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
         const newest = qc.getQueryData<Shop>(shopKeys.mine)
         if (edit && newest) {
           setForm(formOf(newest))
+          setBaseline({ form: formOf(newest), lat: newest.latitude, lng: newest.longitude })
           setPin({ lat: newest.latitude, lng: newest.longitude, gps: null, zoom: 18, placement: 0 })
           setConfirmRecheck(false)
         }
@@ -374,25 +440,71 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
   }
 
   const moved = pin?.gps ? metresBetween(pin.gps, pin) : 0
+  // Editing: something typed or moved that isn't saved yet (leaving asks first, so it isn't lost)
+  // Something typed or moved since the last load or save (a saved draft too: the step pills leave this page)
+  const dirty =
+    baseline !== null &&
+    !busy &&
+    ((Object.keys(empty) as Array<keyof Form>).some((k) => form[k].trim() !== baseline.form[k].trim()) ||
+      (pin !== null && (Math.abs(pin.lat - baseline.lat) > 1e-6 || Math.abs(pin.lng - baseline.lng) > 1e-6)))
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = UNSAVED
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
   // Field errors show under their fields; the banner is for everything else.
   const generalError = error && !Object.keys(empty).some((k) => fieldError(error, k)) ? messageOf(error) : null
 
   return (
     // A saved draft has no screen before this one ("/" comes back here), so no back arrow then
-    <Page back={edit ? '/setup' : shop ? undefined : '/start'} title={edit ? 'Salon details' : 'Register your salon'}>
-      {!edit && <Steps at={1} />}
+    <Page
+      back={edit ? cameFrom(location, '/setup') : shop ? undefined : '/start'}
+      title={edit ? 'Salon details' : 'Register your salon'}
+      leaveWarning={dirty ? UNSAVED : null}
+    >
+      {!edit && <Steps at={1} linked={shop !== null} leaveWarning={dirty ? UNSAVED : null} />}
+      {edit && <RecheckWaiting />}
       {!edit && shop?.statusReason && <SentBack reason={shop.statusReason} />}
       <Card className="flex flex-col gap-4">
         <Field id="shop-name" label="Salon name" value={form.name} onChange={set('name')} maxLength={100} error={show('name')} />
-        <Field id="owner-name" label="Owner’s name" value={form.ownerName} onChange={set('ownerName')} maxLength={100} autoComplete="name" error={show('ownerName')} />
-        <Field id="address" label="Shop number, building, street" value={form.addressLine} onChange={set('addressLine')} maxLength={200} error={show('addressLine')} />
-        <Field id="area" label="Area" value={form.area} onChange={set('area')} maxLength={100} error={show('area')} />
+        <Field
+          id="owner-name"
+          label="Owner’s name"
+          hint="The salon owner’s name for our records. Your own sign-in name is changed in More."
+          value={form.ownerName}
+          onChange={set('ownerName')}
+          maxLength={100}
+          autoComplete="name"
+          error={show('ownerName')}
+        />
+        <Field id="address" label="Shop number, building, street" value={form.addressLine} onChange={set('addressLine')} maxLength={200} readOnly={locked} error={show('addressLine')} />
+        <Field id="area" label="Area" value={form.area} onChange={set('area')} maxLength={100} readOnly={locked} error={show('area')} />
         <div className="grid grid-cols-2 gap-3">
-          <Field id="city" label="City" value={form.city} onChange={set('city')} maxLength={60} error={show('city')} />
-          <Field id="pincode" label="Pincode" inputMode="numeric" value={form.pincode} onChange={set('pincode')} maxLength={6} error={show('pincode')} />
+          <Field id="city" label="City" value={form.city} onChange={set('city')} maxLength={60} readOnly={locked} error={show('city')} />
+          <Field id="pincode" label="Pincode" inputMode="numeric" value={form.pincode} onChange={set('pincode')} maxLength={6} readOnly={locked} error={show('pincode')} />
         </div>
+        {locked && (
+          <p id="address-locked" className="text-sm text-muted">
+            Your address and pin were verified by our field team, so only they can change them. If you moved or
+            something is wrong, write to {SUPPORT_EMAIL} with your shop code {shop?.shopCode} and the new address.
+          </p>
+        )}
       </Card>
 
+      {locked && shop ? (
+        <Card className="flex flex-col gap-2">
+          <p className="font-semibold">Salon location</p>
+          <MapBoundary>
+            <Suspense fallback={<Loading label="Loading the map…" />}>
+              <PinMap lat={shop.latitude} lng={shop.longitude} />
+            </Suspense>
+          </MapBoundary>
+        </Card>
+      ) : (
       <Card className="flex flex-col gap-3">
         <div>
           <p id="salon-location" tabIndex={-1} className="font-semibold outline-none">
@@ -439,9 +551,11 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
         </div>
         {pin && (
           <>
-            <Suspense fallback={<Loading label="Loading the map…" />}>
-              <PinMap lat={pin.lat} lng={pin.lng} zoom={pin.zoom} placement={pin.placement} onMove={moveByHand} />
-            </Suspense>
+            <MapBoundary>
+              <Suspense fallback={<Loading label="Loading the map…" />}>
+                <PinMap lat={pin.lat} lng={pin.lng} zoom={pin.zoom} placement={pin.placement} onMove={moveByHand} />
+              </Suspense>
+            </MapBoundary>
             <p className="text-sm text-muted">
               Drag the pin to your door if it's off.
               {pin.gps && ` GPS was accurate to about ${pin.gps.accuracy} m.`}
@@ -451,6 +565,11 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
               <Banner tone="warn">The phone isn't sure where it is. Go near the door or a window, then take it again.</Banner>
             )}
             {!insideIndia(pin.lat, pin.lng) && <Banner tone="bad">The pin must be in India.</Banner>}
+            {checkAddress && (
+              <Banner tone="info">
+                The pin moved to where you are. Check that the address above still matches it, and change it if not.
+              </Banner>
+            )}
           </>
         )}
         {locError === 'denied' || (!pin && blocked) ? (
@@ -462,18 +581,19 @@ export function RegisterDetails({ edit = false }: { edit?: boolean }) {
         )}
         {touched && !pin && <p className="text-sm text-bad">Add the salon's location to continue.</p>}
       </Card>
+      )}
 
       <Card className="flex flex-col gap-4">
         <p className="text-sm text-muted">Optional. You can add these later.</p>
-        <Field id="gstin" label="GSTIN" value={form.gstin} onChange={set('gstin')} maxLength={15} autoCapitalize="characters" error={show('gstin')} />
-        <Field id="udyam" label="Udyam number" value={form.udyamNumber} onChange={set('udyamNumber')} maxLength={25} autoCapitalize="characters" placeholder="UDYAM-UP-29-0012345" error={show('udyamNumber')} />
+        <Field id="gstin" label="GSTIN" value={form.gstin} onChange={set('gstin')} maxLength={20} autoCapitalize="characters" placeholder="27AAPFU0939F1ZV" error={show('gstin')} />
+        <Field id="udyam" label="Udyam number" value={form.udyamNumber} onChange={set('udyamNumber')} maxLength={25} autoCapitalize="characters" placeholder={UDYAM_EXAMPLE} error={show('udyamNumber')} />
       </Card>
 
       {generalError && <Banner tone="bad">{generalError}</Banner>}
       {confirmRecheck && (
         <Banner tone="warn">
-          A new address or pin goes to our field team for a check: your salon is hidden from customers until they
-          approve it again. Bookings already made stay. Tap Save again to go ahead.
+          A new GSTIN or Udyam number goes to our field team for a check. Your salon stays live and bookable meanwhile.
+          Tap Save again to go ahead.
         </Banner>
       )}
       {saved && <Banner tone="good">Saved.</Banner>}
@@ -512,13 +632,19 @@ function DraftExits({ name }: { name: string }) {
 
 /**
  * Step 2: the owner's photo (for the field team), the shop front (customers see it) and the salon video (field team),
- * and the optional registration document. With `edit`, the photos and video after registration (More → Salon →
+ * and the optional registration document. With `edit`, the photos and video after registration (the Salon tab →
  * Photos and video, the owner only); the document has its own page there.
  */
 export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
   const qc = useQueryClient()
   const navigate = useNavigate()
   const shop = useShop()
+  const location = useLocation()
+  // Opened from the review's "Change": Continue goes back to it
+  const fromReview = !edit && new URLSearchParams(location.search).get('from') === 'review'
+  /** How many photo uploads are under way (leaving asks first meanwhile). */
+  const [photosBusy, setPhotosBusy] = useState(0)
+  const photoBusy = useCallback((busy: boolean) => setPhotosBusy((n) => Math.max(0, n + (busy ? 1 : -1))), [])
 
   // Both pickers can be busy at once: their saves go one after the other, each with the version the last one left.
   const queue = useRef<Promise<unknown>>(Promise.resolve())
@@ -615,23 +741,30 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
   const done = readyForVisit(shop)
   return (
     <Page
-      back={edit ? '/setup' : '/register'}
+      back={edit ? cameFrom(location, '/setup') : fromReview ? '/register/review' : '/register'}
       title={edit ? 'Photos and video' : 'Photos and papers'}
-      leaveWarning={videoBusy ? LEAVE_DURING_UPLOAD : docBusy ? LEAVE_DURING_DOCUMENT : null}
+      leaveWarning={videoBusy ? LEAVE_DURING_UPLOAD : docBusy ? LEAVE_DURING_DOCUMENT : photosBusy ? LEAVE_DURING_PHOTO : null}
     >
-      {!edit && <Steps at={2} />}
+      {!edit && (
+        <Steps
+          at={2}
+          leaveWarning={videoBusy ? LEAVE_DURING_UPLOAD : docBusy ? LEAVE_DURING_DOCUMENT : photosBusy ? LEAVE_DURING_PHOTO : null}
+        />
+      )}
+      {!edit && shop.statusReason && <SentBack reason={shop.statusReason} />}
       {edit && shop.status === 'APPROVED' && (
-        <Banner tone="warn">
-          A new photo or video goes to our field team for a check: your salon is hidden from customers until they
-          approve it again. Bookings already made stay.
+        <Banner tone="info">
+          A new photo or video goes to our field team for a check. Your salon stays live and bookable meanwhile.
         </Banner>
       )}
+      {edit && <RecheckWaiting />}
       <PhotoPicker
         label="Your photo"
         hint="A clear photo of your face. Only our field team sees it, to know who to meet."
         capture="user"
         fileId={shop.ownerPhotoFileId}
         upload={(p) => setPhoto('OWNER_PHOTO', p)}
+        onBusy={photoBusy}
       />
       <PhotoPicker
         label="Shop front"
@@ -639,6 +772,7 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
         capture="environment"
         fileId={shop.shopPhotoFileId}
         upload={(p) => setPhoto('SHOP_PHOTO', p)}
+        onBusy={photoBusy}
       />
       <SalonVideo fileId={shop.shopVideoFileId ?? null} save={setVideo} onBusy={setVideoBusy} />
       {!edit && (
@@ -651,8 +785,11 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
             onBusy={setDocBusy}
           />
           {/* Not while the document is still on its way: its error would have nowhere to show */}
-          <Button disabled={!done || videoBusy || docBusy} onClick={() => navigate('/register/services')}>
-            Continue
+          <Button
+            disabled={!done || videoBusy || docBusy || photosBusy > 0}
+            onClick={() => navigate(fromReview ? '/register/review' : '/register/services')}
+          >
+            {fromReview ? 'Back to the review' : 'Continue'}
           </Button>
           {!done && <p className="text-center text-sm text-muted">Both photos and the salon video are needed.</p>}
         </>
@@ -661,16 +798,28 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
   )
 }
 
+const UNSAVED = 'Your changes aren’t saved. Leave anyway?'
+
+/** Where Back goes on an edit page: the screen that opened it (More passes `from`), else `fallback` (the Salon tab). */
+export function cameFrom(location: { state: unknown }, fallback: string): string {
+  const from = (location.state as { from?: unknown } | null)?.from
+  return typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') ? from : fallback
+}
+const UDYAM_EXAMPLE = 'UDYAM-TS-02-0012345'
+
 const LEAVE_DURING_UPLOAD = 'The salon video is still uploading. Leave anyway? It will have to be sent again.'
 const LEAVE_DURING_DOCUMENT = 'The registration document is still uploading. Leave anyway? It may not be saved.'
+const LEAVE_DURING_PHOTO = 'A photo is still uploading. Leave anyway? It may not be saved.'
 
 /** Step 4: the salon's opening hours and weekly off. */
 export function RegisterHours() {
   const navigate = useNavigate()
+  const shop = useShop()
   const hours = useSalonHours()
   return (
     <Page back="/register/services" title="Opening hours">
       <Steps at={4} />
+      {shop.statusReason && <SentBack reason={shop.statusReason} />}
       {hours.isPending ? (
         <Loading />
       ) : hours.isError && !hours.data ? (
@@ -724,8 +873,8 @@ export function OwnerAsBarber() {
         <div ref={answer} tabIndex={-1} role="status" className="outline-none">
           <p className="text-sm">
             {mine.active
-              ? "You're one of the barbers: customers can book your chair. Change your services and hours in More → Barbers."
-              : "Your barber profile is switched off, so customers can't book your chair. Switch it on in More → Barbers."}
+              ? "You're one of the barbers: customers can book your chair. Change your services and hours in the Salon tab → Barbers."
+              : "Your barber profile is switched off, so customers can't book your chair. Switch it on in the Salon tab → Barbers."}
           </p>
         </div>
       </Card>
@@ -734,7 +883,7 @@ export function OwnerAsBarber() {
   if (no) {
     return (
       <div ref={answer} tabIndex={-1} role="status" className="text-sm text-muted outline-none">
-        Only your staff cut hair. If that changes, add yourself in More → Barbers.
+        Only your staff cut hair. If that changes, add yourself in the Salon tab → Barbers.
       </div>
     )
   }
@@ -756,7 +905,7 @@ export function OwnerAsBarber() {
         <p className="font-semibold">Do you cut hair here yourself?</p>
         <p className="text-sm text-muted">
           If yes, we'll add you as a barber, so customers can book your chair too. You'll do all your services in the
-          opening hours; change that any time in More → Barbers.
+          opening hours; change that any time in the Salon tab → Barbers.
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -826,28 +975,42 @@ export function RegisterReview() {
         <Line label="Salon" value={shop.name} />
         <Line label="Owner" value={shop.ownerName} />
         <Line label="Address" value={`${shop.addressLine}, ${shop.area}, ${shop.city} ${shop.pincode}`} />
-        <Line label="Location" value={`${shop.latitude.toFixed(5)}, ${shop.longitude.toFixed(5)}`} />
+        <div className="flex flex-col gap-1">
+          <p className="text-sm text-muted">Pin on the map (customers find you here)</p>
+          <MapBoundary>
+            <Suspense fallback={<Loading label="Loading the map…" />}>
+              <PinMap lat={shop.latitude} lng={shop.longitude} />
+            </Suspense>
+          </MapBoundary>
+        </div>
         {shop.gstin && <Line label="GSTIN" value={shop.gstin} />}
         {shop.udyamNumber && <Line label="Udyam" value={shop.udyamNumber} />}
-        <Link to="/register" className="text-sm text-link underline">
-          Edit details
+        <Link to="/register?from=review" className="text-sm text-link underline">
+          Edit details or move the pin
         </Link>
       </Card>
-      <Card className="flex items-center justify-between">
-        <span>Photos: {photos ? 'both added' : 'missing'}</span>
-        <Link to="/register/photos" className="text-sm text-link underline">
-          {photos ? 'Change' : 'Add'}
-        </Link>
+      <Card className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span>Photos: {photos ? 'both added' : 'missing'}</span>
+          <Link to="/register/photos?from=review" className="text-sm text-link underline">
+            {photos ? 'Change' : 'Add'}
+          </Link>
+        </div>
+        {/* Small, to check the right pictures went in without opening the step */}
+        <div className="grid grid-cols-2 gap-2">
+          <Thumb fileId={shop.ownerPhotoFileId} label="Your photo" />
+          <Thumb fileId={shop.shopPhotoFileId} label="Shop front" />
+        </div>
       </Card>
       <Card className="flex items-center justify-between">
         <span>Salon video: {video ? 'added' : 'missing'}</span>
-        <Link to="/register/photos" className="text-sm text-link underline">
+        <Link to="/register/photos?from=review" className="text-sm text-link underline">
           {video ? 'Change' : 'Add'}
         </Link>
       </Card>
       <Card className="flex items-center justify-between gap-2">
         <span>Registration document: {doc ? docLabel(shop.registrationDocType) : 'not added (optional)'}</span>
-        <Link to="/register/photos" className="shrink-0 text-sm text-link underline">
+        <Link to="/register/photos?from=review" className="shrink-0 text-sm text-link underline">
           {doc ? 'Change' : 'Add'}
         </Link>
       </Card>
@@ -890,7 +1053,7 @@ export function RegisterReview() {
           Festival holidays (optional)
         </h2>
         <p className="text-sm text-muted">
-          Days the whole salon is closed, such as Diwali. You can add more later in More → Closed days.
+          Days the whole salon is closed, such as Diwali. You can add more later in the Salon tab → Closed days.
         </p>
         <ClosedDaysEditor optional />
       </section>
@@ -902,7 +1065,26 @@ export function RegisterReview() {
       <Button busy={busy} disabled={!ready} onClick={submit}>
         Submit for the visit
       </Button>
+      {/* Coming back lands here: not going ahead is one tap away, as on step 1 */}
+      <DraftExits name={shop.name} />
     </Page>
+  )
+}
+
+/** A photo, small, on the review step (or a dash while there is none). */
+function Thumb({ fileId, label }: { fileId: string | null; label: string }) {
+  const link = usePhotoLink(fileId)
+  return (
+    <figure className="flex flex-col gap-1">
+      <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg border border-line bg-raised">
+        {link.data?.url ? (
+          <img src={link.data.url} alt={label} className="h-full w-full object-cover" />
+        ) : (
+          <span className="text-xs text-muted">{fileId ? '…' : 'Not added'}</span>
+        )}
+      </div>
+      <figcaption className="text-xs text-muted">{label}</figcaption>
+    </figure>
   )
 }
 
@@ -916,7 +1098,7 @@ function Line({ label, value }: { label: string; value: string }) {
 }
 
 /** The field team sent the registration back: what to fix before submitting again. */
-function SentBack({ reason }: { reason: string }) {
+export function SentBack({ reason }: { reason: string }) {
   return (
     <Banner tone="warn">
       Our field team asked for a change: {reason} Fix it, then submit again.

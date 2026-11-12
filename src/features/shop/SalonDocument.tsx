@@ -4,15 +4,18 @@ import { explain, isApiError } from '../../api/errors'
 import { shopApi, shopKeys, useShop } from '../../api/shop'
 import type { RegistrationDocType, Shop } from '../../api/types'
 import { Banner, Button, Card, Page } from '../../components/ui'
+import { useLocation } from 'react-router'
+import { cameFrom } from './Register'
 import { RegistrationDocCard } from './RegistrationDoc'
 
 /**
- * More → Salon → Registration document (the owner): add, change or remove it at any time. The salon stays live; a new
+ * The Salon tab → Registration document (the owner): add, change or remove it at any time. The salon stays live; a new
  * document waits for our field team's check, and customers see "Registered" only once it is checked.
  */
 export function SalonDocumentPage() {
   const qc = useQueryClient()
   const shop = useShop()
+  const location = useLocation()
   const [busy, setBusy] = useState(false)
   const [docBusy, setDocBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -52,7 +55,7 @@ export function SalonDocumentPage() {
   const has = Boolean(shop.registrationDocFileId)
   return (
     <Page
-      back="/setup"
+      back={cameFrom(location, '/setup')}
       title="Registration document"
       leaveWarning={docBusy ? 'The document is still uploading. Leave anyway? It may not be saved.' : null}
     >

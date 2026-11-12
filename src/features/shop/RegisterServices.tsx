@@ -7,7 +7,8 @@ import type { CatalogService, ServiceItem } from '../../api/types'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
 import { duration, rupees } from '../../lib/money'
 import { checkService, comeBackText, serviceIn, ServiceSheet, type ServiceForm } from '../setup/Services'
-import { Steps } from './Register'
+import { useShop } from '../../api/shop'
+import { SentBack, Steps } from './Register'
 
 /** One line of the list: a service from the catalog (ticked or not) or one the owner typed in. */
 export interface Row {
@@ -89,6 +90,7 @@ export function batchMessage(e: unknown, names: string[]): string {
 export function RegisterServices() {
   const qc = useQueryClient()
   const navigate = useNavigate()
+  const shop = useShop()
   const services = useServices()
   const catalog = useCatalog()
   const [rows, setRows] = useState<Row[] | null>(null)
@@ -164,6 +166,7 @@ export function RegisterServices() {
   return (
     <Page back="/register/photos" title="Services">
       <Steps at={3} />
+      {shop.statusReason && <SentBack reason={shop.statusReason} />}
       {have.length > 0 && (
         <Card className="flex flex-col gap-2">
           <p className="font-medium">Your services</p>

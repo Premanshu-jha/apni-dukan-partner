@@ -121,7 +121,7 @@ export function RegistrationDocCard({
         <p className="text-sm text-muted">
           Any one of these, if your salon has one. Only our field team sees it; customers see "Registered" on your
           salon's card once our team has checked it, "Unregistered" without one. You can add, change or remove it
-          later in More → Salon.
+          later in the Salon tab.
         </p>
       </div>
       <fieldset className="flex flex-col gap-2" disabled={busy}>

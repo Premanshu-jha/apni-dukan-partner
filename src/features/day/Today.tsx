@@ -15,6 +15,7 @@ import { NotificationsPrompt } from '../profile/Notifications'
 import { HandoverOffers } from '../shop/HandoverOffers'
 import { InviteOffers } from '../shop/InviteOffers'
 import { WaitingForVisit } from '../shop/Home'
+import { RecheckWaiting } from '../shop/RecheckWaiting'
 import { AppointmentSheet } from './AppointmentSheet'
 import { PauseControl } from './Pause'
 import { isLive, servicesText, statusText, statusTone, totalPaise, whoText } from './status'
@@ -157,6 +158,8 @@ export function Today() {
         </Banner>
       )}
       {waiting && <WaitingForVisit />}
+      {/* A live salon's changes wait for the field team (the owner's only: the backend sends recheckSince to him) */}
+      <RecheckWaiting />
       {/* A request to take over a shop (this one, as its helper or barber, or another) */}
       {shop.myRole !== 'OWNER' && <HandoverOffers />}
       {/* An invitation to another shop (accepting says to leave this one first) */}

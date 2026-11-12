@@ -190,7 +190,7 @@ function StaffPhoto({ s }: { s: Staff }) {
       <PhotoPicker
         label="Photo (optional)"
         hint="Customers may see it when choosing a barber."
-        capture="user"
+        capture="environment"
         fileId={s.photoFileId}
         upload={async (photo) => {
           const file = await fileApi.upload(photo, 'barber.jpg', 'STAFF_PHOTO')
