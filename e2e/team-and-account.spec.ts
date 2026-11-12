@@ -54,7 +54,8 @@ test('a helper leaves the salon and is signed out', async ({ page, context, api 
 test('the owner has no "leave", and signs out on this device', async ({ page, context, api }) => {
   await atSalon(page, context, api)
   await page.getByRole('link', { name: 'More' }).click()
-  await expect(page.getByText('Shop code 10234 · You are the owner')).toBeVisible()
+  await expect(page.getByText('Shop code 10234')).toBeVisible()
+  await expect(page.getByText('· You are the owner')).toBeVisible()
   await expect(page.getByRole('button', { name: /^Leave/ })).toBeHidden()
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
   await expect(page).toHaveURL(/\/signin$/)
@@ -159,4 +160,33 @@ test('made the owner meanwhile: the backend refuses (SHOP_OWNER) and the screen 
   api.shop = { ...api.shop!, myRole: 'OWNER' }
   await page.getByRole('button', { name: /^Send code to \+91/ }).click()
   await expect(page.getByText('Close or hand over your shop first. Then you can delete your account.')).toBeVisible()
+})
+
+test('More shows the whole salon as registered, with Edit, the pin and the code to copy', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  api.shop = { ...api.shop!, gstin: '27AAPFU0939F1ZV' }
+  await page.goto('/more')
+  await expect(page.getByText('Shop 12, Ithum Tower, Sector 62, Noida 201309')).toBeVisible()
+  await expect(page.getByText('Owner: Ravi Kumar')).toBeVisible()
+  await expect(page.getByText('GSTIN: 27AAPFU0939F1ZV · Udyam: not added')).toBeVisible()
+  await page.getByRole('button', { name: 'See the pin on the map' }).click()
+  await expect(page.getByLabel("Map: your salon's pin, where customers find you")).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Copy shop code 10234' })).toBeVisible()
+  await page.getByRole('link', { name: 'Edit salon details' }).click()
+  await expect(page).toHaveURL(/\/setup\/details$/)
+})
+
+test('a barber sees the salon card without the owner’s papers or Edit', async ({ page, context, api }) => {
+  await atSalon(page, context, api, 'BARBER')
+  await page.goto('/more')
+  await expect(page.getByText('· You are the barber')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Edit salon details' })).toHaveCount(0)
+  await expect(page.getByText(/^GSTIN:/)).toHaveCount(0)
+})
+
+test('the Salon tab has Closed days next to the opening hours', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  await page.goto('/setup')
+  await page.getByRole('link', { name: /Closed days/ }).click()
+  await expect(page).toHaveURL(/\/salon\/closures$/)
 })

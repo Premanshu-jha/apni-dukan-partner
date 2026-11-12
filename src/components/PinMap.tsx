@@ -12,7 +12,8 @@ const pin = L.divIcon({
 })
 
 /**
- * A small map with one pin the owner can drag (or tap the map to move it). Calls onMove with the new point.
+ * A small map with one pin the owner can drag (or tap the map to move it). Calls onMove with the new point. Without
+ * onMove it only shows where the pin is (the review step, More): the pin can't be moved, the map can still be panned.
  * The pin starts where the phone's GPS (or the address search) put it. `zoom` is used when the pin is placed (closer
  * for a precise point, wider for "somewhere in this area"), never when the owner moves it.
  * @param placement changes each time the screen places the pin, so placing it again where it already is still
@@ -27,7 +28,7 @@ export function PinMap({
 }: {
   lat: number
   lng: number
-  onMove: (lat: number, lng: number) => void
+  onMove?: (lat: number, lng: number) => void
   zoom?: number
   placement?: number
 }) {
@@ -46,10 +47,20 @@ export function PinMap({
     if (!box.current || map.current) return
     const m = L.map(box.current, { zoomControl: true, attributionControl: true }).setView([lat, lng], zoom)
     L.tileLayer(TILES, { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(m)
-    const mk = L.marker([lat, lng], { draggable: true, icon: pin, keyboard: true, title: 'Salon location' }).addTo(m)
+    const readOnly = !moved.current
+    const mk = L.marker([lat, lng], { draggable: !readOnly, icon: pin, keyboard: !readOnly, title: 'Salon location' }).addTo(m)
+    map.current = m
+    marker.current = mk
+    if (readOnly) {
+      return () => {
+        m.remove()
+        map.current = null
+        marker.current = null
+      }
+    }
     mk.on('dragend', () => {
       const p = mk.getLatLng()
-      moved.current(p.lat, p.lng)
+      moved.current?.(p.lat, p.lng)
     })
     // The keyboard: with the pin focused (Tab), the arrow keys move it a few metres (Shift: further), not the map
     mk.getElement()?.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -62,7 +73,7 @@ export function PinMap({
       mk.setLatLng(next)
       // Near the edge: the map follows, so the focused pin stays in sight
       if (!m.getBounds().pad(-0.15).contains(next)) m.panTo(next)
-      moved.current(next.lat, next.lng)
+      moved.current?.(next.lat, next.lng)
       // Screen readers hear each move (cleared first, so the same move twice is said twice)
       const words = ({ ArrowUp: 'north', ArrowDown: 'south', ArrowLeft: 'west', ArrowRight: 'east' } as Record<string, string>)[e.key]
       if (said.current) said.current.textContent = ''
@@ -74,10 +85,8 @@ export function PinMap({
     })
     m.on('click', (e: L.LeafletMouseEvent) => {
       mk.setLatLng(e.latlng)
-      moved.current(e.latlng.lat, e.latlng.lng)
+      moved.current?.(e.latlng.lat, e.latlng.lng)
     })
-    map.current = m
-    marker.current = mk
     return () => {
       m.remove()
       map.current = null
@@ -107,9 +116,13 @@ export function PinMap({
     <>
       <div
         ref={box}
-        role="application"
-        aria-label="Map: drag the pin to your salon's door, or tab to the pin and use the arrow keys"
-        className="h-56 w-full overflow-hidden rounded-xl border border-line"
+        role={onMove ? 'application' : 'img'}
+        aria-label={
+          onMove
+            ? "Map: drag the pin to your salon's door, or tab to the pin and use the arrow keys"
+            : "Map: your salon's pin, where customers find you"
+        }
+        className={`${onMove ? 'h-56' : 'h-40'} w-full overflow-hidden rounded-xl border border-line`}
       />
       <span ref={said} aria-live="polite" className="sr-only" />
     </>

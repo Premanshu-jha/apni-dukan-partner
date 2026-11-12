@@ -11,6 +11,13 @@ export interface PhoneChangeSent {
   sentTo: string
 }
 
+/** Editing a verified salon's details: on until this time (ISO), or off (null). */
+export interface EditUnlock {
+  until: string | null
+  /** How long from now (0 when off): counted from this, as a phone's clock may be off. Missing from an older backend. */
+  secondsLeft?: number
+}
+
 export const authApi = {
   sendCode: (phone: string, captchaToken: string | null) =>
     api<void>('POST', `${A}/otp/send`, { body: { phone, captchaToken }, auth: false }),
@@ -27,6 +34,14 @@ export const authApi = {
   /** Sends a code to the person's phone, needed before changing a verified email. */
   sendChangeEmailPhoneCode: () => api<void>('POST', `${A}/email/change-phone-code`),
   sendDeleteCode: () => api<void>('POST', `${A}/me/delete-code`),
+  /** A verified salon's details change only within 15 minutes of a code to the owner's own phone (EditGate). */
+  sendEditCode: () => api<void>('POST', `${A}/me/edit-code`),
+  /** The code right: editing is on until `until`. */
+  unlockEditing: (code: string) => api<EditUnlock>('POST', `${A}/me/edit-unlock`, { body: { code } }),
+  /** Until when editing is on; null when it is off. */
+  editUnlock: () => api<EditUnlock>('GET', `${A}/me/edit-unlock`),
+  /** Done: off again at once. */
+  lockEditing: () => api<void>('DELETE', `${A}/me/edit-unlock`),
   deleteAccount: (code: string) => api<void>('POST', `${A}/me/delete`, { body: { code } }),
   /** Changing the phone number: a code to the new number, and a second code (the answer says where it went). */
   sendPhoneChangeCode: (newPhone: string) => api<PhoneChangeSent>('POST', `${A}/me/phone/send-code`, { body: { newPhone } }),

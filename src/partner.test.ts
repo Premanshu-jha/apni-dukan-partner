@@ -197,6 +197,9 @@ describe('messages', () => {
     // "A shop for you" (SHOP_HANDOVER_REQUEST): the hand-over requests, with or without a shop
     expect(safePath('/handover')).toBe('/handover')
     expect(safePath('/setup/document')).toBe('/setup/document')   // a removed registration document
+    expect(safePath('/setup')).toBe('/setup')   // a fix the field team asked for
+    expect(safePath('/setup/address')).toBe('/setup/address')   // an address change declined
+    expect(safePath('/setup/staff')).toBeNull()
     expect(safePath('/invites')).toBe('/invites')
     expect(safePath('/handover/../evil')).toBeNull()
     expect(safePath('/bookings/b1')).toBeNull()

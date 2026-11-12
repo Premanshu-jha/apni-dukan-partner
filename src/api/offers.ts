@@ -47,16 +47,22 @@ export type OfferPreview = { services: PricedService[]; customers: number }
 
 const O = '/api/v1/salon/offers'
 
+/** An offer running or to come, as anyone in the salon sees it (SalonOfferResponses.TeamOffer): no numbers. */
+export type TeamOffer = { offer: OfferView; state: Exclude<OfferState, 'ENDED'> }
+
 export const offersApi = {
   list: () => api<OwnerOffer[]>('GET', O),
+  /** Running and upcoming offers, for anyone in the salon (a barber too). */
+  current: () => api<TeamOffer[]>('GET', `${O}/current`),
   preview: (o: NewOffer) => api<OfferPreview>('POST', `${O}/preview`, { body: o }),
   publish: (o: NewOffer) => api<OwnerOffer>('POST', O, { body: o }),
   end: (id: string) => api<OwnerOffer>('POST', `${O}/${id}/end`),
 }
 
-export const offerKeys = { list: ['salon', 'offers'] as const }
+export const offerKeys = { list: ['salon', 'offers'] as const, current: ['salon', 'offers', 'current'] as const }
 
 export const useOffers = () => useQuery({ queryKey: offerKeys.list, queryFn: offersApi.list })
+export const useCurrentOffers = () => useQuery({ queryKey: offerKeys.current, queryFn: offersApi.current })
 
 /** After publishing or ending: the list is read again (the new state, the bookings). */
 export function refreshOffers(qc: QueryClient) {

@@ -183,6 +183,11 @@ export const dayApi = {
  * whole day, every refresh after only what changed since (see dayBoard.ts). Only the date in view is held: opening
  * another date forgets the boards of dates no screen shows, so paging through days doesn't pile up whole days.
  */
+/** The salon's closed days (festival holidays), as the Closed days screen reads them; only fetched when enabled. */
+export function useClosures(enabled = true) {
+  return useQuery({ queryKey: salonKeys.closures, queryFn: dayApi.closures, enabled })
+}
+
 export function useDay(date: string) {
   const qc = useQueryClient()
   const day = useQuery({

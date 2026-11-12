@@ -64,6 +64,16 @@ export interface Shop {
   registrationDocFileId?: string | null
   /** When our field team checked it (customers then see "Registered"); null if not yet or none. */
   registrationDocCheckedAt?: string | null
+  /**
+   * When our field team's re-check of a live salon's changes started waiting (the address or pin, a photo, the video,
+   * the GSTIN or Udyam number changed); null when nothing waits. The salon stays live meanwhile. The owner's view only.
+   */
+  recheckSince?: string | null
+  /**
+   * The address and pin were verified by our field team: the owner can't change them any more (409 ADDRESS_LOCKED);
+   * the field team does. Missing from an older backend (then the save says so).
+   */
+  addressLocked?: boolean
   version: number
   createdAt: string
   updatedAt: string
@@ -80,6 +90,25 @@ export interface ShopDetailsIn {
   longitude: number
   gstin: string | null
   udyamNumber: string | null
+}
+
+/** A new address and pin (an address change request to the field team). */
+export interface AddressIn extends GeocodeIn {
+  latitude: number
+  longitude: number
+}
+
+/**
+ * The owner's request to change a verified address (POST /shops/me/address-request). PENDING: waits for the field team
+ * (the salon keeps its old address meanwhile); APPROVED: it is the salon's address now; DECLINED: see reason;
+ * CANCELLED: taken back, or the field team set the address themselves.
+ */
+export interface AddressRequest extends AddressIn {
+  id: string
+  status: 'PENDING' | 'APPROVED' | 'DECLINED' | 'CANCELLED'
+  reason: string | null
+  createdAt: string
+  decidedAt: string | null
 }
 
 /** POST /shops/geocode: the typed address (registration, before the shop exists). */

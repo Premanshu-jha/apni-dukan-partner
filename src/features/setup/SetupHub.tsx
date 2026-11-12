@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { useSalonHours, useServices, useSettings, useStaff } from '../../api/salon'
+import { useClosures, useSalonHours, useServices, useSettings, useStaff } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import { Page } from '../../components/ui'
 import { can } from '../../lib/roles'
@@ -11,7 +11,9 @@ export function SetupHub() {
   const staff = useStaff()
   const settings = useSettings()
   const hours = useSalonHours()
-  const edit = can(shop.myRole).editSetup
+  const rights = can(shop.myRole)
+  const closures = useClosures(rights.closures)
+  const edit = rights.editSetup
   const sub = (q: { isError: boolean }, text: string | null) => (text ?? (q.isError ? "Couldn't load. Open to try again." : '…'))
   const owner = shop.myRole === 'OWNER'
   // What the owner gave at registration: his to change any time (helpers don't see these)
@@ -42,7 +44,20 @@ export function SetupHub() {
       title: 'Opening hours',
       sub: sub(hours, hours.data ? (hours.data.days.length ? `Open ${hours.data.days.length} days a week` : 'Not set yet') : null),
     },
+    // Next to the opening hours, where an owner looks for a holiday (also in More)
+    ...(rights.closures
+      ? [
+          {
+            to: '/salon/closures',
+            title: 'Closed days',
+            sub: sub(closures, closures.data ? (closures.data.length ? `Festival holidays: ${closures.data.length} set` : "Festival holidays: none set") : null),
+          },
+        ]
+      : []),
     { to: '/setup/staff', title: 'Barbers', sub: sub(staff, staff.data ? `${staff.data.filter((s) => s.active).length} working` : null) },
+    // Next to the services and prices they are about (also in More)
+    { to: '/salon/offers', title: 'Offers', sub: 'Discounts customers see on your services' },
+    { to: '/salon/ratings', title: 'Ratings', sub: 'What customers said after their visit' },
     {
       to: '/setup/rules',
       title: 'Booking rules',

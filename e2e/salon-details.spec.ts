@@ -1,7 +1,7 @@
 import { addDays, istInstant, MockApi, todayIst } from './mockApi'
 import { atSalon, expect, JPEG, signedIn, test } from './helpers'
 
-test('the owner edits the salon details later; a new address asks first, since it goes back to the field team', async ({ page, context, api }) => {
+test('the owner edits the salon details later; the verified address is locked, a new GSTIN asks first and stays live', async ({ page, context, api }) => {
   await atSalon(page, context, api)
   await page.goto('/setup')
   await page.getByRole('link', { name: /Salon details/ }).click()
@@ -14,24 +14,74 @@ test('the owner edits the salon details later; a new address asks first, since i
   expect(api.shop!.name).toBe('Shine Salon & Spa')
   expect(api.shop!.status).toBe('APPROVED')
 
-  // The address: the owner is told first, then it is saved and goes for a check
-  await page.getByLabel('Shop number, building, street').fill('Shop 14, Ithum Tower')
+  // The address and pin: read-only, with whom to ask; no GPS or address search
+  await expect(page.getByLabel('Shop number, building, street')).toHaveAttribute('readonly', '')
+  await expect(page.getByLabel('Pincode')).toHaveAttribute('readonly', '')
+  await expect(page.getByText('only they can change them', { exact: false })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Use my location' })).toHaveCount(0)
+  await expect(page.getByLabel("Map: your salon's pin, where customers find you")).toBeVisible()
+
+  // A GSTIN with a typo is caught on the phone; a right one asks first, then the salon waits for the check, live
+  await page.getByLabel('GSTIN').fill('27AAPFU0939F1ZW')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page.getByText('A new address or pin goes to our field team for a check')).toBeVisible()
-  expect(api.shop!.addressLine).not.toBe('Shop 14, Ithum Tower')
+  await expect(page.getByText('This GSTIN has a typo')).toBeVisible()
+  await page.getByLabel('GSTIN').fill('27aapfu0939f1zv')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText('A new GSTIN or Udyam number goes to our field team for a check', { exact: false })).toBeVisible()
   await page.getByRole('button', { name: 'Save and send for a check' }).click()
   await expect(page.getByText('Saved.')).toBeVisible()
-  expect(api.shop!.addressLine).toBe('Shop 14, Ithum Tower')
-  expect(api.shop!.status).toBe('PENDING_VISIT')
+  expect(api.shop!.gstin).toBe('27AAPFU0939F1ZV')
+  expect(api.shop!.status).toBe('APPROVED')
+  await expect(page.getByText('Our field team is checking your changes', { exact: false })).toBeVisible()
+  // Saved: nothing unsaved, Back leaves without asking
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/setup$/)
+
+  // A fix asked for shows with the reason, on Today too
+  api.askToFix('The GSTIN doesn’t match the certificate.')
+  await page.goto('/salon/day')
+  await expect(page.getByText('Our field team asked you to fix something')).toBeVisible()
+  await expect(page.getByText('The GSTIN doesn’t match the certificate.', { exact: false })).toBeVisible()
+})
+
+test('a barber keeps working while the owner’s changes are re-checked (the salon stays APPROVED)', async ({ page, context, api }) => {
+  await atSalon(page, context, api, 'BARBER')
+  api.shop = { ...api.shop!, recheckSince: null, status: 'APPROVED' }
+  await page.goto('/')
+  await expect(page).toHaveURL(/\/salon\/day/)
+  await expect(page.getByText("Your salon isn't live yet")).toHaveCount(0)
+})
+
+test('leaving the salon details with unsaved changes asks first', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  await page.goto('/setup/details')
+  await expect(page.getByText('Your own sign-in name is changed in More', { exact: false })).toBeVisible()
+  await page.getByLabel('Salon name').fill('Shine Salon Sector 63')
+  page.once('dialog', (d) => void d.dismiss())
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/setup\/details$/)
+  await expect(page.getByLabel('Salon name')).toHaveValue('Shine Salon Sector 63')
+  page.once('dialog', (d) => void d.accept())
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page).toHaveURL(/\/setup$/)
 })
 
 test('photos and video can be changed later, with the re-check said first', async ({ page, context, api }) => {
   await atSalon(page, context, api)
   await page.goto('/setup/photos')
   await expect(page.getByText('A new photo or video goes to our field team for a check')).toBeVisible()
-  await page.getByLabel(/shop front/i).first().setInputFiles({ name: 'shop.jpg', mimeType: 'image/jpeg', buffer: JPEG })
+  // Visible buttons to replace a photo on the spot: retake it or pick one from the gallery
+  await expect(page.getByRole('button', { name: 'Retake shop front' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Retake your photo' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Choose another/ })).toHaveCount(2)
+  await page.getByLabel('Pick shop front from gallery').setInputFiles({ name: 'shop.jpg', mimeType: 'image/jpeg', buffer: JPEG })
   await expect.poll(() => api.calls.some((c) => c.path === '/api/v1/shops/me/photos')).toBe(true)
   await expect(page.getByRole('button', { name: 'Continue' })).toHaveCount(0)
+  expect(api.shop!.status).toBe('APPROVED')   // stays live
+  await expect(page.getByText('Our field team is checking your changes', { exact: false })).toBeVisible()
+  // A photo format the phone can't redraw and the backend doesn't take is refused with what to do
+  await page.getByLabel('Pick your photo from gallery').setInputFiles({ name: 'me.heic', mimeType: 'image/heic', buffer: Buffer.from('not really heic') })
+  await expect(page.getByText("This photo's format can't be used", { exact: false })).toBeVisible()
 })
 
 test('the registration document: added on a live salon it waits for a check, and the owner can remove it', async ({ page, context, api }) => {
@@ -201,4 +251,18 @@ test('a helper sees no "Add me as a barber"', async ({ page, context, api }) => 
   await page.goto('/setup/staff')
   await expect(page.getByRole('heading', { name: 'Barbers' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add me as a barber' })).toHaveCount(0)
+})
+
+test('a photo upload that fails is sent again with Try again, without taking it again', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  await page.goto('/setup/photos')
+  api.failOnce.set('/files', { status: 503, code: 'SERVICE_BUSY', message: "We're having a short problem. Try again in a few seconds." })
+  await page.getByLabel('Pick shop front from gallery').setInputFiles({ name: 'shop.jpg', mimeType: 'image/jpeg', buffer: JPEG })
+  await expect(page.getByText("We're having a short problem.", { exact: false })).toBeVisible()
+  const uploads = () => api.calls.filter((c) => c.method === 'POST' && c.path.startsWith('/api/v1/files')).length
+  const before = uploads()
+  await page.getByRole('button', { name: 'Try sending shop front again' }).click()
+  await expect.poll(() => api.calls.some((c) => c.path === '/api/v1/shops/me/photos')).toBe(true)
+  expect(uploads()).toBe(before + 1)
+  await expect(page.getByRole('button', { name: 'Try sending shop front again' })).toHaveCount(0)
 })

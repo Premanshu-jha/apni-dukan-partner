@@ -1,17 +1,22 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { authApi } from '../../api/auth'
-import { shopApi, useShop } from '../../api/shop'
+import { shopApi, useAddressRequest, useShop } from '../../api/shop'
 import { can } from '../../lib/roles'
 import { fieldError, messageOf } from '../../api/errors'
-import { Banner, Button, Card, Field, Page, Sheet } from '../../components/ui'
+import { Banner, Button, Card, Field, Loading, Page, Sheet } from '../../components/ui'
+import { CopyCode } from '../../components/CopyCode'
+import { MapBoundary } from '../../components/MapBoundary'
 import { formatPhone } from '../../lib/phone'
 import { takePhoneChanged } from '../../lib/phoneMoved'
 import { SUPPORT_EMAIL } from '../../lib/config'
 import { useSession } from '../../store/session'
 import { NotificationsRow } from './Notifications'
 import { signOutHere } from './signOut'
+
+/** The map library is big: loaded only when the owner opens the pin. */
+const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ default: m.PinMap })))
 
 /** More: the person's profile, the salon's other screens, help and signing out. */
 export function Profile() {
@@ -29,6 +34,9 @@ export function Profile() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirmAll, setConfirmAll] = useState(false)
+  const [showPin, setShowPin] = useState(false)
+  const owner = shop.myRole === 'OWNER'
+  const addressAsked = useAddressRequest(owner && Boolean(shop.addressLocked))
 
   async function saveName() {
     setBusy(true)
@@ -77,6 +85,7 @@ export function Profile() {
     rights.closures && { to: '/salon/closures', text: 'Closed days' },
     rights.seeSetup && { to: '/salon/offers', text: 'Offers' },
     rights.seeSetup && { to: '/salon/ratings', text: 'Ratings' },
+    !rights.seeSetup && { to: '/salon/info', text: 'Salon info: hours, services, offers' },
     { to: '/notifications', text: 'Messages' },
   ].filter(Boolean) as Array<{ to: string; text: string }>
 
@@ -88,14 +97,65 @@ export function Profile() {
           the new number.
         </Banner>
       )}
-      <Card className="flex flex-col gap-1">
-        <p className="font-semibold">{shop.name}</p>
-        <p className="text-sm text-muted">
+      {/* The salon as registered, in full: what the owner can check and, if wrong, change in one tap */}
+      <Card className="flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-3">
+          <p className="min-w-0 font-semibold break-words">{shop.name}</p>
+          {owner && (
+            <Link to="/setup/details" state={{ from: '/more', edit: true }} className="shrink-0 text-sm text-link" aria-label="Edit salon details">
+              Edit
+            </Link>
+          )}
+        </div>
+        <p className="text-sm text-muted break-words">
           {shop.addressLine}, {shop.area}, {shop.city} {shop.pincode}
         </p>
-        <p className="text-sm text-muted">
-          Shop code {shop.shopCode} · You are the {shop.myRole === 'OWNER' ? 'owner' : shop.myRole === 'HELPER' ? 'helper' : 'barber'}
-        </p>
+        {owner && shop.addressLocked && shop.status !== 'SUSPENDED' && shop.status !== 'CLOSED' && (
+          <p className="text-sm break-words">
+            {addressAsked.data?.status === 'PENDING' && (
+              <span className="text-muted">
+                New address waiting for our field team: {addressAsked.data.addressLine}, {addressAsked.data.area}.{' '}
+              </span>
+            )}
+            <Link to="/setup/address" state={{ from: '/more' }} className="text-link underline">
+              {addressAsked.data?.status === 'PENDING' ? 'See the request' : 'Request address change'}
+            </Link>
+          </p>
+        )}
+        <p className="text-sm text-muted break-words">Owner: {shop.ownerName}</p>
+        {owner && (
+          <p className="text-sm text-muted break-words">
+            GSTIN: {shop.gstin ?? 'not added'} · Udyam: {shop.udyamNumber ?? 'not added'}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
+          <span>Shop code {shop.shopCode}</span>
+          <CopyCode code={String(shop.shopCode)} />
+          <span>· You are the {owner ? 'owner' : shop.myRole === 'HELPER' ? 'helper' : 'barber'}</span>
+        </div>
+        {shop.recheckSince && (
+          <p className="text-sm text-muted">Our field team will check your recent changes. Your salon stays live meanwhile.</p>
+        )}
+        {owner && (
+          <p className="flex flex-wrap gap-x-4 text-sm">
+            <Link to="/setup/photos" state={{ from: '/more' }} className="text-link underline">
+              Photos and video
+            </Link>
+            <Link to="/setup/document" state={{ from: '/more' }} className="text-link underline">
+              Registration document
+            </Link>
+          </p>
+        )}
+        <button type="button" className="self-start text-sm text-link underline" aria-expanded={showPin} onClick={() => setShowPin((v) => !v)}>
+          {showPin ? 'Hide the map' : 'See the pin on the map'}
+        </button>
+        {showPin && (
+          <MapBoundary>
+            <Suspense fallback={<Loading label="Loading the map…" />}>
+              <PinMap lat={shop.latitude} lng={shop.longitude} />
+            </Suspense>
+          </MapBoundary>
+        )}
       </Card>
 
       <ul className="flex flex-col gap-2">
@@ -114,7 +174,7 @@ export function Profile() {
       <Card className="flex flex-col gap-4">
         {editing ? (
           <div className="flex flex-col gap-3">
-            <Field id="profile-name" label="Name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+            <Field id="profile-name" label="Your name" hint="Your sign-in name. The salon's owner name is in the salon details." value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
             {error && <Banner tone="bad">{error}</Banner>}
             <div className="flex gap-2">
               <Button busy={busy} disabled={name.trim().length < 2} onClick={saveName} className="flex-1">
@@ -133,7 +193,7 @@ export function Profile() {
             </div>
           </div>
         ) : (
-          <Row label="Name" value={user.name ?? ''} action={<button type="button" className="text-link" onClick={() => setEditing(true)}>Edit</button>} />
+          <Row label="Your name" value={user.name ?? ''} action={<button type="button" className="text-link" aria-label="Edit your name" onClick={() => setEditing(true)}>Edit</button>} />
         )}
         <Row
           label="Mobile"
@@ -236,7 +296,7 @@ function Row({ label, value, action }: { label: string; value: string; action?: 
     <div className="flex items-center justify-between gap-3">
       <div className="min-w-0">
         <p className="text-sm text-muted">{label}</p>
-        <p className="truncate">{value}</p>
+        <p className="break-all">{value}</p>
       </div>
       {action}
     </div>
