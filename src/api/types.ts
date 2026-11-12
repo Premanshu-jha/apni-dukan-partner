@@ -487,3 +487,31 @@ export interface HelpTicket {
   /** The verified email our reply goes to. */
   sentTo: string
 }
+
+/** GET /helpdesk/tickets: one of my requests. OPEN: with support; WAITING: support replied; RESOLVED. */
+export interface MyRequest {
+  id: string
+  /** CLZ-1042 */
+  number: string
+  subject: string | null
+  status: 'OPEN' | 'WAITING' | 'RESOLVED'
+  createdAt: string
+  lastMessageAt: string
+}
+
+/** A message on my request: mine, or support's reply (with the support person's first name when known). */
+export interface MyRequestMessage {
+  seq: number
+  fromSupport: boolean
+  supportName: string | null
+  body: string
+  /** Files sent with an email (they stay in the email). */
+  attachments: number
+  at: string
+}
+
+/** GET /helpdesk/tickets/{id} and the answer to adding a message. */
+export interface MyRequestDetail {
+  ticket: MyRequest
+  messages: MyRequestMessage[]
+}
