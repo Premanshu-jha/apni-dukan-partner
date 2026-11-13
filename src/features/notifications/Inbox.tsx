@@ -34,6 +34,7 @@ const icons: Record<string, string> = {
   SHOP_HANDOVER_DECLINED: '✕',
   SHOP_HANDOVER_DONE: '✓',
   SHOP_INVITE: '＋',
+  PARTNERHELP_REPLIED: '✉',
   SHOP_INVITE_ACCEPTED: '✓',
   SHOP_INVITE_DECLINED: '✕',
 }
@@ -60,6 +61,8 @@ export function safePath(url: string | null): string | null {
   if (!url || !url.startsWith('/') || url.startsWith('//')) return null
   if (url.startsWith('/salon/')) return url
   if (url === '/handover' || url === '/invites') return url
+  // "Support replied": the request it is about
+  if (/^\/help\/requests\/[0-9A-Za-z-]{1,64}$/.test(url)) return url
   // The owner's salon screens a message about his salon points to (a fix asked for, an address declined)
   if (url === '/setup' || url === '/setup/document' || url === '/setup/address') return url
   if (url.startsWith('/shops/')) return '/'

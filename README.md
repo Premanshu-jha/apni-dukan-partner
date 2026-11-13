@@ -332,6 +332,12 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.18.0 — 2026-11-13
+
+- **"Support replied"** (needs the backend's round-3 helpdesk): when support replies to a question sent from this
+  app, it shows in Notifications ("✉ Support replied on CLZ-1042") and as a push; tapping either opens the request in
+  My requests. The email still comes too. Only the ticket number shows, never the reply or the subject (a push can show on a locked phone).
+
 ### 0.17.0 — 2026-11-12
 
 - **My requests** (needs the backend's round-2 helpdesk): More → "My requests" (also linked at the top of Need help)
