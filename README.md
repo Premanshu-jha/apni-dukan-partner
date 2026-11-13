@@ -332,6 +332,15 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.19.0 — 2026-11-13
+
+- **Photos, videos and PDFs with a support request** (needs the backend's round-4a helpdesk, V49–V51): "📎 Add photo,
+  video or PDF" on Need help and in My requests, as in the customer app: up to 5 per message, photos shrunk on the
+  phone, videos up to 100 MB straight to storage with progress, Send waits for them, words optional with a file.
+  Support's files show in the request. Files are deleted 6 months after a request is resolved. An iPhone HEIC photo
+  the browser can't read, a 6th file and a video over 100 MB are refused at once with what to do.
+- **Signing out forgets what was typed** in Need help and My requests (a shared phone).
+
 ### 0.18.0 — 2026-11-13
 
 - **"Support replied"** (needs the backend's round-3 helpdesk): when support replies to a question sent from this

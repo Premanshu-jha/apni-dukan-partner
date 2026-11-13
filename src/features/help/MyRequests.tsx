@@ -8,6 +8,7 @@ import { SUPPORT_EMAIL } from '../../lib/config'
 import { dateTimeIst } from '../../lib/ist'
 import { storage } from '../../lib/storage'
 import { useSession } from '../../store/session'
+import { AttachmentPicker, MessageFiles, useAttachments } from './Attach'
 import { cleanedLength, sendError } from './text'
 
 /** The backend's limits for adding to a request (TicketService.addToMine). */
@@ -87,7 +88,8 @@ function Message({ m }: { m: MyRequestMessage }) {
       <span className="text-xs font-semibold text-muted">
         {m.fromSupport ? `Clozest support${m.supportName ? ` · ${m.supportName}` : ''}` : 'You'} · {dateTimeIst(m.at)}
       </span>
-      <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{m.body}</p>
+      {m.body && <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{m.body}</p>}
+      <MessageFiles files={m.files ?? []} />
       {m.attachments > 0 && (
         <p className="text-xs text-muted">
           📎 {m.attachments} {m.attachments === 1 ? 'file' : 'files'} sent by email (they stay in that email)
@@ -104,6 +106,7 @@ export function RequestDetail() {
   const fromList = (useLocation().state as { fromList?: unknown } | null)?.fromList === true
   const backTo = fromList ? true : '/help/requests'
   const box = useRef<HTMLTextAreaElement | null>(null)
+  const files = useAttachments()
   const user = useSession((s) => s.user)!
   const detail = useMyRequest(id)
   const add = useAddToRequest(id)
@@ -150,24 +153,30 @@ export function RequestDetail() {
   const length = cleanedLength(text)
   const tooLong = length > ADD_MAX
   const resolved = ticket.status === 'RESOLVED'
+  // With a file the words may be left out; a file still going up (or failed) holds Send
+  const withFiles = files.fileIds.length > 0
+  const ready = !files.sending && !files.failed && !tooLong && (withFiles || length >= ADD_MIN)
 
   async function send(e: React.FormEvent) {
     e.preventDefault()
-    if (sending.current || length < ADD_MIN || tooLong) return
+    if (sending.current || !ready) return
     sending.current = true
     setError(null)
     setSent(false)
     try {
-      await add.mutateAsync(text.trim())
+      await add.mutateAsync({ message: text.trim(), fileIds: files.fileIds })
       setText('')
       storage.remove(key)
+      files.clear()
       setSent(true)
       box.current?.focus()   // Send is off again (empty box): keyboard and screen-reader users stay in the box
     } catch (err) {
       setError(
         isApiError(err, 'VALIDATION_FAILED')
           ? sendError(err.details, messageOf(err))
-          : `${messageOf(err)} What you wrote is kept here.`,
+          : isApiError(err, 'FILE_NOT_FOUND') || isApiError(err, 'FILE_ALREADY_SENT')
+            ? messageOf(err)   // says which file, and to remove it and add it again
+            : `${messageOf(err)} What you wrote is kept here.`,
       )
     } finally {
       sending.current = false
@@ -207,15 +216,20 @@ export function RequestDetail() {
         <p id="request-add-hint" className={`text-sm ${tooLong ? 'text-bad' : 'text-muted'}`}>
           {tooLong
             ? `At most ${ADD_MAX} characters (now ${length}).`
-            : length === 1
-              ? `At least ${ADD_MIN} characters.`
+            : length === 1 && !withFiles
+              ? `At least ${ADD_MIN} characters, or add a file.`
               : length > 0
                 ? `${length} / ${ADD_MAX}`
-                : 'Files? Reply to our email with them attached.'}
+                : withFiles
+                  ? 'Words are optional with a file.'
+                  : `At least ${ADD_MIN} characters, or add a file.`}
         </p>
+        <AttachmentPicker a={files} id="request-files" disabled={add.isPending} />
+        {files.sending && <p className="text-sm text-muted">Send works once your files have finished uploading.</p>}
+        {files.failed && <p className="text-sm text-bad">A file didn't go up: try it again or remove it.</p>}
         {error && <Banner tone="bad">{error}</Banner>}
         {sent && <Banner tone="good">Sent. Our support team will read it and reply.</Banner>}
-        <Button type="submit" busy={add.isPending} disabled={length < ADD_MIN || tooLong}>
+        <Button type="submit" busy={add.isPending} disabled={!ready}>
           Send
         </Button>
       </form>

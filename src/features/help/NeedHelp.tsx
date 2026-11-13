@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { authApi } from '../../api/auth'
 import { useSession } from '../../store/session'
+import { AttachmentPicker, useAttachments } from './Attach'
 import { cleanedLength, sendError } from './text'
 import { helpApi, helpKeys } from '../../api/help'
 import { useQueryClient } from '@tanstack/react-query'
@@ -24,6 +25,9 @@ const draftKey = (userId: string) => `pd.helpDraft.${userId}`
  * Support sees their salon and role with the ticket, so they needn't type the shop code. Opened from More (and the
  * kirana "coming soon" page, `?about=` fills the subject).
  */
+/** Set when leaving to finish the profile with files picked (they can't come along). */
+const FILES_DROPPED = 'pd.helpFilesDropped'
+
 export function NeedHelp() {
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -32,6 +36,7 @@ export function NeedHelp() {
   const user = useSession((s) => s.user)!
   const setUser = useSession((s) => s.setUser)
   const DRAFT_KEY = draftKey(user.id)
+  const files = useAttachments()
   // A link that says what it's about wins over an older, different draft (the same one, back from a detour, stays)
   const draft = storage.getJson<{ subject: string; message: string }>(DRAFT_KEY)
   const saved = !params.has('about') || draft?.subject === params.get('about') ? draft : null
@@ -39,7 +44,18 @@ export function NeedHelp() {
   const heading = useRef<HTMLHeadingElement | null>(null)
   const [message, setMessage] = useState(saved?.message || '')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // Back from finishing the profile: the words were kept, the files couldn't be (they go with the page)
+  const [error, setError] = useState<string | null>(() => {
+    try {
+      if (sessionStorage.getItem(FILES_DROPPED) !== null) {
+        sessionStorage.removeItem(FILES_DROPPED)
+        return 'Your files couldn\'t be kept while you finished your profile: add them again.'
+      }
+    } catch {
+      /* storage blocked: nothing to say */
+    }
+    return null
+  })
   const [done, setDone] = useState<HelpTicket | null>(null)
   const sending = useRef(false)
 
@@ -63,13 +79,14 @@ export function NeedHelp() {
 
   async function send(e: React.FormEvent) {
     e.preventDefault()
-    if (sending.current || length < MESSAGE_MIN || length > MESSAGE_MAX) return
+    if (sending.current || length < MESSAGE_MIN || length > MESSAGE_MAX || files.sending || files.failed) return
     sending.current = true
     setBusy(true)
     setError(null)
     try {
-      const ticket = await helpApi.ask(message.trim(), subject)
+      const ticket = await helpApi.ask(message.trim(), subject, files.fileIds)
       storage.remove(DRAFT_KEY)
+      files.clear()
       void qc.invalidateQueries({ queryKey: helpKeys.mine })   // My requests shows it at once
       setDone(ticket)
     } catch (err) {
@@ -81,6 +98,13 @@ export function NeedHelp() {
         const missing = (err.details.missing as string[] | undefined) ?? []
         if (fresh && missing.length > 0) {
           rememberReturn(location.pathname + location.search)
+          if (files.items.length > 0) {
+            try {
+              sessionStorage.setItem(FILES_DROPPED, '1')
+            } catch {
+              /* storage blocked */
+            }
+          }
           navigate(missing.includes('email') ? '/welcome/email' : '/welcome/name')
           return
         }
@@ -147,10 +171,13 @@ export function NeedHelp() {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           error={problem}
-          hint={length === 0 ? `At least ${MESSAGE_MIN} characters` : `${length} / ${MESSAGE_MAX}`}
+          hint={length === 0 ? `At least ${MESSAGE_MIN} characters${files.items.length > 0 ? ', even with a file' : ''}` : `${length} / ${MESSAGE_MAX}`}
         />
+        <AttachmentPicker a={files} id="help-files" disabled={busy} />
+        {files.sending && <p className="text-sm text-muted">Send works once your files have finished uploading.</p>}
+        {files.failed && <p className="text-sm text-bad">A file didn't go up: try it again or remove it.</p>}
         {error && <Banner tone="bad">{error} What you wrote is kept here.</Banner>}
-        <Button type="submit" busy={busy} disabled={length < MESSAGE_MIN || length > MESSAGE_MAX}>
+        <Button type="submit" busy={busy} disabled={length < MESSAGE_MIN || length > MESSAGE_MAX || files.sending || files.failed}>
           Send to support
         </Button>
       </form>

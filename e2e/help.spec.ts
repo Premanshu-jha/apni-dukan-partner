@@ -101,3 +101,18 @@ test('"Support replied" is in the notifications and opens the request', async ({
   await expect(page).toHaveURL(new RegExp(`/help/requests/${t.id}$`))
   await expect(page.getByText('It goes out on Monday.')).toBeVisible()
 })
+
+test('a photo and a video go with a question and show in My requests', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  await page.goto('/help')
+  await page.getByLabel('Your message').fill('The day board shows the wrong barber.')
+  await page.locator('#help-files').setInputFiles([
+    { name: 'board.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]) },
+    { name: 'screen.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(2048) },
+  ])
+  await expect(page.getByRole('list', { name: 'Files to send' }).getByText(/Attached/)).toHaveCount(2)
+  await page.getByRole('button', { name: 'Send to support' }).click()
+  await page.getByRole('button', { name: 'See it in My requests' }).click()
+  await expect(page.getByRole('img', { name: 'board.jpg' })).toBeVisible()
+  await expect(page.locator('video')).toHaveCount(1)
+})

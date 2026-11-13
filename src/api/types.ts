@@ -508,6 +508,20 @@ export interface MyRequestMessage {
   /** Files sent with an email (they stay in the email). */
   attachments: number
   at: string
+  /** Photos, videos and PDFs sent with it in the app (or by support). Missing from a backend before round 4a. */
+  files?: RequestFile[]
+}
+
+/** A photo, video or PDF on a message. */
+export interface RequestFile {
+  id: string
+  contentType: string
+  sizeBytes: number
+  name: string | null
+  /** Opens it for at least 15 minutes; null once removed */
+  url: string | null
+  /** Deleted (6 months after the request was resolved, or the account was deleted) */
+  removed: boolean
 }
 
 /** GET /helpdesk/tickets/{id} and the answer to adding a message. */
