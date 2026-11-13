@@ -9,15 +9,18 @@ export const helpKeys = {
 
 /** "Need help": a support ticket from this partner (owner, helper or barber); support sees their salon with it. */
 export const helpApi = {
-  ask: (message: string, subject?: string) =>
-    api<HelpTicket>('POST', '/api/v1/helpdesk/tickets', { body: { app: 'PARTNER', subject: subject?.trim() || null, message } }),
+  ask: (message: string, subject?: string, fileIds: string[] = []) =>
+    api<HelpTicket>('POST', '/api/v1/helpdesk/tickets', { body: { app: 'PARTNER', subject: subject?.trim() || null, message, fileIds } }),
   /** My requests, newest activity first (the latest 30). */
   mine: () => api<MyRequest[]>('GET', '/api/v1/helpdesk/tickets'),
   /** One of my requests with its messages. 404 when it isn't mine. */
   one: (id: string) => api<MyRequestDetail>('GET', `/api/v1/helpdesk/tickets/${encodeURIComponent(id)}`),
-  /** Adds to my request (2 to 5,000 characters); it goes back to support, reopened if resolved. 429 TOO_MANY_MESSAGES. */
-  add: (id: string, message: string) =>
-    api<MyRequestDetail>('POST', `/api/v1/helpdesk/tickets/${encodeURIComponent(id)}/messages`, { body: { message } }),
+  /**
+   * Adds to my request (2 to 5,000 characters, or none with files); it goes back to support, reopened if resolved.
+   * 429 TOO_MANY_MESSAGES; 400 FILE_NOT_FOUND / 409 FILE_ALREADY_SENT for a file that must be added again.
+   */
+  add: (id: string, message: string, fileIds: string[] = []) =>
+    api<MyRequestDetail>('POST', `/api/v1/helpdesk/tickets/${encodeURIComponent(id)}/messages`, { body: { message, fileIds } }),
 }
 
 export function useMyRequests() {
@@ -32,7 +35,7 @@ export function useMyRequest(id: string) {
 export function useAddToRequest(id: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (message: string) => helpApi.add(id, message),
+    mutationFn: ({ message, fileIds }: { message: string; fileIds: string[] }) => helpApi.add(id, message, fileIds),
     // A 30 s re-read started before the send must not land after it and hide the message just sent
     onMutate: () => qc.cancelQueries({ queryKey: helpKeys.one(id) }),
     onSuccess: (detail) => {
