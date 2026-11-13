@@ -4,6 +4,7 @@ import { refreshSettled } from '../../api/client'
 import { closeShownNotifications, turnOffPush } from '../../api/push'
 import { forgetRegisterDraft } from '../../lib/registerDraft'
 import { forgetReturn } from '../auth/flow'
+import { forgetHelpDrafts } from '../help/drafts'
 import { useSession } from '../../store/session'
 
 /** Ends the session on this browser: stops notifications here, tells the backend, forgets everything local. */
@@ -35,6 +36,7 @@ export async function signOutHere(qc: QueryClient, opts: { everywhere?: boolean;
 export function forgetThisPerson(qc: QueryClient) {
   forgetReturn()
   forgetRegisterDraft()
+  forgetHelpDrafts()
   void closeShownNotifications()
   qc.clear()
 }
