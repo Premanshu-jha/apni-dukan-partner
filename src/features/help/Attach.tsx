@@ -6,7 +6,7 @@ import { shrinkPhoto } from '../../lib/image'
 /** One file picked for a support message: sent to storage at once, then sent with the message by its id. */
 export interface Picked {
   key: string
-  kind: 'photo' | 'video' | 'pdf'
+  kind: 'photo' | 'video' | 'pdf' | 'file'
   name: string
   size: number
   /** A photo's own preview (a blob: address), freed when it goes */
@@ -15,16 +15,18 @@ export interface Picked {
   /** 0..1 while a video goes up */
   progress: number
   error: string | null
-  /** Trying again can't help (a photo format this browser can't read): only Remove is offered */
+  /** Trying again can't help (a photo this browser can't shrink, over 10 MB): only Remove is offered */
   final: boolean
+  /** Goes as a file (only downloaded): a kind we don't show, or a photo this browser can't read (an iPhone's HEIC) */
+  asFile: boolean
   /** A video already in storage whose "complete" failed: trying again only completes it */
   arrived: string | null
   file: TicketFile | null
   source: File
 }
 
-/** A photo this browser couldn't turn into a JPEG, in a format the backend doesn't take (an iPhone's HEIC). */
-class UnreadablePhoto extends Error {}
+/** A failure trying again can't help. */
+class CantSend extends Error {}
 
 /** A picked file's size as people read it. */
 export function sizeText(bytes: number): string {
@@ -72,10 +74,13 @@ export function useAttachments() {
         })
       } else if (item.kind === 'photo') {
         const small = await shrinkPhoto(item.source)
-        if (small === item.source && !isJpegOrPng(item.source.type || 'image/jpeg')) {
-          throw new UnreadablePhoto("This photo's format (HEIC or WebP) can't be sent from here. Send a screenshot of it, or set the camera to JPEG (\"Most compatible\").")
+        // A photo this browser can't read (an iPhone's HEIC): it goes as it is, as a file to download
+        const unread = small === item.source && !isJpegOrPng(item.source.type || 'image/jpeg')
+        if (unread && small.size > FILE_MAX_BYTES) {
+          throw new CantSend('This photo is over 10 MB in a format that can\'t be shrunk here. Send a screenshot of it, or set the camera to JPEG ("Most compatible").')
         }
-        if (small.size > FILE_MAX_BYTES) throw new Error('This photo is too big (over 10 MB). Take it again or send a screenshot.')
+        if (small.size > FILE_MAX_BYTES) throw new CantSend('This photo is too big (over 10 MB). Take it again or send a screenshot.')
+        if (unread) update(item.key, { asFile: true, preview: null })
         const name = small === item.source ? item.name : item.name.replace(/\.[^.]+$/, '') + '.jpg'
         file = await ticketFiles.upload(small, name, controller.signal)
       } else {
@@ -90,7 +95,7 @@ export function useAttachments() {
       const keep = got.arrived && e instanceof ApiError && e.code === 'NETWORK' ? got.arrived : null
       update(item.key, {
         status: 'failed',
-        final: e instanceof UnreadablePhoto,
+        final: e instanceof CantSend,
         arrived: keep,
         error: e instanceof Error && !('status' in e) ? e.message : messageOf(e),
       })
@@ -108,16 +113,20 @@ export function useAttachments() {
     const left: string[] = []
     for (const f of files) {
       const kind = kindOf(f)
-      if (!kind) {
-        problems.push(f.type.startsWith('video/') ? `${f.name}: this kind of video can't be sent. Send an MP4 or MOV (the phone camera's own).` : `${f.name}: send a photo, a video or a PDF.`)
-        continue
-      }
       if (kind.kind === 'video' && f.size > VIDEO_MAX_BYTES) {
         problems.push(`${f.name} is ${sizeText(f.size)}, over 100 MB. Send a shorter clip (under a minute on most phones).`)
         continue
       }
-      if (kind.kind === 'pdf' && f.size > FILE_MAX_BYTES) {
-        problems.push(`${f.name} is over 10 MB.`)
+      if (kind.kind === 'file' && f.type.startsWith('video/') && f.size > FILE_MAX_BYTES) {
+        problems.push(`${f.name}: this kind of video can't be played here. Send an MP4 or MOV (the phone camera's own), or one under 10 MB as a file.`)
+        continue
+      }
+      if ((kind.kind === 'pdf' || kind.kind === 'file') && f.size > FILE_MAX_BYTES) {
+        problems.push(`${f.name} is ${sizeText(f.size)}, over 10 MB. Send a smaller one (a video can be up to 100 MB).`)
+        continue
+      }
+      if (f.size === 0) {
+        problems.push(`${f.name} is empty.`)
         continue
       }
       if (added.length >= room) {
@@ -126,7 +135,7 @@ export function useAttachments() {
       }
       const preview = kind.kind === 'photo' && typeof URL.createObjectURL === 'function' ? URL.createObjectURL(f) : null
       if (preview) previews.current.add(preview)
-      added.push({ key: `f${++next}`, kind: kind.kind, name: f.name || (kind.kind === 'photo' ? 'Photo' : kind.kind === 'video' ? 'Video' : 'Document.pdf'), size: f.size, preview, status: 'sending', progress: 0, error: null, final: false, arrived: null, file: null, source: f })
+      added.push({ key: `f${++next}`, kind: kind.kind, name: f.name || (kind.kind === 'photo' ? 'Photo' : kind.kind === 'video' ? 'Video' : kind.kind === 'pdf' ? 'Document.pdf' : 'File'), size: f.size, preview, status: 'sending', progress: 0, error: null, final: false, asFile: kind.kind === 'file', arrived: null, file: null, source: f })
     }
     if (left.length > 0) problems.push(`At most ${MAX_FILES} files in one message, so ${left.join(', ')} ${left.length === 1 ? "wasn't" : "weren't"} added: send ${left.length === 1 ? 'it' : 'them'} in the next one.`)
     if (added.length > 0) {
@@ -146,6 +155,11 @@ export function useAttachments() {
       }
       return list.filter((i) => i.key !== key)
     })
+  }
+
+  /** A preview the browser can't show (an iPhone's HEIC on Chrome): the icon instead of a broken picture. */
+  function dropPreview(key: string) {
+    update(key, { preview: null })
   }
 
   function retry(key: string) {
@@ -169,6 +183,7 @@ export function useAttachments() {
     add,
     remove,
     retry,
+    dropPreview,
     clear,
     /** Still going up: Send waits */
     sending: items.some((i) => i.status === 'sending'),
@@ -184,10 +199,12 @@ export type Attachments = ReturnType<typeof useAttachments>
 function statusText(i: Picked): string {
   if (i.status === 'failed') return i.error ?? "It didn't go up."
   if (i.status === 'sending') return i.kind === 'video' && i.progress > 0 && i.progress < 1 ? `Uploading… ${Math.round(i.progress * 100)}% of ${sizeText(i.size)}` : `Uploading… ${sizeText(i.size)}`
-  return `Attached · ${sizeText(i.file?.sizeBytes ?? i.size)} · goes when you tap Send`
+  return i.asFile || i.file?.contentType === DOWNLOAD_ONLY
+    ? `Attached as a file (it can't be shown here, only downloaded) · ${sizeText(i.file?.sizeBytes ?? i.size)} · goes when you tap Send`
+    : `Attached · ${sizeText(i.file?.sizeBytes ?? i.size)} · goes when you tap Send`
 }
 
-/** "Add photo, video or PDF" and the files picked, each with how it is going and a way to take it out. */
+/** "Add photo, video or file" and the files picked, each with how it is going and a way to take it out. */
 export function AttachmentPicker({ a, id, disabled }: { a: Attachments; id: string; disabled?: boolean }) {
   const input = useRef<HTMLInputElement | null>(null)
   const button = useRef<HTMLButtonElement | null>(null)
@@ -199,7 +216,6 @@ export function AttachmentPicker({ a, id, disabled }: { a: Attachments; id: stri
         id={id}
         type="file"
         multiple
-        accept="image/*,video/*,application/pdf"
         className="sr-only"
         tabIndex={-1}
         aria-hidden="true"
@@ -215,7 +231,7 @@ export function AttachmentPicker({ a, id, disabled }: { a: Attachments; id: stri
         disabled={disabled || a.full}
         onClick={() => input.current?.click()}
       >
-        📎 Add photo, video or PDF
+        📎 Add photo, video or file
       </button>
       {a.full && !problem && <p className="text-xs text-muted">That's the most for one message: send the rest in the next one.</p>}
       {problem && (
@@ -228,10 +244,10 @@ export function AttachmentPicker({ a, id, disabled }: { a: Attachments; id: stri
           {a.items.map((i) => (
             <li key={i.key} className="flex items-center gap-3 rounded-xl border border-line bg-surface p-2">
               {i.preview ? (
-                <img src={i.preview} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                <img src={i.preview} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" onError={() => a.dropPreview(i.key)} />
               ) : (
                 <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-raised text-xl">
-                  {i.kind === 'video' ? '🎬' : i.kind === 'photo' ? '🖼️' : '📄'}
+                  {i.kind === 'video' ? '🎬' : i.kind === 'photo' ? '🖼️' : i.kind === 'pdf' ? '📄' : '📎'}
                 </span>
               )}
               <span className="flex min-w-0 flex-1 flex-col">
@@ -292,15 +308,60 @@ export interface ShownFile {
   contentType: string
   sizeBytes: number
   name: string | null
-  /** Opens it for at least 15 minutes; null once removed */
+  /** Opens it for at least 15 minutes (a file of a kind we don't show: downloads it); null once removed */
   url: string | null
+  /** Saves it under its name; null once removed (missing from an older backend) */
+  downloadUrl?: string | null
   removed: boolean
 }
 
-/** Why a file shows as removed, as the person reading it needs to know. */
-const REMOVED = 'removed (files are kept for 6 months after a request is resolved)'
+/** What a downloaded file is, from its name: "iPhone photo (HEIC)", "DOCX file". */
+function fileKind(name: string | null): string {
+  const ext = name && name.includes('.') ? name.split('.').pop()!.toLowerCase() : ''
+  if (ext === 'heic' || ext === 'heif') return 'iPhone photo (HEIC)'
+  return ext ? `${ext.toUpperCase()} file` : 'file'
+}
 
-/** The photos (tap for full size), videos (played here) and PDFs a message carries. */
+/** A file of a kind we don't show (a Word file, a zip, an iPhone HEIC photo): only downloaded. */
+export const DOWNLOAD_ONLY = 'application/octet-stream'
+
+/**
+ * A video that keeps its place when its link is renewed (every hour, as the page re-reads): the newer link is used
+ * only while it hasn't been started (or has ended). The older one stays valid for at least an hour more.
+ */
+function Video({ url }: { url: string }) {
+  const [src, setSrc] = useState(url)
+  const ref = useRef<HTMLVideoElement | null>(null)
+  useEffect(() => {
+    const v = ref.current
+    if (url !== src && (v === null || (v.paused && (v.currentTime === 0 || v.ended)))) setSrc(url)
+  }, [url, src])
+  return (
+    <video
+      ref={ref}
+      controls
+      preload="metadata"
+      src={src}
+      className="max-h-72 w-full rounded-lg bg-black"
+      onError={() => {
+        // Its link ran out while it was paused part-way: the newer link, from the same place
+        const v = ref.current
+        if (v && url !== src) {
+          const at = v.currentTime
+          setSrc(url)
+          v.addEventListener('loadedmetadata', () => { v.currentTime = at }, { once: true })
+        }
+      }}
+    >
+      <a href={src}>Open the video</a>
+    </video>
+  )
+}
+
+/** Why a file shows as removed, as the person reading it needs to know. */
+const REMOVED = 'removed (files are kept for 6 months after a request is resolved or last written on)'
+
+/** The photos (tap for full size), videos (played here), PDFs and other files (downloaded) a message carries. */
 export function MessageFiles({ files, removedNote = REMOVED }: { files: ShownFile[]; removedNote?: string }) {
   if (files.length === 0) return null
   return (
@@ -315,13 +376,22 @@ export function MessageFiles({ files, removedNote = REMOVED }: { files: ShownFil
               <span className="text-xs text-muted">Tap to see it full size (opens in a new tab)</span>
             </a>
           ) : f.contentType.startsWith('video/') ? (
-            <video controls preload="metadata" src={f.url} className="max-h-72 w-full rounded-lg bg-black">
-              <a href={f.url}>Open the video</a>
-            </video>
-          ) : (
-            <a href={f.url} target="_blank" rel="noreferrer" className="text-sm text-link underline [overflow-wrap:anywhere]">
-              📄 {f.name ?? 'Document.pdf'} · {sizeText(f.sizeBytes)} <span className="text-xs text-muted no-underline">(opens in a new tab)</span>
+            <Video url={f.url} />
+          ) : f.contentType === DOWNLOAD_ONLY ? (
+            <a href={f.downloadUrl ?? f.url} className="text-sm text-link underline [overflow-wrap:anywhere]" aria-label={`Download ${f.name ?? 'the file'}, ${fileKind(f.name)}, ${sizeText(f.sizeBytes)}`}>
+              📎 {f.name ?? 'File'} <span className="text-xs text-muted no-underline">· {fileKind(f.name)} · {sizeText(f.sizeBytes)} · Download</span>
             </a>
+          ) : (
+            <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <a href={f.url} target="_blank" rel="noreferrer" className="text-sm text-link underline [overflow-wrap:anywhere]">
+                📄 {f.name ?? 'Document.pdf'} · {sizeText(f.sizeBytes)} <span className="text-xs text-muted no-underline">(opens in a new tab)</span>
+              </a>
+              {f.downloadUrl && (
+                <a href={f.downloadUrl} className="text-xs text-link underline" aria-label={`Download ${f.name ?? 'the PDF'}`}>
+                  Download
+                </a>
+              )}
+            </span>
           )}
         </li>
       ))}
