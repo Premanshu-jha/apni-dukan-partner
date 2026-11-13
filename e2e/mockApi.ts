@@ -1,3 +1,4 @@
+import { TicketFilesMock, type ShownFile } from './ticketFiles'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -167,7 +168,7 @@ export interface MockTicket {
   status: 'OPEN' | 'WAITING' | 'RESOLVED'
   createdAt: string
   lastMessageAt: string
-  messages: Array<{ seq: number; fromSupport: boolean; supportName: string | null; body: string; attachments: number; at: string }>
+  messages: Array<{ seq: number; fromSupport: boolean; supportName: string | null; body: string; attachments: number; at: string; files?: ShownFile[] }>
 }
 
 /** TicketService.MyTicket */
@@ -179,6 +180,8 @@ export class MockApi {
   user: MockUser = { id: 'u1', phone: '9848012345', name: null, email: null, emailVerified: false, admin: false }
   /** "Need help" tickets sent, in order. */
   tickets: MockTicket[] = []
+  /** Support files (TicketFileService): photos and PDFs, videos to the fake R2. */
+  ticketFiles = new TicketFilesMock(API, API)
   /** Messages of theirs in the last hour, new questions included (TicketService: 429 TOO_MANY_MESSAGES past 20). */
   addedThisHour = 0
   /** A support reply on a ticket, as the admin website would add it (it then waits on the customer). */
@@ -704,6 +707,8 @@ export class MockApi {
     const url = new URL(req.url())
     const method = req.method()
     if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: this.cors() })
+    // Support files (photos and PDFs here, a video to the fake R2): anyone signed in, no shop needed
+    if (await this.ticketFiles.handle(route, url, method, this.user.id, this.cors())) return
     const contentType = req.headers()['content-type'] ?? null
     const raw = req.postData()
     const body = raw && contentType?.includes('json') ? JSON.parse(raw) : undefined
@@ -862,7 +867,10 @@ export class MockApi {
       }
       const text = String(body.message ?? '').trim()
       if (text.length < 10 || text.length > 5000) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { message: 'write 10 to 5000 characters' })
+      const taken = this.ticketFiles.take(body.fileIds, this.user.id)
+      if (!Array.isArray(taken)) return fail(taken.status, taken.code, taken.message)
       const t = this.newTicket(body.app as string, (body.subject as string | null) ?? null, text)
+      t.messages[0].files = taken
       return ok(201, { id: t.id, number: t.number, sentTo: this.user.email })
     }
     // "My requests" (TicketService.mine / myTicket / addToMine): only this person's, newest activity first
@@ -877,14 +885,17 @@ export class MockApi {
       if (!t) return fail(404, 'NOT_FOUND', 'Ticket not found')
       if (help[2] && method === 'POST') {
         const text = String(body.message ?? '').trim()
-        if (text.length < 2 || text.length > 5000) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { message: 'write 2 to 5000 characters' })
+        const withFiles = Array.isArray(body.fileIds) && (body.fileIds as unknown[]).length > 0
+        if ((!withFiles && text.length < 2) || text.length > 5000) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { message: 'write 2 to 5000 characters' })
         // TicketService.addToMine: the same words, still the newest message and not resolved since: a repeat, kept once
         const last = t.messages[t.messages.length - 1]
-        if (t.status !== 'RESOLVED' && last && !last.fromSupport && last.body === text) return ok(200, { ticket: myTicket(t), messages: t.messages })
+        if (!withFiles && t.status !== 'RESOLVED' && last && !last.fromSupport && last.body === text) return ok(200, { ticket: myTicket(t), messages: t.messages })
         if (this.addedThisHour >= 20) return fail(429, 'TOO_MANY_MESSAGES', "You've written a lot in the last hour. We'll read those first.")
+        const taken = this.ticketFiles.take(body.fileIds, this.user.id)
+        if (!Array.isArray(taken)) return fail(taken.status, taken.code, taken.message)
         this.addedThisHour++
         const at = new Date().toISOString()
-        t.messages.push({ seq: t.messages.length + 1, fromSupport: false, supportName: null, body: text, attachments: 0, at })
+        t.messages.push({ seq: t.messages.length + 1, fromSupport: false, supportName: null, body: text, attachments: 0, at, files: taken })
         t.status = 'OPEN'
         t.lastMessageAt = at
       }
