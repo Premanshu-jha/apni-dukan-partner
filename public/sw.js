@@ -80,10 +80,12 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const target = new URL(event.notification.data?.url || '/salon/day', self.location.origin)
-  // Only open this app's own pages (the day board, shop news, hand-over requests, invitations), never another site or a customer-app page.
+  // Only open this app's own pages (the day board, shop news, hand-over requests, invitations, a support request),
+  // never another site or a customer-app page.
   const ours =
     target.origin === self.location.origin &&
-    (target.pathname.startsWith('/salon/') || target.pathname.startsWith('/shops/') || target.pathname === '/handover' || target.pathname === '/invites')
+    (target.pathname.startsWith('/salon/') || target.pathname.startsWith('/shops/') || target.pathname === '/handover' || target.pathname === '/invites' ||
+      /^\/help\/requests\/[0-9A-Za-z-]{1,64}$/.test(target.pathname))
   const url = ours ? (target.pathname.startsWith('/shops/') ? self.location.origin + '/' : target.href) : self.location.origin + '/salon/day'
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
