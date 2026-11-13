@@ -382,4 +382,19 @@ How to use it: every new feature or fix adds or updates rows. A row is done when
 | 368 | Need help | While registering, waiting for approval (helper/barber), or with no shop yet | — | "Need help? Write to support" on every registration step, the not-live page and Start | — | e2e:help "a registering owner can reach Need help…" | OK-tested |
 | 369 | Need help | The email stopped being verified on another device | 403 PROFILE_INCOMPLETE | The profile is read again, the email step, then back to the form with what was typed | — | e2e:help "the email stopped being verified elsewhere…" | OK-tested |
 | 370 | Need help | Two people on one phone | — | The unsent message is kept per person | — | — | OK-untested |
-
+| 371 | My requests | See what I asked support | `GET /helpdesk/tickets` 200 (latest 30, newest activity first) | More → "My requests", and "Asked before? See My requests…" on Need help (also reached from Start and registration): number, subject, status | HelpdeskIT.myRequestsShowOnlyMineAndICanAddToThem | e2e:help "My requests: from More…" | OK-tested |
+| 372 | My requests | Read support's reply in the app | `GET /helpdesk/tickets/{id}` (support's first name; never the internal history) | The conversation; re-read every 30 s | HelpdeskIT.myRequests… | e2e:help "My requests…" | OK-tested |
+| 373 | My requests | Add to a request | `POST …/messages` 200 → back to support (OPEN; asserted in the backend and the customer app) | "Sent. Our support team will read it and reply."; a double tap sends once | HelpdeskIT.myRequests… | e2e:help "My requests…" | OK-tested |
+| 374 | My requests | Write on a resolved request | reopened (OPEN) | "Write again (opens it again)" | HelpdeskIT.myRequests… | e2e:help "My requests…" | OK-tested |
+| 375 | My requests | Too many messages | 429 TOO_MANY_MESSAGES (20 of theirs an hour, new questions included) | The backend's words; what was typed is kept | HelpdeskIT.addingFromTheAppIsLimitedAndASendRepeatedAfterALostAnswerIsKeptOnce | — | OK-untested (app; tested in the customer app) |
+| 376 | My requests | Someone else's request | 404 NOT_FOUND | "Request not found" | HelpdeskIT.myRequests… | e2e:help "after sending…" | OK-tested |
+| 377 | My requests | Leaving or reloading while typing; two people on one phone | — | Kept per person and per request until sent | — | — | OK-untested (app; tested in the customer app) |
+| 378 | My requests | INCONVENIENCE: after sending, nowhere to see the reply but email | — | "See it in My requests" after sending; links from More and Need help | — | e2e:help | OK-tested (fixed) |
+| 379 | My requests | INCONVENIENCE: attachments | counted only | "📎 N files sent by email (they stay in that email)" | — | — | N/A-v1 (decided) |
+| 380 | My requests | The arrows | — | The list ← goes back where they came from (More, Need help), else Home; a request ← the list; never round in a loop | — | e2e:help "the arrows never go round…" | OK-tested (fixed) |
+| 381 | My requests | A send repeated after a lost answer | kept once | — | HelpdeskIT.addingFromTheApp…KeptOnce | — | OK-tested (backend) |
+| 382 | My requests | None yet | `[]` | "No requests yet" with "Write to support" | — | — | OK-untested (app; tested in the customer app) |
+| 383 | My requests | Offline while reading, or the list fails to refresh | — | The last answer stays with "Couldn't refresh" | — | — | OK-untested |
+| 384 | My requests | An email we couldn't prove | never shown | — | HelpdeskIT.anEmailWeCouldNotProveIsNeverShownInTheirApp | — | OK-tested (backend) |
+| 385 | My requests | Invisible characters or ligatures | counted as the backend | — | — | text.test | OK-tested |
+| 386 | My requests | INCONVENIENCE: no shop yet, or mid-registration | — | Their "Need help" link opens Need help, whose top link is "Asked before? See My requests and our replies" (one more tap) | — | e2e:help | OK-tested |

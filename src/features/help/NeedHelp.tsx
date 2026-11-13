@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { authApi } from '../../api/auth'
 import { useSession } from '../../store/session'
 import { cleanedLength, sendError } from './text'
-import { helpApi } from '../../api/help'
+import { helpApi, helpKeys } from '../../api/help'
+import { useQueryClient } from '@tanstack/react-query'
 import { isApiError, messageOf } from '../../api/errors'
 import type { HelpTicket } from '../../api/types'
 import { Banner, Button, Field, Page, TextArea } from '../../components/ui'
@@ -25,6 +26,7 @@ const draftKey = (userId: string) => `pd.helpDraft.${userId}`
  */
 export function NeedHelp() {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const location = useLocation()
   const [params] = useSearchParams()
   const user = useSession((s) => s.user)!
@@ -68,6 +70,7 @@ export function NeedHelp() {
     try {
       const ticket = await helpApi.ask(message.trim(), subject)
       storage.remove(DRAFT_KEY)
+      void qc.invalidateQueries({ queryKey: helpKeys.mine })   // My requests shows it at once
       setDone(ticket)
     } catch (err) {
       if (isApiError(err, 'PROFILE_INCOMPLETE')) {
@@ -100,15 +103,30 @@ export function NeedHelp() {
           <span className="[overflow-wrap:anywhere]">{done.sentTo}</span> as soon as we can.
         </Banner>
         <p className="text-sm text-muted">
-          We've emailed you a copy. To add anything, reply to that email (keep {done.number} in the subject).
+          We've emailed you a copy. To add anything, open it in My requests, or reply to that email (keep{' '}
+          {done.number} in the subject).
         </p>
-        <Button onClick={() => navigate('/', { replace: true })}>Done</Button>
+        <Button
+          onClick={() => {
+            // Need help → My requests → the request: ← goes to the list, and its ← home (Need help is done)
+            navigate('/help/requests', { replace: true })
+            navigate(`/help/requests/${done.id}`, { state: { fromList: true } })
+          }}
+        >
+          See it in My requests
+        </Button>
+        <Button variant="secondary" onClick={() => navigate('/', { replace: true })}>
+          Done
+        </Button>
       </Page>
     )
   }
 
   return (
     <Page title="Need help" back>
+      <Link to="/help/requests" state={{ from: true }} className="self-start text-sm text-link underline">
+        Asked before? See My requests and our replies
+      </Link>
       <p className="text-muted">
         Tell us what happened. For a booking, add its number (like SB7K3Q9X). We see your salon with your message and
         reply by email.

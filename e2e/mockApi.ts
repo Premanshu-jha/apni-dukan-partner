@@ -157,10 +157,52 @@ function normalize(input: unknown): string | null {
   return /^[6-9]\d{9}$/.test(d) ? d : null
 }
 
+export interface MockTicket {
+  id: string
+  number: string
+  owner: string
+  app: string
+  subject: string | null
+  message: string
+  status: 'OPEN' | 'WAITING' | 'RESOLVED'
+  createdAt: string
+  lastMessageAt: string
+  messages: Array<{ seq: number; fromSupport: boolean; supportName: string | null; body: string; attachments: number; at: string }>
+}
+
+/** TicketService.MyTicket */
+function myTicket(t: MockTicket) {
+  return { id: t.id, number: t.number, subject: t.subject, status: t.status, createdAt: t.createdAt, lastMessageAt: t.lastMessageAt }
+}
+
 export class MockApi {
   user: MockUser = { id: 'u1', phone: '9848012345', name: null, email: null, emailVerified: false, admin: false }
   /** "Need help" tickets sent, in order. */
-  tickets: Array<{ app: string; subject: string | null; message: string }> = []
+  tickets: MockTicket[] = []
+  /** Messages of theirs in the last hour, new questions included (TicketService: 429 TOO_MANY_MESSAGES past 20). */
+  addedThisHour = 0
+  /** A support reply on a ticket, as the admin website would add it (it then waits on the customer). */
+  supportReplies(ticket: MockTicket, body: string, name = 'Neha') {
+    ticket.messages.push({ seq: ticket.messages.length + 1, fromSupport: true, supportName: name, body, attachments: 0, at: new Date().toISOString() })
+    ticket.status = 'WAITING'
+    ticket.lastMessageAt = new Date().toISOString()
+  }
+  /** Someone else's ticket (to check it is never shown). */
+  addOthersTicket(): MockTicket {
+    const t = this.newTicket('CUSTOMER', 'Not mine', 'Another account asked this.', 'someone-else')
+    return t
+  }
+  newTicket(app: string, subject: string | null, message: string, owner = this.user.id): MockTicket {
+    const n = 1001 + this.tickets.length
+    const at = new Date().toISOString()
+    const t: MockTicket = {
+      id: `t${n}`, number: `CLZ-${n}`, owner, app, subject, message, status: 'OPEN', createdAt: at, lastMessageAt: at,
+      messages: [{ seq: 1, fromSupport: false, supportName: null, body: message, attachments: 0, at }],
+    }
+    this.tickets.push(t)
+    if (owner === this.user.id) this.addedThisHour++   // TicketService counts every message of theirs in the hour
+    return t
+  }
   /** Paths (with the query) answered 304 Not Modified, in order. */
   notModified: string[] = []
   calls: Call[] = []
@@ -818,9 +860,33 @@ export class MockApi {
       }
       const text = String(body.message ?? '').trim()
       if (text.length < 10 || text.length > 5000) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { message: 'write 10 to 5000 characters' })
-      const n = 1001 + this.tickets.length
-      this.tickets.push({ app: body.app, subject: body.subject ?? null, message: text })
-      return ok(201, { id: `t${n}`, number: `CLZ-${n}`, sentTo: this.user.email })
+      const t = this.newTicket(body.app as string, (body.subject as string | null) ?? null, text)
+      return ok(201, { id: t.id, number: t.number, sentTo: this.user.email })
+    }
+    // "My requests" (TicketService.mine / myTicket / addToMine): only this person's, newest activity first
+    if (p === '/helpdesk/tickets' && method === 'GET') {
+      const mine = this.tickets.filter((t) => t.owner === this.user.id)
+        .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt)).slice(0, 30)
+      return ok(200, mine.map(myTicket))
+    }
+    const help = p.match(/^\/helpdesk\/tickets\/([^/]+)(\/messages)?$/)
+    if (help) {
+      const t = this.tickets.find((x) => x.id === help[1] && x.owner === this.user.id)
+      if (!t) return fail(404, 'NOT_FOUND', 'Ticket not found')
+      if (help[2] && method === 'POST') {
+        const text = String(body.message ?? '').trim()
+        if (text.length < 2 || text.length > 5000) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { message: 'write 2 to 5000 characters' })
+        // TicketService.addToMine: the same words, still the newest message and not resolved since: a repeat, kept once
+        const last = t.messages[t.messages.length - 1]
+        if (t.status !== 'RESOLVED' && last && !last.fromSupport && last.body === text) return ok(200, { ticket: myTicket(t), messages: t.messages })
+        if (this.addedThisHour >= 20) return fail(429, 'TOO_MANY_MESSAGES', "You've written a lot in the last hour. We'll read those first.")
+        this.addedThisHour++
+        const at = new Date().toISOString()
+        t.messages.push({ seq: t.messages.length + 1, fromSupport: false, supportName: null, body: text, attachments: 0, at })
+        t.status = 'OPEN'
+        t.lastMessageAt = at
+      }
+      return ok(200, { ticket: myTicket(t), messages: t.messages })
     }
     if (p === '/auth/email/send-code') return ok(202)
     if (p === '/auth/email/verify') {

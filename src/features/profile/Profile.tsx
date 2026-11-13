@@ -228,6 +228,9 @@ export function Profile() {
         <Link to="/help" className="text-sm text-link underline">
           Write to support
         </Link>
+        <Link to="/help/requests" state={{ from: true }} className="text-sm text-link underline">
+          My requests (our replies and yours)
+        </Link>
         <p className="text-sm text-muted">
           Or email{' '}
           <a href={`mailto:${SUPPORT_EMAIL}`} className="text-link underline [overflow-wrap:anywhere]">

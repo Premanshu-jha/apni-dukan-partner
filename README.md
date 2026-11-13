@@ -332,6 +332,14 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.17.0 — 2026-11-12
+
+- **My requests** (needs the backend's round-2 helpdesk): More → "My requests" (also linked at the top of Need help)
+  lists what you asked support with its status. Open one to read the whole conversation, support's replies included
+  (also sent by email), and add to it in the app; writing on a resolved request opens it again. What you type is kept
+  until it's sent. After sending a question, "See it in My requests" opens it. The arrows never go round in a loop;
+  a send repeated after a lost answer is kept once; the character count matches the backend's.
+
 ### 0.16.0 — 2026-11-12
 
 - **Need help** (`/help`, needs backend V46): owners, helpers and barbers write to support in the app; it becomes a
