@@ -51,9 +51,11 @@ export class TicketFilesMock {
       }
       const raw = route.request().postDataBuffer()?.toString('latin1') ?? ''
       const pdf = raw.includes('%PDF-') || /filename="[^"]*\.pdf"/i.test(raw)
+      // As the backend: a JPEG/PNG photo (by its bytes) or a PDF is shown, anything else only downloaded
+      const photo = raw.includes('\xff\xd8\xff') || raw.includes('\x89PNG')
       const name = /filename="([^"]*)"/.exec(raw)?.[1] ?? null
       const id = `tf${++this.n}`
-      const f = { owner: userId, contentType: pdf ? 'application/pdf' : 'image/jpeg', sizeBytes: Math.max(1000, raw.length), name, sent: false }
+      const f = { owner: userId, contentType: pdf ? 'application/pdf' : photo ? 'image/jpeg' : 'application/octet-stream', sizeBytes: Math.max(1000, raw.length), name, sent: false }
       this.files.set(id, f)
       return json(201, { id, contentType: f.contentType, sizeBytes: f.sizeBytes, name })
     }
@@ -100,13 +102,14 @@ export class TicketFilesMock {
     for (const id of list) {
       const f = this.files.get(id)
       if (!f || f.owner !== owner) return { status: 400, code: 'FILE_NOT_FOUND', message: 'A file you added is no longer there. Add it again.' }
-      if (f.sent) return { status: 409, code: 'FILE_ALREADY_SENT', message: 'A file you added was sent already. Add it again to send it once more.' }
+      if (f.sent) return { status: 409, code: 'FILE_ALREADY_SENT', message: `"${f.name ?? 'A file'}" was sent already. Remove it and add it again to send it once more.` }
     }
     return list.map((id) => {
       const f = this.files.get(id)!
       f.sent = true
-      const ext = f.contentType.startsWith('video/') ? 'mp4' : f.contentType === 'application/pdf' ? 'pdf' : 'png'
-      return { id, contentType: f.contentType, sizeBytes: f.sizeBytes, name: f.name, url: `${this.media}/ticket-media/${id}.${ext}`, removed: false }
+      const ext = f.contentType.startsWith('video/') ? 'mp4' : f.contentType === 'application/pdf' ? 'pdf' : f.contentType === 'application/octet-stream' ? 'bin' : 'png'
+      const download = `${this.media}/ticket-media/${id}.${ext}?download=1`
+      return { id, contentType: f.contentType, sizeBytes: f.sizeBytes, name: f.name, url: ext === 'bin' ? download : `${this.media}/ticket-media/${id}.${ext}`, downloadUrl: download, removed: false }
     })
   }
 }

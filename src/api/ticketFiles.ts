@@ -39,8 +39,11 @@ export function isJpegOrPng(type: string): boolean {
   return base === 'image/jpeg' || base === 'image/png'
 }
 
-/** What a picked file is: a photo, a video (its type to send), a PDF, or something we don't take. */
-export function kindOf(file: { type: string; name?: string }): { kind: 'photo' | 'pdf' } | { kind: 'video'; type: string } | null {
+/**
+ * What a picked file is: a photo (shrunk, then shown), a PDF (shown), a video (straight to storage, played), or any
+ * other file (a Word file, a zip, an iPhone HEIC photo): sent as it is, at most 10 MB, and only ever downloaded.
+ */
+export function kindOf(file: { type: string; name?: string }): { kind: 'photo' | 'pdf' | 'file' } | { kind: 'video'; type: string } {
   const base = file.type.split(';')[0].trim().toLowerCase()
   const ext = file.name?.split('.').pop()?.toLowerCase() ?? ''
   if (base === 'image/jpeg' || base === 'image/png' || base === 'image/heic' || base === 'image/heif' || base === 'image/webp') return { kind: 'photo' }
@@ -48,11 +51,11 @@ export function kindOf(file: { type: string; name?: string }): { kind: 'photo' |
   if (VIDEO_TYPES[base]) return { kind: 'video', type: VIDEO_TYPES[base] }
   if ((!base || base === 'application/octet-stream') && VIDEO_BY_EXTENSION[ext]) return { kind: 'video', type: VIDEO_BY_EXTENSION[ext] }
   if ((!base || base === 'application/octet-stream') && ['jpg', 'jpeg', 'png'].includes(ext)) return { kind: 'photo' }
-  return null
+  return { kind: 'file' }
 }
 
 export const ticketFiles = {
-  /** A photo (already shrunk to a JPEG) or a PDF, at most 10 MB. Cancelled with the signal (it counts towards the day's 30 otherwise). */
+  /** A photo (already shrunk to a JPEG), a PDF or any other file, at most 10 MB. Cancelled with the signal (it counts towards the day's 30 otherwise). */
   upload: (file: Blob, name: string, signal?: AbortSignal) => {
     const form = new FormData()
     form.append('file', file, name)

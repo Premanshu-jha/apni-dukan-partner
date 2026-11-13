@@ -332,6 +332,14 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.21.0 — 2026-11-13
+
+- **Any kind of file with a support request** (needs the backend's round-5 helpdesk, V54), as in the customer app:
+  Word, Excel, zip and other files up to 10 MB, an iPhone HEIC photo as a file; shown as a download, a PDF with a
+  "Download" link too.
+- A resolved request (and a tab in the background) is no longer re-read every 30 seconds; a playing video keeps its
+  place when its link is renewed.
+
 ### 0.20.0 — 2026-11-13
 
 - **Files sent by email show in My requests** (needs the backend's round-4b helpdesk, V52–V53), as in the customer

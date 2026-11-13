@@ -27,9 +27,18 @@ export function useMyRequests() {
   return useQuery({ queryKey: helpKeys.mine, queryFn: helpApi.mine })
 }
 
-/** Re-read every 30 s while open, so support's reply shows without leaving the page. */
+/**
+ * Re-read every 30 s while open and not resolved, so support's reply shows without leaving the page. A resolved one
+ * isn't polled (thousands of open pages would otherwise keep asking); it is read again when you come back to the tab.
+ * A tab in the background never polls.
+ */
 export function useMyRequest(id: string) {
-  return useQuery({ queryKey: helpKeys.one(id), queryFn: () => helpApi.one(id), refetchInterval: 30_000 })
+  return useQuery({
+    queryKey: helpKeys.one(id),
+    queryFn: () => helpApi.one(id),
+    refetchInterval: (q) => (q.state.data?.ticket.status === 'RESOLVED' ? false : 30_000),
+    refetchIntervalInBackground: false,
+  })
 }
 
 export function useAddToRequest(id: string) {

@@ -512,14 +512,16 @@ export interface MyRequestMessage {
   files?: RequestFile[]
 }
 
-/** A photo, video or PDF on a message. */
+/** A file on a message (a photo, video or PDF shown; any other kind only downloaded). */
 export interface RequestFile {
   id: string
   contentType: string
   sizeBytes: number
   name: string | null
-  /** Opens it for at least 15 minutes; null once removed */
+  /** Opens it for at least 15 minutes (a file of a kind we don't show: downloads it); null once removed */
   url: string | null
+  /** Saves it under its name; null once removed */
+  downloadUrl?: string | null
   /** Deleted (6 months after the request was resolved, or the account was deleted) */
   removed: boolean
 }
