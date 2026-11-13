@@ -91,3 +91,13 @@ test('the arrows never go round: after sending, the request ← list ← Home', 
   await page.getByRole('button', { name: 'Back' }).click()
   await expect(page).not.toHaveURL(/\/help/)
 })
+
+test('"Support replied" is in the notifications and opens the request', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  const t = api.newTicket('PARTNER', 'Payout', 'My payout for last week has not arrived yet.')
+  api.supportReplies(t, 'It goes out on Monday.')
+  await page.goto('/notifications')
+  await page.getByText('Support replied on CLZ-1001').click()
+  await expect(page).toHaveURL(new RegExp(`/help/requests/${t.id}$`))
+  await expect(page.getByText('It goes out on Monday.')).toBeVisible()
+})

@@ -56,7 +56,14 @@ describe('service worker', () => {
     await tap('/shops/me')
     await tap('https://evil.example/handover')
     await tap('/invites')
-    expect(self.clients.openWindow.mock.calls.map(([u]) => u)).toEqual([`${ORIGIN}/handover`, `${ORIGIN}/`, `${ORIGIN}/salon/day`, `${ORIGIN}/invites`])
+    await tap('/help/requests/0f8b2a6e-1c2d-4e5f-8a9b-0c1d2e3f4a5b')
+    expect(self.clients.openWindow.mock.calls.map(([u]) => u)).toEqual([
+      `${ORIGIN}/handover`,
+      `${ORIGIN}/`,
+      `${ORIGIN}/salon/day`,
+      `${ORIGIN}/invites`,
+      `${ORIGIN}/help/requests/0f8b2a6e-1c2d-4e5f-8a9b-0c1d2e3f4a5b`,
+    ])
   })
 
   it('two messages of the same type are two notifications (no tag replaces the first)', async () => {

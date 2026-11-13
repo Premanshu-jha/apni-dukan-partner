@@ -201,6 +201,8 @@ describe('messages', () => {
     expect(safePath('/setup/address')).toBe('/setup/address')   // an address change declined
     expect(safePath('/setup/staff')).toBeNull()
     expect(safePath('/invites')).toBe('/invites')
+    expect(safePath('/help/requests/0f8b2a6e-1c2d-4e5f-8a9b-0c1d2e3f4a5b')).toBe('/help/requests/0f8b2a6e-1c2d-4e5f-8a9b-0c1d2e3f4a5b')   // support replied
+    expect(safePath('/help/requests/../../admin')).toBeNull()
     expect(safePath('/handover/../evil')).toBeNull()
     expect(safePath('/bookings/b1')).toBeNull()
     expect(safePath('//evil.example')).toBeNull()
