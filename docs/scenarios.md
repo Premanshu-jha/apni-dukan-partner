@@ -404,3 +404,4 @@ How to use it: every new feature or fix adds or updates rows. A row is done when
 | 390 | Files | No shop yet (mid-registration, a helper of a salon not live) | allowed: files belong to the person | — | — | — | OK-untested |
 | 391 | Sign out | Typed but unsent words in Need help or My requests | — | Signing out forgets them | — | — | OK-untested (tested in the customer app) |
 | 392 | Files | The fixes of customer rows 346, 351, 353–364 (HEIC refused at once, the 6th file named, a lost answer kept once, 30 a day, "Uploading…"/"Attached" wording, finishing the profile drops the files with a note) | as there | as there | as there | e2e:help "a photo and a video…" | OK-tested (the same code as the customer app) |
+| 393 | Files | Files sent by email to support (customer rows 367–368) | as there | as there | as there | — | OK-untested (the same screen as the customer app) |

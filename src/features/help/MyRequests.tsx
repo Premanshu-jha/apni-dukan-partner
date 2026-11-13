@@ -92,7 +92,7 @@ function Message({ m }: { m: MyRequestMessage }) {
       <MessageFiles files={m.files ?? []} />
       {m.attachments > 0 && (
         <p className="text-xs text-muted">
-          📎 {m.attachments} {m.attachments === 1 ? 'file' : 'files'} sent by email (they stay in that email)
+          📎 {m.attachments} {(m.files ?? []).length > 0 ? 'more ' : ''}{m.attachments === 1 ? 'file' : 'files'} sent by email (only in that email: we see {m.attachments === 1 ? 'it' : 'them'} there)
         </p>
       )}
     </li>

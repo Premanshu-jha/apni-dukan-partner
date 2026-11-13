@@ -332,6 +332,11 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.20.0 — 2026-11-13
+
+- **Files sent by email show in My requests** (needs the backend's round-4b helpdesk, V52–V53), as in the customer
+  app; any other file is counted ("📎 1 more file sent by email…").
+
 ### 0.19.0 — 2026-11-13
 
 - **Photos, videos and PDFs with a support request** (needs the backend's round-4a helpdesk, V49–V51): "📎 Add photo,
