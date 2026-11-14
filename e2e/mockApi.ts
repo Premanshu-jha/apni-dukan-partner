@@ -228,6 +228,12 @@ export class MockApi {
   ratings: Json[] = []
   /** Offers (OwnerOffer rows, newest first) and how many past customers would get the message (RECIPIENTS) */
   offers: Json[] = []
+  /** The salon's offer applying right now to walk-ins (SalonOffer.price at this minute): tests set it. */
+  offerNow: { percentOff: number; serviceIds: string[]; until?: string | null } | null = null
+  /** GET /salon/walk-ins/prices answers 500 every time while set. */
+  walkInPricesDown = false
+  /** The walk-ins asked for (their bodies), oldest first. */
+  walkInRequests: Record<string, unknown>[] = []
   offerCustomers = 3
   ratingSummary: Json = { count: 0, average: null, tags: [] }
   appointments: Json[] = []
@@ -238,6 +244,21 @@ export class MockApi {
   files: Json[] = []
   /** The staff id this person signs in as (a barber). */
   myStaffId: string | null = null
+  /** Every active service's price for a walk-in now, as GET /salon/walk-ins/prices answers. */
+  walkInPricesNow(): Record<string, unknown>[] {
+    const o = this.offerNow
+    return this.services.filter((v) => v.active).map((v) => {
+      const covered = o && o.serviceIds.includes(v.id as string)
+      return {
+        serviceId: v.id,
+        pricePaise: covered ? offerPriceOf(v.pricePaise as number, o.percentOff) : v.pricePaise,
+        priceIsFrom: v.priceIsFrom,
+        listPricePaise: covered ? v.pricePaise : null,
+        offerUntil: covered ? (o.until ?? null) : null,
+      }
+    })
+  }
+
   /** This person may add walk-ins (owner always). */
   walkIns = true
   /**
@@ -1967,6 +1988,12 @@ export class MockApi {
       return ok(200, this.view(a))
     }
 
+    if (p === '/salon/walk-ins/prices' && method === 'GET') {
+      // SalonDayService.walkInPrices: every active service, the offer applying now on the ones it covers
+      if (!this.walkIns) return fail(403, 'WALK_INS_NOT_ALLOWED', 'The owner hasn’t allowed you to add walk-ins.')
+      if (this.walkInPricesDown) return fail(500, 'INTERNAL_ERROR', 'Something went wrong on our side.')
+      return ok(200, this.walkInPricesNow())
+    }
     if (p === '/salon/walk-ins/options') {
       if (!this.walkIns) return fail(403, 'WALK_INS_NOT_ALLOWED', 'The owner hasn’t allowed you to add walk-ins.')
       const ids = url.searchParams.getAll('services')
@@ -1986,6 +2013,13 @@ export class MockApi {
       if (earlier) return ok(201, this.view(earlier))
       if (body.name !== null && (body.name.trim().length < 2 || body.name.length > 60)) {
         return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { name: 'must be 2 to 60 letters' })
+      }
+      this.walkInRequests.push(body)
+      // SalonDayService.addWalkIn: the total the screen showed must still be the price now (nothing added otherwise)
+      const total = this.walkInPricesNow().filter((x) => (body.serviceIds as string[]).includes(x.serviceId as string))
+        .reduce((t, x) => t + (x.pricePaise as number), 0)
+      if (body.expectedPricePaise != null && body.expectedPricePaise !== total) {
+        return fail(409, 'PRICE_CHANGED', 'The price changed just now. Check the new total with the customer, then add again.', { pricePaise: total })
       }
       const a = this.addBooking({ kind: 'WALK_IN', staffId: body.staffId, serviceIds: body.serviceIds, startsAt: minutesFromNow(0), status: 'IN_SERVICE', customerName: null, customerPhone: null, bookingNo: null, guestName: body.name, key, createdBy: this.user.id, startedAt: minutesFromNow(0) })
       return ok(201, this.view(a))

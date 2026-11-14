@@ -1,3 +1,4 @@
+import type { ServiceIconName } from '../lib/serviceIcons'
 import { useInfiniteQuery, useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { api } from './client'
@@ -20,7 +21,7 @@ import type {
   Settings,
   Shift,
   Staff,
-  WalkInOption,
+  WalkInOption, WalkInPrice,
 } from './types'
 
 const S = '/api/v1/salon'
@@ -32,6 +33,8 @@ export const salonKeys = {
   settings: ['salon', 'settings'] as const,
   catalog: ['salon', 'service-catalog'] as const,
   hours: ['salon', 'hours'] as const,
+  /** Each service's price for a walk-in now (with the salon's offer). */
+  walkInPrices: ['salon', 'walk-in-prices'] as const,
   ratings: ['salon', 'ratings'] as const,
   day: (date: string) => ['salon', 'day', date] as const,
   days: ['salon', 'day'] as const,
@@ -56,6 +59,8 @@ export interface ServiceIn {
   sortOrder?: number
   /** Days after a visit to remind the customer to come back (0: never); 14 when left out. */
   returnAfterDays?: number
+  /** Its picture (lib/serviceIcons), one of those that fit its name. */
+  icon?: ServiceIconName
 }
 
 // ---------- setup (reads: anyone in the salon; changes: owner only) ----------
@@ -151,9 +156,12 @@ export const dayApi = {
     api<Appointment>('POST', `${S}/appointments/${id}/reassign`, { body: { staffId } }),
   cancel: (id: string, reason: string) => api<Appointment>('POST', `${S}/appointments/${id}/cancel`, { body: { reason } }),
 
+  /** Every active service's price for a walk-in starting now, with the salon's offer where one applies now. */
+  walkInPrices: () => api<WalkInPrice[]>('GET', `${S}/walk-ins/prices`),
   walkInOptions: (serviceIds: string[]) =>
     api<WalkInOption[]>('GET', `${S}/walk-ins/options?${serviceIds.map((s) => `services=${s}`).join('&')}`),
-  addWalkIn: (key: string, body: { serviceIds: string[]; staffId: string; name: string | null }) =>
+  /** expectedPricePaise: the total the screen showed; a different price now is 409 PRICE_CHANGED (nothing added). */
+  addWalkIn: (key: string, body: { serviceIds: string[]; staffId: string; name: string | null; expectedPricePaise?: number }) =>
     api<Appointment>('POST', `${S}/walk-ins`, { body, headers: { 'Idempotency-Key': key } }),
 
   conflicts: (staffId: string, from: string, to: string) =>
@@ -361,7 +369,7 @@ export async function addOwnerAsBarber(qc: QueryClient) {
 }
 
 /** The setup's queries (barbers, services, booking rules, who may add walk-ins): a setup change reads them again. */
-export const SETUP_KEYS: QueryKey[] = [salonKeys.services, salonKeys.staff, salonKeys.settings, salonKeys.members, salonKeys.hours]
+export const SETUP_KEYS: QueryKey[] = [salonKeys.services, salonKeys.staff, salonKeys.settings, salonKeys.members, salonKeys.hours, salonKeys.walkInPrices]
 
 /**
  * Whether anything comes after the capped coming-up list: the page after the last loaded booking, asked once (not
