@@ -37,7 +37,8 @@ test('a new owner signs up, registers the salon in five steps and waits for the 
 
   await expect(page).toHaveURL(/\/register\/photos$/)
   const create = api.calls.find((c) => c.method === 'POST' && c.path === '/api/v1/shops')!
-  expect(create.body).toMatchObject({ name: 'Shine Unisex Salon', pincode: '201309', latitude: 28.627, longitude: 77.372, gstin: null, type: 'SALON' })
+  expect(create.body).toMatchObject({ name: 'Shine Unisex Salon', pincode: '201309', latitude: 28.627, longitude: 77.372, type: 'SALON' })
+  expect(create.body).not.toHaveProperty('gstin')   // a salon has no GSTIN or Udyam number now
 
   // Step 2: photos and papers. Uploads need the shop in the token: the app refreshed after creating the shop.
   await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
@@ -45,19 +46,20 @@ test('a new owner signs up, registers the salon in five steps and waits for the 
   await page.getByLabel('Add shop front').setInputFiles({ name: 'shop.jpg', mimeType: 'image/jpeg', buffer: JPEG })
   await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()   // the salon video too
   await page.getByLabel('Record video').setInputFiles({ name: 'salon.mp4', mimeType: 'video/mp4', buffer: fakeMp4() })
-  await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()   // the registration document is optional
-  await expect(page.getByText(/customers see "Registered"/)).toBeVisible()
-  await expect(page.getByLabel('Add the registration document')).toBeDisabled()   // which one, first
-  await page.getByLabel('Trade licence').check()
-  await page.getByLabel('Add the registration document').setInputFiles({ name: 'licence.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test') })
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()   // the trade licence is optional
+  await expect(page.getByText(/and get "Licensed" on your salon/)).toBeVisible()
+  await page.getByLabel('Add the trade licence').setInputFiles({ name: 'licence.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test') })
   await expect(page.getByText('Added: Trade licence.')).toBeVisible()
+  await expect(page.getByText('Checking your trade licence.', { exact: false })).toBeVisible()
   // A wrong one: removed again (it's optional), then the right one
   await page.getByRole('button', { name: 'Remove it' }).click()
   await expect(page.getByText('Added: Trade licence.')).toBeHidden()
   expect(api.shop!.registrationDocFileId).toBeNull()
-  await page.getByLabel('Trade licence').check()
-  await page.getByLabel('Add the registration document').setInputFiles({ name: 'licence.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test') })
+  await page.getByLabel('Add the trade licence').setInputFiles({ name: 'licence.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test') })
   await expect(page.getByText('Added: Trade licence.')).toBeVisible()
+  // The check answers while the owner is still here: the page reads the salon again by itself
+  api.finishLicenceCheck({ passedUntil: '2027-03-31' })
+  await expect(page.getByText('Checked: customers see "Licensed" on your salon until 31 Mar 2027.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()
   const uploads = api.calls.filter((c) => c.method === 'POST' && c.path.startsWith('/api/v1/files?'))
   expect(uploads.map((u) => u.path)).toEqual([
@@ -138,12 +140,14 @@ test('a half-done registration comes back where it was, with the field team’s 
   await expect(page).toHaveURL(/\/register\?from=review$/)
   await expect(page.getByText('The board in the photo is not readable.')).toBeVisible()
   await expect(page.getByLabel('Salon name')).toHaveValue('Shine Unisex Salon')
-  await page.getByLabel('GSTIN').fill('27aapfu0939f1zv')
+  await expect(page.getByLabel('GSTIN')).toHaveCount(0)   // a salon has none now
+  await page.getByLabel('Salon name').fill('Shine Unisex Salon & Spa')
   await page.getByRole('button', { name: 'Save and continue' }).click()
   // Opened from the review: back to it, not on to Photos
   await expect(page).toHaveURL(/\/register\/review$/)
   const patch = api.calls.find((c) => c.method === 'PATCH')!
-  expect(patch.body).toMatchObject({ version: 3, gstin: '27AAPFU0939F1ZV', udyamNumber: '' })
+  expect(patch.body).toMatchObject({ version: 3, name: 'Shine Unisex Salon & Spa' })
+  expect(patch.body).not.toHaveProperty('gstin')
   // The board screens stay closed until it is submitted
   await page.goto('/salon/day')
   await expect(page).toHaveURL(/\/register\/review$/)

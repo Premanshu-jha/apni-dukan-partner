@@ -73,7 +73,7 @@ test('the review shows what is missing and Submit stays off until the hours are 
   api.staff = []   // no barbers yet, as at registration
   await page.goto('/register/review')
   await expect(page.getByText('Opening hours: missing')).toBeVisible()
-  await expect(page.getByText('Registration document: not added (optional)')).toBeVisible()
+  await expect(page.getByText('Trade licence: not added (optional)')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Submit for the visit' })).toBeDisabled()
   await page.getByRole('link', { name: 'Set' }).click()
   await page.getByRole('button', { name: 'Save and continue' }).click()

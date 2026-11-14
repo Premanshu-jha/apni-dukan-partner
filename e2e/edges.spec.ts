@@ -127,7 +127,7 @@ test('signing out in one tab clears the other tab before the next person signs i
 test('an unsaved registration draft isn’t shown to the next person on the phone', async ({ page, context, api }) => {
   await signedIn(context, api)
   await page.goto('/register')
-  await page.getByLabel('GSTIN').fill('27AAPFU0939F1ZV')
+  await page.getByLabel('Salon name').fill('Ravi’s Private Salon')
   await page.getByRole('button', { name: 'Sign out' }).click()
   await expect(page).toHaveURL(/\/signin$/)
   api.user = { ...MockApi.completeUser(), id: 'u2', phone: '9000000005' }
@@ -135,7 +135,7 @@ test('an unsaved registration draft isn’t shown to the next person on the phon
   await page.getByRole('button', { name: 'Send code' }).click()
   await page.getByLabel('Code').fill('123456')
   await page.goto('/register')
-  await expect(page.getByLabel('GSTIN')).toHaveValue('')
+  await expect(page.getByLabel('Salon name')).toHaveValue('')
 })
 
 test('a cleared date doesn’t break History or the break form', async ({ page, context, api }) => {
