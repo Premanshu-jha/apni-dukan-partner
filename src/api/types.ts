@@ -28,15 +28,52 @@ export interface ErrorBody {
 
 // ---------- the shop ----------
 
-/** Any one of these will do as the salon's registration document. */
+/**
+ * The salon's registration document. Only TRADE_LICENCE can be added now; a SHOPS_ESTABLISHMENT or UDYAM one added
+ * before stays until replaced, and no longer counts (its check FAILED, NOT_TRADE_LICENCE).
+ */
 export type RegistrationDocType = 'SHOPS_ESTABLISHMENT' | 'TRADE_LICENCE' | 'UDYAM'
+
+/** The automatic check of the trade licence: being checked, passed ("Licensed"), or not accepted. */
+export type LicenceCheck = 'PENDING' | 'PASSED' | 'FAILED'
+
+/** What the licence check read from the trade licence (null where not on it). */
+export interface LicenceRead {
+  readable: boolean
+  tradeLicence: boolean
+  looksEdited: boolean
+  provisional: boolean
+  salonTrade: boolean
+  issuingBody: string | null
+  licenceNumber: string | null
+  tradeName: string | null
+  ownerName: string | null
+  address: string | null
+  pincode: string | null
+  tradeCategory: string | null
+  validUntil: string | null
+}
+
+/** Why a trade licence wasn't accepted (LicenceCheckReason on the backend). */
+export type LicenceCheckReason =
+  | 'UNREADABLE'
+  | 'NOT_TRADE_LICENCE'
+  | 'LOOKS_EDITED'
+  | 'NO_NUMBER'
+  | 'NOT_A_SALON_TRADE'
+  | 'NO_VALIDITY'
+  | 'EXPIRED'
+  | 'NAME_MISMATCH'
+  | 'ADDRESS_MISMATCH'
+  | 'DUPLICATE'
+  | 'NOT_READ'
 
 /** CLOSED: its owner closed it for good (seen in the answer to closing; after that the owner has no shop). */
 export type ShopStatus = 'DRAFT' | 'PENDING_VISIT' | 'APPROVED' | 'SUSPENDED' | 'CLOSED'
 export type ShopType = 'KIRANA' | 'SALON'
 export type ShopRole = 'OWNER' | 'HELPER' | 'BARBER'
 
-/** GET /shops/me. GSTIN, Udyam number and the owner's photo come only to the owner. */
+/** GET /shops/me. The owner's photo comes only to the owner. A salon has no GSTIN or Udyam number (always null). */
 export interface Shop {
   id: string
   shopCode: number
@@ -62,11 +99,21 @@ export interface Shop {
   /** The registration document (optional; the owner can add, change or remove it any time); the owner's view only. */
   registrationDocType?: RegistrationDocType | null
   registrationDocFileId?: string | null
-  /** When our field team checked it (customers then see "Registered"); null if not yet or none. */
+  /** When it passed the automatic check; null if not (yet) or none. */
   registrationDocCheckedAt?: string | null
+  /** The automatic check of the trade licence; null without one (or from an older backend). The owner's view only. */
+  licenceCheck?: LicenceCheck | null
+  /** Why it FAILED; null otherwise. */
+  licenceCheckReason?: LicenceCheckReason | null
+  /** Its last valid day (YYYY-MM-DD) once PASSED: customers see "Licensed" until then. */
+  licenceValidUntil?: string | null
+  /** When this check started (a PENDING one has waited since then). */
+  licenceCheckSince?: string | null
+  /** What the check read from it (to compare with the salon's details when it wasn't accepted); null if not read. */
+  licenceRead?: LicenceRead | null
   /**
-   * When our field team's re-check of a live salon's changes started waiting (the address or pin, a photo, the video,
-   * the GSTIN or Udyam number changed); null when nothing waits. The salon stays live meanwhile. The owner's view only.
+   * When our field team's re-check of a live salon's changes started waiting (the address or pin, a photo or the video
+   * changed); null when nothing waits. The salon stays live meanwhile. The owner's view only.
    */
   recheckSince?: string | null
   /**
@@ -88,8 +135,6 @@ export interface ShopDetailsIn {
   pincode: string
   latitude: number
   longitude: number
-  gstin: string | null
-  udyamNumber: string | null
 }
 
 /** A new address and pin (an address change request to the field team). */
