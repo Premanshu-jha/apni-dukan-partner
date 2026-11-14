@@ -22,6 +22,7 @@ test('the owner adds a service, edits its price and switches one off', async ({ 
     pricePaise: 14950,
     priceIsFrom: false,
     returnAfterDays: 14,
+    icon: 'MASSAGE',
   })
 
   await page.getByRole('button', { name: /Haircut/ }).click()

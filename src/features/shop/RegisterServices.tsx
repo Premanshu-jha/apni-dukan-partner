@@ -6,7 +6,8 @@ import { salonKeys, setupApi, useCatalog, useServices } from '../../api/salon'
 import type { CatalogService, ServiceItem } from '../../api/types'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
 import { duration, rupees } from '../../lib/money'
-import { checkService, comeBackText, serviceIn, ServiceSheet, type ServiceForm } from '../setup/Services'
+import { checkService, comeBackText, IconPicker, pickedIcon, serviceIn, ServiceSheet, type ServiceForm } from '../setup/Services'
+import { ServiceIcon } from '../../components/ServiceIcon'
 import { useShop } from '../../api/shop'
 import { SentBack, Steps } from './Register'
 
@@ -117,7 +118,7 @@ export function RegisterServices() {
   const problem = checkRows(list, services.data)
 
   const change = (key: string, update: (r: Row) => Row) => setRows(list.map((r) => (r.key === key ? update(r) : r)))
-  const setField = (key: string, k: keyof ServiceForm, v: string | boolean) =>
+  const setField = (key: string, k: keyof ServiceForm, v: string | boolean | null) =>
     change(key, (r) => ({ ...r, ticked: true, form: { ...r.form, [k]: v } }))
 
   async function save() {
@@ -173,6 +174,7 @@ export function RegisterServices() {
           <ul className="flex flex-col gap-1">
             {have.map((s) => (
               <li key={s.id} className="flex items-center gap-2">
+                <ServiceIcon service={s} size={22} className="text-link" />
                 <button type="button" className="flex min-w-0 flex-1 flex-col text-left" onClick={() => setEditing(s)}>
                   <span className="font-semibold">{s.name}</span>
                   <span className="text-sm text-muted">
@@ -210,8 +212,15 @@ export function RegisterServices() {
                   checked={r.ticked}
                   onChange={(e) => change(r.key, (x) => ({ ...x, ticked: e.target.checked }))}
                 />
+                <ServiceIcon icon={pickedIcon(r.form)} size={22} className="text-link" />
                 <span className="font-semibold">{r.form.name}</span>
               </label>
+            )}
+            {/* Typed in or ticked: its picture can be changed here, among those that fit the name */}
+            {(r.custom || r.ticked) && r.form.name.trim().length >= 2 && (
+              <div className="mt-2">
+                <IconPicker name={r.form.name} value={pickedIcon(r.form)} onChange={(icon) => setField(r.key, 'icon', icon)} />
+              </div>
             )}
             {(r.ticked || r.custom) && (
               <div className="mt-2 grid grid-cols-3 gap-2">

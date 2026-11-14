@@ -80,6 +80,10 @@ test('a new owner signs up, registers the salon in five steps and waits for the 
   await page.getByRole('button', { name: 'Save 1 service and continue' }).click()
   await expect(page.getByText('Haircut: enter the price.')).toBeVisible()
   await page.getByLabel('Haircut price (₹)').fill('150')   // each row's boxes name their service
+  // A ticked one's picture can be changed here too, among the ones that fit its name
+  const cutPictures = page.locator('li', { hasText: 'Haircut' }).getByRole('radiogroup', { name: 'Picture' })
+  await expect(cutPictures.getByRole('radio')).toHaveText(['Haircut', 'General (barber pole)'])
+  await cutPictures.getByRole('radio', { name: 'General (barber pole)' }).click()
   await page.getByRole('button', { name: '+ Add your own service' }).click()
   await page.getByLabel('Service name').fill('Head massage')
   await page.locator('[id^="own-"][id$="-price"]').fill('100')
@@ -88,8 +92,8 @@ test('a new owner signs up, registers the salon in five steps and waits for the 
   const batch = api.calls.find((c) => c.path === '/api/v1/salon/services/batch')!
   expect(batch.body).toEqual({
     services: [
-      { name: 'Haircut', durationMinutes: 30, pricePaise: 15000, priceIsFrom: false, returnAfterDays: 21 },
-      { name: 'Head massage', durationMinutes: 30, pricePaise: 10000, priceIsFrom: false, returnAfterDays: 14 },
+      { name: 'Haircut', durationMinutes: 30, pricePaise: 15000, priceIsFrom: false, returnAfterDays: 21, icon: 'OTHER' },
+      { name: 'Head massage', durationMinutes: 30, pricePaise: 10000, priceIsFrom: false, returnAfterDays: 14, icon: 'MASSAGE' },
     ],
   })
 
