@@ -13,6 +13,7 @@ import { takePhoneChanged } from '../../lib/phoneMoved'
 import { SUPPORT_EMAIL } from '../../lib/config'
 import { useSession } from '../../store/session'
 import { NotificationsRow } from './Notifications'
+import { licenceSummary } from '../shop/RegistrationDoc'
 import { signOutHere } from './signOut'
 
 /** The map library is big: loaded only when the owner opens the pin. */
@@ -124,8 +125,10 @@ export function Profile() {
         )}
         <p className="text-sm text-muted break-words">Owner: {shop.ownerName}</p>
         {owner && (
-          <p className="text-sm text-muted break-words">
-            GSTIN: {shop.gstin ?? 'not added'} · Udyam: {shop.udyamNumber ?? 'not added'}
+          <p className="text-sm break-words">
+            <Link to="/setup/document" state={{ from: '/more' }} className="text-link underline">
+              Trade licence: {licenceSummary(shop)}
+            </Link>
           </p>
         )}
         <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
@@ -140,9 +143,6 @@ export function Profile() {
           <p className="flex flex-wrap gap-x-4 text-sm">
             <Link to="/setup/photos" state={{ from: '/more' }} className="text-link underline">
               Photos and video
-            </Link>
-            <Link to="/setup/document" state={{ from: '/more' }} className="text-link underline">
-              Registration document
             </Link>
           </p>
         )}

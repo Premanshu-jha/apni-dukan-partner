@@ -7,14 +7,13 @@ import type { AddressIn, AddressRequest, GeocodePrecision, RegistrationDocType, 
 import { LocationGuide } from '../../components/LocationGuide'
 import { MapBoundary } from '../../components/MapBoundary'
 import { PhotoPicker } from '../../components/PhotoPicker'
-import { compact, normUdyam, validGstin, validUdyam } from '../../lib/gstin'
 import { readyForVisit } from '../../lib/salonVideo'
 import { clock12 } from '../../lib/ist'
 import { weekLines } from '../../lib/salonHours'
 import { addOwnerAsBarber, ownProfile, salonKeys, useSalonHours, useServices, useStaff } from '../../api/salon'
 import { ClosedDaysEditor } from '../day/Closures'
 import { SalonHoursEditor } from '../setup/SalonHours'
-import { docLabel, RegistrationDocCard } from './RegistrationDoc'
+import { licenceSummary, RegistrationDocCard, useLicencePolling, licenceState } from './RegistrationDoc'
 import { RecheckWaiting } from './RecheckWaiting'
 import { SalonVideo } from './SalonVideo'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page, Sheet } from '../../components/ui'
@@ -124,12 +123,9 @@ export function Steps({
   )
 }
 
-type Form = Omit<ShopDetailsIn, 'latitude' | 'longitude' | 'gstin' | 'udyamNumber'> & {
-  gstin: string
-  udyamNumber: string
-}
+type Form = Omit<ShopDetailsIn, 'latitude' | 'longitude'>
 
-const empty: Form = { name: '', ownerName: '', addressLine: '', area: '', city: '', pincode: '', gstin: '', udyamNumber: '' }
+const empty: Form = { name: '', ownerName: '', addressLine: '', area: '', city: '', pincode: '' }
 
 /** The address fields of a request, as the form holds them. */
 function addressOf(a: AddressIn): Pick<Form, 'addressLine' | 'area' | 'city' | 'pincode'> {
@@ -144,8 +140,6 @@ function formOf(shop: Shop): Form {
     area: shop.area,
     city: shop.city,
     pincode: shop.pincode,
-    gstin: shop.gstin ?? '',
-    udyamNumber: shop.udyamNumber ?? '',
   }
 }
 
@@ -170,10 +164,6 @@ export function checkDetails(f: Form): Partial<Record<keyof Form, string>> {
   if (!len(f.area, 2, 100)) e.area = 'Enter the area or locality'
   if (!len(f.city, 2, 60)) e.city = 'Enter the city'
   if (!/^[1-9]\d{5}$/.test(f.pincode.trim())) e.pincode = 'Enter the 6-digit pincode'
-  // The backend's own checks (a typo in any one character of a GSTIN is caught by its last character)
-  if (f.gstin.trim() && compact(f.gstin).length !== 15) e.gstin = 'A GSTIN has 15 letters and digits'
-  else if (f.gstin.trim() && !validGstin(f.gstin)) e.gstin = 'This GSTIN has a typo: check each letter and digit'
-  if (f.udyamNumber.trim() && !validUdyam(f.udyamNumber)) e.udyamNumber = `Write it like ${UDYAM_EXAMPLE}`
   return e
 }
 
@@ -414,15 +404,13 @@ export function RegisterDetails({
       pincode: form.pincode.trim(),
       latitude: round6(pin.lat),
       longitude: round6(pin.lng),
-      gstin: compact(form.gstin) || null,
-      udyamNumber: normUdyam(form.udyamNumber) || null,
     }
-    // A live salon's GSTIN and Udyam number are what the field team checked: changing one puts the salon in their
-    // re-check (ShopService.update; it stays live). Say so first and save only on the second tap. (Its address can't
-    // change: locked.) Compared as the backend stores them.
-    const live = shop !== null && shop.status === 'APPROVED'
-    const papers = live && ((details.gstin ?? null) !== (shop.gstin ?? null) || (details.udyamNumber ?? null) !== (shop.udyamNumber ?? null))
-    if (edit && papers && !confirmRecheck) {
+    // A trade licence that passed was matched against the name, owner and address: changing one checks it again
+    // (ShopService.update), and "Licensed" goes until it passes again. Say so first and save only on the second tap.
+    const licensed = shop !== null && licenceState(shop) === 'LICENSED'
+    const matchedChanged = licensed && (details.name !== shop.name || details.ownerName !== shop.ownerName
+      || (!locked && (details.addressLine !== shop.addressLine || details.area !== shop.area || details.pincode !== shop.pincode)))
+    if (edit && matchedChanged && !confirmRecheck) {
       setConfirmRecheck(true)
       return
     }
@@ -471,7 +459,7 @@ export function RegisterDetails({
     }
     try {
       const result = shop
-        ? await shopApi.update(shop.version, { ...details, gstin: details.gstin ?? '', udyamNumber: details.udyamNumber ?? '' })
+        ? await shopApi.update(shop.version, details)
         : await shopApi.create(details)
       forgetRegisterDraft()
       qc.setQueryData(shopKeys.mine, result)
@@ -674,24 +662,16 @@ export function RegisterDetails({
       </Card>
       )}
 
-      {!request && (
-      <Card className="flex flex-col gap-4">
-        <p className="text-sm text-muted">Optional. You can add these later.</p>
-        <Field id="gstin" label="GSTIN" value={form.gstin} onChange={set('gstin')} maxLength={20} autoCapitalize="characters" placeholder="27AAPFU0939F1ZV" error={show('gstin')} />
-        <Field id="udyam" label="Udyam number" value={form.udyamNumber} onChange={set('udyamNumber')} maxLength={25} autoCapitalize="characters" placeholder={UDYAM_EXAMPLE} error={show('udyamNumber')} />
-      </Card>
-      )}
-
       {generalError && <Banner tone="bad">{generalError}</Banner>}
       {confirmRecheck && (
         <Banner tone="warn">
-          A new GSTIN or Udyam number goes to our field team for a check. Your salon stays live and bookable meanwhile.
-          Tap Save again to go ahead.
+          Your trade licence is checked again against the new details: customers see "Licensed" again once it
+          passes, usually within a minute. Your salon stays open for bookings. Tap Save again to go ahead.
         </Banner>
       )}
       {saved && <Banner tone="good">{request ? 'Sent to our field team. Your salon keeps its address until they approve it.' : 'Saved.'}</Banner>}
       <Button busy={busy} onClick={save}>
-        {request ? (request.waiting ? 'Send the changed request' : 'Send to the field team') : edit ? (confirmRecheck ? 'Save and send for a check' : 'Save') : 'Save and continue'}
+        {request ? (request.waiting ? 'Send the changed request' : 'Send to the field team') : edit ? (confirmRecheck ? 'Save and check the licence again' : 'Save') : 'Save and continue'}
       </Button>
       {!edit && !request && (
         <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
@@ -725,7 +705,7 @@ function DraftExits({ name }: { name: string }) {
 
 /**
  * Step 2: the owner's photo (for the field team), the shop front (customers see it) and the salon video (field team),
- * and the optional registration document. With `edit`, the photos and video after registration (the Salon tab →
+ * and the optional trade licence. With `edit`, the photos and video after registration (the Salon tab →
  * Photos and video, the owner only); the document has its own page there.
  */
 export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
@@ -795,7 +775,7 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
     return run
   }
 
-  /** The registration document, after any photo or video save under way (each needs the version the last left). */
+  /** The trade licence, after any photo or video save under way (each needs the version the last left). */
   function setDocument(type: RegistrationDocType, fileId: string) {
     const run = queue.current
       .catch(() => undefined)
@@ -871,8 +851,7 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
       {!edit && (
         <>
           <RegistrationDocCard
-            type={shop.registrationDocType ?? null}
-            fileId={shop.registrationDocFileId ?? null}
+            shop={shop}
             save={setDocument}
             remove={removeDocument}
             onBusy={setDocBusy}
@@ -898,10 +877,9 @@ export function cameFrom(location: { state: unknown }, fallback: string): string
   const from = (location.state as { from?: unknown } | null)?.from
   return typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') ? from : fallback
 }
-const UDYAM_EXAMPLE = 'UDYAM-TS-02-0012345'
 
 const LEAVE_DURING_UPLOAD = 'The salon video is still uploading. Leave anyway? It will have to be sent again.'
-const LEAVE_DURING_DOCUMENT = 'The registration document is still uploading. Leave anyway? It may not be saved.'
+const LEAVE_DURING_DOCUMENT = 'The trade licence is still uploading. Leave anyway? It may not be saved.'
 const LEAVE_DURING_PHOTO = 'A photo is still uploading. Leave anyway? It may not be saved.'
 
 /** Step 4: the salon's opening hours and weekly off. */
@@ -1035,6 +1013,8 @@ export function RegisterReview() {
   const photos = Boolean(shop.ownerPhotoFileId && shop.shopPhotoFileId)
   const video = Boolean(shop.shopVideoFileId)
   const doc = Boolean(shop.registrationDocFileId)
+  // Still being checked: the line above updates by itself
+  useLicencePolling(licenceState(shop) === 'CHECKING')
   const offered = services.data?.filter((s) => s.active).length ?? 0
   const open = hours.data?.days ?? []
   const ready = readyForVisit(shop) && offered > 0 && open.length > 0
@@ -1086,8 +1066,6 @@ export function RegisterReview() {
             </Suspense>
           </MapBoundary>
         </div>
-        {shop.gstin && <Line label="GSTIN" value={shop.gstin} />}
-        {shop.udyamNumber && <Line label="Udyam" value={shop.udyamNumber} />}
         <Link to="/register?from=review" className="text-sm text-link underline">
           Edit details or move the pin
         </Link>
@@ -1112,7 +1090,7 @@ export function RegisterReview() {
         </Link>
       </Card>
       <Card className="flex items-center justify-between gap-2">
-        <span>Registration document: {doc ? docLabel(shop.registrationDocType) : 'not added (optional)'}</span>
+        <span>Trade licence: {doc ? licenceSummary(shop) : 'not added (optional)'}</span>
         <Link to="/register/photos?from=review" className="shrink-0 text-sm text-link underline">
           {doc ? 'Change' : 'Add'}
         </Link>

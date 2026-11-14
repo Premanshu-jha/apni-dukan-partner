@@ -9,8 +9,8 @@ import { cameFrom } from './Register'
 import { RegistrationDocCard } from './RegistrationDoc'
 
 /**
- * The Salon tab → Registration document (the owner): add, change or remove it at any time. The salon stays live; a new
- * document waits for our field team's check, and customers see "Registered" only once it is checked.
+ * The Salon tab → Trade licence (the owner): add, change or remove it at any time. The salon stays live; a new licence
+ * is checked automatically, and customers see "Licensed" once it passed (until its last valid day).
  */
 export function SalonDocumentPage() {
   const qc = useQueryClient()
@@ -56,20 +56,12 @@ export function SalonDocumentPage() {
   return (
     <Page
       back={cameFrom(location, '/setup')}
-      title="Registration document"
-      leaveWarning={docBusy ? 'The document is still uploading. Leave anyway? It may not be saved.' : null}
+      title="Trade licence"
+      leaveWarning={docBusy ? 'The licence is still uploading. Leave anyway? It may not be saved.' : null}
     >
-      {has && (
-        <Banner tone={shop.registrationDocCheckedAt ? 'good' : 'warn'}>
-          {shop.registrationDocCheckedAt
-            ? 'Checked by our team: customers see "Registered" on your salon.'
-            : 'Waiting for our team to check it: customers see "Unregistered" until then. Your salon stays open for bookings.'}
-        </Banner>
-      )}
-      {!has && <p className="text-sm text-muted">No document added: customers see "Unregistered" on your salon.</p>}
+      {!has && <p className="text-sm text-muted">No trade licence added: your salon shows no "Licensed" badge. It stays open for bookings either way.</p>}
       <RegistrationDocCard
-        type={shop.registrationDocType ?? null}
-        fileId={shop.registrationDocFileId ?? null}
+        shop={shop}
         save={(type: RegistrationDocType, fileId: string) =>
           withLatest((latest) => shopApi.setRegistrationDoc(latest.version, type, fileId))
         }
@@ -79,7 +71,10 @@ export function SalonDocumentPage() {
         <Card className="flex flex-col gap-2">
           {asking ? (
             <>
-              <p className="text-sm">Remove the document? Customers will see "Unregistered" on your salon.</p>
+              <p className="text-sm">
+                Remove the trade licence? Customers will no longer see "Licensed" on your salon. Your salon stays open for
+                bookings.
+              </p>
               <Button variant="danger" busy={busy} disabled={docBusy} onClick={remove}>
                 Remove it
               </Button>
@@ -89,7 +84,7 @@ export function SalonDocumentPage() {
             </>
           ) : (
             <Button variant="secondary" disabled={docBusy} onClick={() => setAsking(true)}>
-              Remove the document
+              Remove the trade licence
             </Button>
           )}
         </Card>

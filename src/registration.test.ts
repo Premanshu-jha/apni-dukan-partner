@@ -3,7 +3,9 @@ import type { CatalogService, ServiceItem } from './api/types'
 import { ApiError } from './api/errors'
 import { checkService, comeBackText, serviceIn } from './features/setup/Services'
 import { batchMessage, catalogRows, checkRows, type Row } from './features/shop/RegisterServices'
-import { docKind, docLabel, docProblem, MAX_DOC_BYTES } from './features/shop/RegistrationDoc'
+import { ALL_REASONS, CHECK_AGAIN_REASONS, docKind, docLabel, docProblem, indiaToday, licenceReasonText, licenceState, licenceSummary, MAX_DOC_BYTES, shortDate } from './features/shop/RegistrationDoc'
+import { newestShop } from './api/shop'
+import type { Shop } from './api/types'
 import {
   checkSalonWeek,
   defaultWeek,
@@ -128,5 +130,50 @@ describe('the registration document', () => {
     expect(docProblem({ type: '', name: 'big.pdf', size: MAX_DOC_BYTES + 1 })).toMatch(/10 MB/)
     expect(docLabel('TRADE_LICENCE')).toBe('Trade licence')
     expect(docLabel(null)).toBeNull()
+  })
+})
+
+describe('the trade licence check, as the owner sees it', () => {
+  const doc = { registrationDocFileId: 'f1', registrationDocType: 'TRADE_LICENCE' as const }
+
+  it('tells none, checking, licensed, expired, not accepted and an old kind apart', () => {
+    expect(licenceState({ registrationDocFileId: null })).toBe('NONE')
+    expect(licenceState({ ...doc, licenceCheck: 'PENDING' })).toBe('CHECKING')
+    expect(licenceState({ ...doc, licenceCheck: null })).toBe('CHECKING')   // an older backend: still waiting
+    expect(licenceState({ ...doc, licenceCheck: 'PASSED', licenceValidUntil: '2027-03-31' }, '2027-03-31')).toBe('LICENSED')
+    expect(licenceState({ ...doc, licenceCheck: 'PASSED', licenceValidUntil: '2027-03-31' }, '2027-04-01')).toBe('EXPIRED')
+    expect(licenceState({ ...doc, licenceCheck: 'FAILED' })).toBe('NOT_ACCEPTED')
+    expect(licenceState({ registrationDocFileId: 'f1', registrationDocType: 'UDYAM', licenceCheck: 'FAILED' })).toBe('OLD_KIND')
+  })
+
+  it('says each one in a line, and why a licence wasn’t accepted with what to do', () => {
+    expect(licenceSummary({ registrationDocFileId: null })).toMatch(/Not added/)
+    expect(licenceSummary({ ...doc, licenceCheck: 'PASSED', licenceValidUntil: '2099-03-31' })).toBe('Checked: customers see "Licensed" until 31 Mar 2099')
+    expect(licenceReasonText('NAME_MISMATCH')).toMatch(/checked again by itself/)
+    expect(licenceReasonText('EXPIRED')).toMatch(/renewed/)
+    expect(licenceReasonText(null)).toMatch(/Upload another/)
+    expect(shortDate('2027-03-31')).toBe('31 Mar 2027')
+  })
+
+  it('has words for every reason the backend gives, and for an address only the field team can change', () => {
+    expect(ALL_REASONS).toHaveLength(11)
+    for (const r of ALL_REASONS) expect(licenceReasonText(r)).not.toMatch(/^Upload another photo or the PDF of your trade licence\.$/)
+    expect(licenceReasonText('ADDRESS_MISMATCH', true)).toMatch(/Request address change/)
+    expect(licenceReasonText('ADDRESS_MISMATCH', false)).toMatch(/change it in Salon details/)
+    expect(CHECK_AGAIN_REASONS).toEqual(['NAME_MISMATCH', 'ADDRESS_MISMATCH', 'NOT_READ'])
+  })
+
+  it('keeps a save’s newer version over a read that started before it', () => {
+    const v = (version: number, id = 's1') => ({ id, version }) as Shop
+    expect(newestShop(v(3), v(4))).toEqual(v(4))   // the read is older than the save: kept
+    expect(newestShop(v(4), v(4))).toEqual(v(4))   // the same version (a licence answer): the fresh one
+    expect(newestShop(v(5), v(4))).toEqual(v(5))
+    expect(newestShop(v(1, 's2'), v(4))).toEqual(v(1, 's2'))   // another shop now (a hand-over)
+    expect(newestShop(null, v(4))).toBeNull()
+  })
+
+  it('counts the day in India', () => {
+    expect(indiaToday(new Date('2026-11-14T18:29:00Z'))).toBe('2026-11-14')
+    expect(indiaToday(new Date('2026-11-14T18:31:00Z'))).toBe('2026-11-15')   // past midnight in India
   })
 })

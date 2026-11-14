@@ -3,7 +3,7 @@ import { Card } from '../../components/ui'
 import { dateOfIst } from '../../lib/ist'
 
 /**
- * A live salon whose changes (photos, video, GSTIN, Udyam) wait for our field team (recheckSince, the owner's only):
+ * A live salon whose changes (photos, video) wait for our field team (recheckSince, the owner's only):
  * since when, any fix the team asked for, and that the salon stays live. Nothing otherwise.
  */
 export function RecheckWaiting() {

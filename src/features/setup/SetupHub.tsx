@@ -3,6 +3,7 @@ import { useClosures, useSalonHours, useServices, useSettings, useStaff } from '
 import { useShop } from '../../api/shop'
 import { Page } from '../../components/ui'
 import { can } from '../../lib/roles'
+import { licenceSummary } from '../shop/RegistrationDoc'
 
 /** The salon's setup: what it offers, who works, and the booking rules. Owner edits; helpers look. */
 export function SetupHub() {
@@ -23,12 +24,8 @@ export function SetupHub() {
         { to: '/setup/photos', title: 'Photos and video', sub: 'Your photo, the shop front and the salon video' },
         {
           to: '/setup/document',
-          title: 'Registration document',
-          sub: !shop.registrationDocFileId
-            ? 'Not added (optional): customers see "Unregistered"'
-            : shop.registrationDocCheckedAt
-              ? 'Checked: customers see "Registered"'
-              : 'Waiting for our team to check it',
+          title: 'Trade licence',
+          sub: licenceSummary(shop),
         },
       ]
     : []

@@ -30,7 +30,7 @@ function counted(u: EditUnlock, at = Date.now()): Unlock {
 }
 
 /**
- * Around the screens that change a verified salon's details (Salon details, Photos and video, Registration document,
+ * Around the screens that change a verified salon's details (Salon details, Photos and video, Trade licence,
  * Request address change) or end it (Close, Hand over). The backend takes those changes only within 15 minutes of a code sent to the owner's own
  * phone, on that device only (403 EDIT_LOCKED otherwise), so a phone left signed in can't be used to change them. Everything can be read
  * and typed as usual; a bar on top says so, with Start editing (the code sheet; it also opens by itself when More's

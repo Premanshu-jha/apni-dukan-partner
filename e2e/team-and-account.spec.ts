@@ -164,11 +164,11 @@ test('made the owner meanwhile: the backend refuses (SHOP_OWNER) and the screen 
 
 test('More shows the whole salon as registered, with Edit, the pin and the code to copy', async ({ page, context, api }) => {
   await atSalon(page, context, api)
-  api.shop = { ...api.shop!, gstin: '27AAPFU0939F1ZV' }
   await page.goto('/more')
   await expect(page.getByText('Shop 12, Ithum Tower, Sector 62, Noida 201309')).toBeVisible()
   await expect(page.getByText('Owner: Ravi Kumar')).toBeVisible()
-  await expect(page.getByText('GSTIN: 27AAPFU0939F1ZV · Udyam: not added')).toBeVisible()
+  await expect(page.getByText('Trade licence: Checked: customers see "Licensed" until 31 Mar 2099')).toBeVisible()
+  await expect(page.getByText(/GSTIN/)).toHaveCount(0)   // a salon has none now
   await page.getByRole('button', { name: 'See the pin on the map' }).click()
   await expect(page.getByLabel("Map: your salon's pin, where customers find you")).toBeVisible()
   await expect(page.getByRole('button', { name: 'Copy shop code 10234' })).toBeVisible()
@@ -181,7 +181,7 @@ test('a barber sees the salon card without the owner’s papers or Edit', async 
   await page.goto('/more')
   await expect(page.getByText('· You are the barber')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Edit salon details' })).toHaveCount(0)
-  await expect(page.getByText(/^GSTIN:/)).toHaveCount(0)
+  await expect(page.getByText(/^Trade licence:/)).toHaveCount(0)
 })
 
 test('the Salon tab has Closed days next to the opening hours', async ({ page, context, api }) => {

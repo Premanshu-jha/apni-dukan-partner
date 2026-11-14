@@ -65,15 +65,13 @@ describe('what each role may do', () => {
 })
 
 describe('registration details', () => {
-  const ok = { name: 'Shine Salon', ownerName: 'Ravi Kumar', addressLine: 'Shop 12, Ithum Tower', area: 'Sector 62', city: 'Noida', pincode: '201309', gstin: '', udyamNumber: '' }
+  const ok = { name: 'Shine Salon', ownerName: 'Ravi Kumar', addressLine: 'Shop 12, Ithum Tower', area: 'Sector 62', city: 'Noida', pincode: '201309' }
 
   it('accepts a complete form and checks the backend’s limits', () => {
     expect(checkDetails(ok)).toEqual({})
     expect(checkDetails({ ...ok, pincode: '012345' })).toHaveProperty('pincode')
     expect(checkDetails({ ...ok, name: 'S' })).toHaveProperty('name')
     expect(checkDetails({ ...ok, addressLine: 'Shop' })).toHaveProperty('addressLine')
-    expect(checkDetails({ ...ok, gstin: '27AAPFU0939F1Z' })).toHaveProperty('gstin')
-    expect(checkDetails({ ...ok, gstin: '27AAPFU0939F1ZV' })).toEqual({})
   })
 
   it('keeps the pin inside India and to six decimals', () => {

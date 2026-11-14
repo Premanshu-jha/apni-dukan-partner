@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { BrowserContext, Route } from '@playwright/test'
-import { validGstin } from '../src/lib/gstin'
 
 /**
  * A fake backend for the end-to-end tests. Shapes follow the backend's records (AuthResponses, ShopResponse,
@@ -432,6 +431,31 @@ export class MockApi {
     }
   }
 
+  /** A new (or changed) trade licence waits for the automatic check (Shop.setRegistrationDoc / restartLicenceCheck). */
+  static get licencePending(): Json {
+    return { licenceCheck: 'PENDING', licenceCheckReason: null, licenceValidUntil: null, registrationDocCheckedAt: null, licenceCheckSince: new Date().toISOString(), licenceRead: null }
+  }
+
+  /** What LicenceCheckJob's AI read from a licence (the owner's licenceRead). */
+  static licenceRead(over: Json = {}): Json {
+    return {
+      readable: true, tradeLicence: true, looksEdited: false, provisional: false, salonTrade: true,
+      issuingBody: 'Greater Hyderabad Municipal Corporation', licenceNumber: 'TR-0934-422-0003', tradeName: 'Shine Unisex Salon',
+      ownerName: 'Ravi Kumar', address: 'Shop 12, Ithum Tower', pincode: '201309', tradeCategory: 'Saloon', validUntil: '2027-03-31', ...over,
+    }
+  }
+
+  /**
+   * LicenceCheckJob's answer, as it writes it: PASSED with the last valid day, or FAILED with the reason. Like the
+   * backend's plain SQL, it doesn't change the shop's version.
+   */
+  finishLicenceCheck(answer: { passedUntil: string } | { failed: string; read?: Json }) {
+    if (!this.shop?.registrationDocFileId || this.shop.licenceCheck !== 'PENDING') return
+    this.shop = 'passedUntil' in answer
+      ? { ...this.shop, licenceCheck: 'PASSED', licenceCheckReason: null, licenceValidUntil: answer.passedUntil, registrationDocCheckedAt: '2026-11-14T05:00:00Z', licenceRead: MockApi.licenceRead({ validUntil: answer.passedUntil }) }
+      : { ...this.shop, licenceCheck: 'FAILED', licenceCheckReason: answer.failed, licenceValidUntil: null, registrationDocCheckedAt: null, licenceRead: answer.read ?? null }
+  }
+
   static shopOf(over: Json = {}): Json {
     return {
       id: 'shop1',
@@ -456,6 +480,11 @@ export class MockApi {
       registrationDocType: 'TRADE_LICENCE',
       registrationDocFileId: 'f-doc',
       registrationDocCheckedAt: '2026-10-01T05:00:00Z',
+      licenceCheck: 'PASSED',
+      licenceCheckReason: null,
+      licenceValidUntil: '2099-03-31',
+      licenceCheckSince: '2026-10-01T04:59:00Z',
+      licenceRead: null,
       recheckSince: null,
       version: 3,
       createdAt: '2026-11-01T00:00:00Z',
@@ -1031,7 +1060,7 @@ export class MockApi {
       if (!this.user.emailVerified || !this.user.name) return fail(403, 'PROFILE_INCOMPLETE', 'Add your email and name first.')
       if (!/^[1-9]\d{5}$/.test(body.pincode)) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { pincode: 'must be a 6-digit pincode' })
       this.role = 'OWNER'
-      this.shop = MockApi.shopOf({ ...body, status: 'DRAFT', myRole: 'OWNER', type: body.type ?? 'KIRANA', ownerPhotoFileId: null, shopPhotoFileId: null, shopVideoFileId: null, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, version: 0 })
+      this.shop = MockApi.shopOf({ ...body, status: 'DRAFT', myRole: 'OWNER', type: body.type ?? 'KIRANA', ownerPhotoFileId: null, shopPhotoFileId: null, shopVideoFileId: null, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, licenceCheck: null, licenceCheckReason: null, licenceValidUntil: null, gstin: null, udyamNumber: null, version: 0 })
       // A new salon has no services, hours or barbers yet
       this.services = []
       this.hours = []
@@ -1041,24 +1070,18 @@ export class MockApi {
     if (p === '/shops/me' && method === 'PATCH') {
       if (!this.shop || this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can do this.')
       if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
-      const { version: _v, ...change } = body
-      // ShopService.gstin / udyam: checked and stored as the backend does (spaces removed, capitals)
-      const norm = (v: unknown) => (v === '' || v === undefined ? null : String(v).replace(/\s+/g, '').toUpperCase())
-      const bad: Json = {}
-      if (change.gstin !== undefined && norm(change.gstin) !== null && !validGstin(norm(change.gstin)!)) bad.gstin = 'is not a valid GSTIN (15 characters, e.g. 27AAPFU0939F1ZV); check for a typo'
-      if (change.udyamNumber !== undefined && norm(change.udyamNumber) !== null && !/^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$/.test(norm(change.udyamNumber)!)) bad.udyamNumber = 'is not a valid Udyam number (e.g. UDYAM-TS-02-0012345)'
-      if (Object.keys(bad).length) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', bad)
-      // ShopService.update: a verified address can't be moved by the owner (409 ADDRESS_LOCKED); a live shop's new
-      // GSTIN or Udyam number waits for the field team's re-check and stays APPROVED (the first change's time stays)
+      // A salon has no GSTIN or Udyam number now: anything sent for them is ignored (ShopService.update)
+      const { version: _v, gstin: _g, udyamNumber: _u, ...change } = body
+      // ShopService.update: a verified address can't be moved by the owner (409 ADDRESS_LOCKED)
       const moved = ['addressLine', 'area', 'city', 'pincode', 'latitude', 'longitude'].some((k) => change[k] !== undefined && change[k] !== this.shop![k])
       if (moved && this.shop.addressLocked) return fail(409, 'ADDRESS_LOCKED', 'Your address was verified by our field team, so only they can change it. Ask them with Request address change.')
-      const nothing = Object.keys(change).every((k) => (k === 'gstin' || k === 'udyamNumber' ? norm(change[k]) === this.shop![k] : change[k] === this.shop![k]))
+      const nothing = Object.keys(change).every((k) => change[k] === this.shop![k])
       if (nothing) return ok(200, this.shop)
       if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
-      const papers = (change.gstin !== undefined && norm(change.gstin) !== this.shop.gstin)
-        || (change.udyamNumber !== undefined && norm(change.udyamNumber) !== this.shop.udyamNumber)
-      this.recheckIfLive(papers)
-      this.shop = { ...this.shop, ...change, gstin: change.gstin === undefined ? this.shop.gstin : norm(change.gstin), udyamNumber: change.udyamNumber === undefined ? this.shop.udyamNumber : norm(change.udyamNumber), version: (this.shop.version as number) + 1 }
+      // The trade licence was matched against the name, owner and address: changing one checks it again
+      const matched = ['name', 'ownerName', 'addressLine', 'area', 'pincode'].some((k) => change[k] !== undefined && change[k] !== this.shop![k])
+      const recheckLicence = matched && Boolean(this.shop.registrationDocFileId) && this.shop.registrationDocType === 'TRADE_LICENCE'
+      this.shop = { ...this.shop, ...change, ...(recheckLicence ? MockApi.licencePending : {}), version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
     }
     if (p === '/shops/me/photos') {
@@ -1101,12 +1124,14 @@ export class MockApi {
       if (!this.shop || this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can change these details.')
       if (this.shop.type !== 'SALON') return fail(409, 'NOT_A_SALON', 'The registration document is only for salons.')
       if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
+      if (body.type !== 'TRADE_LICENCE') return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { type: 'must be TRADE_LICENCE: only a municipal trade licence counts' })
       const f = this.files.find((x) => x.id === body.fileId && x.purpose === 'REG_DOC')
       if (!f) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { fileId: 'must be a photo or PDF uploaded with purpose REG_DOC' })
-      if (f.id === this.shop.registrationDocFileId && body.type === this.shop.registrationDocType) return ok(200, this.shop)
+      // The same licence again: as it is, unless it wasn't accepted (then checked again)
+      if (f.id === this.shop.registrationDocFileId && body.type === this.shop.registrationDocType && this.shop.licenceCheck !== 'FAILED') return ok(200, this.shop)
       if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
-      // ShopService.setRegistrationDoc: the salon stays as it is; the new document waits for the field team's check
-      this.shop = { ...this.shop, registrationDocType: body.type, registrationDocFileId: f.id, registrationDocCheckedAt: null, version: (this.shop.version as number) + 1 }
+      // ShopService.setRegistrationDoc: the salon stays as it is; the new licence waits for the automatic check
+      this.shop = { ...this.shop, registrationDocType: body.type, registrationDocFileId: f.id, ...MockApi.licencePending, version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
     }
     if (p === '/shops/me/registration-document' && method === 'DELETE') {
@@ -1115,7 +1140,7 @@ export class MockApi {
       if (Number(url.searchParams.get('version')) !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
       if (this.shop.registrationDocFileId) {
         if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
-        this.shop = { ...this.shop, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, version: (this.shop.version as number) + 1 }
+        this.shop = { ...this.shop, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, licenceCheck: null, licenceCheckReason: null, licenceValidUntil: null, version: (this.shop.version as number) + 1 }
       }
       return ok(200, this.shop)
     }

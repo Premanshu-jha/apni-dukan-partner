@@ -332,6 +332,31 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.23.0 — 2026-11-14
+
+Needs the backend with V55–V58 (the trade licence checked automatically). Deploy the backend first.
+
+- **Trade licence instead of a registration document.** Registration (Photos and papers) and More → Salon → Trade
+  licence take one optional upload: a photo or the PDF of the salon's municipal trade licence. No choice of kind any
+  more (only a trade licence counts); a Udyam or Shops and Establishments certificate added before says to replace
+  it, with "Check it again" if it really is a trade licence.
+- **Checked automatically, not by a person.** Right after the upload: "Checking your trade licence…" (usually under
+  a minute; the owner can leave). The page reads the salon again by itself every 8 seconds while it shows a licence
+  being checked, then says "Checked: customers see Licensed on your salon until 31 Mar 2027", or "Not accepted" with
+  why and what to do (blurred, not a trade licence, edited, no number, another trade, no dates, expired, name or
+  address not matching, another salon's). A message comes either way (`SHOP_LICENCE_PASSED` ✓,
+  `SHOP_LICENCE_FAILED`). An expired one says so and asks for the renewed licence.
+- **Customers see "Licensed"** (no badge without one) instead of "Registered" / "Unregistered". The Salon tab, More
+  and the review step say where the licence stands in a line.
+- **No GSTIN or Udyam number for a salon**: the boxes are gone from Salon details and registration, and from More.
+- **Changing the name, owner or address** of a salon whose licence passed says first that the licence is checked
+  again against the new details ("Save and check the licence again"); the salon stays open meanwhile.
+- **Check it again** shows only when that can help (the name or address didn't match, or it wasn't read); a not-
+  accepted answer shows what was read from the licence, and a check taking over 10 minutes says so with a "Write to
+  support" link. Messages come 30 days before the licence ends and the day after it does.
+- Tests: the fake backend answers the licence check like the real one (`finishLicenceCheck`), the e2e build reads the
+  salon again every second (`VITE_LICENCE_POLL_MS`); unit tests for every state and reason.
+
 ### 0.22.0 — 2026-11-14
 
 Fixes from a salon owner trying the app (no backend change needed):

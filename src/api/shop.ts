@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { createContext, useContext } from 'react'
 import { useSession } from '../store/session'
 import { api, refreshSession } from './client'
@@ -59,7 +59,24 @@ export async function fetchMyShop(): Promise<Shop | null> {
  * being added as a helper shows without signing in again.
  */
 export function useMyShop() {
-  return useQuery({ queryKey: shopKeys.mine, queryFn: fetchMyShop, refetchOnWindowFocus: true, staleTime: 30_000 })
+  const qc = useQueryClient()
+  return useQuery({
+    queryKey: shopKeys.mine,
+    // Read after the answer came: a save that finished while this read was on its way already put a newer version
+    queryFn: async () => newestShop(await fetchMyShop(), qc.getQueryData<Shop | null>(shopKeys.mine)),
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+  })
+}
+
+/**
+ * The shop to keep: a read that started before a save finished answers an older version of the same shop, and must
+ * not put it back over the save's answer (the change would seem undone, and the next save would get SHOP_CHANGED).
+ * The licence check's answer doesn't change the version, so an equal version is always taken fresh.
+ */
+export function newestShop(fresh: Shop | null, cached: Shop | null | undefined): Shop | null {
+  if (fresh && cached && cached.id === fresh.id && cached.version > fresh.version) return cached
+  return fresh
 }
 
 /** Set by the shop gate for every screen inside it. */
@@ -114,6 +131,7 @@ export const shopApi = {
     api<Shop>('PUT', `${S}/me/photos`, { body: { version, ...photos } }),
   /** Set the salon video (owner): the file from videoApi.complete. A video it replaces is deleted. */
   setVideo: (version: number, fileId: string) => api<Shop>('PUT', `${S}/me/video`, { body: { version, fileId } }),
+  /** Set the trade licence (owner; type TRADE_LICENCE): checked automatically (licenceCheck). */
   setRegistrationDoc: (version: number, type: RegistrationDocType, fileId: string) =>
     api<Shop>('PUT', `${S}/me/registration-document`, { body: { version, type, fileId } }),
   /** Ask the field team for a new address and pin (owner, once the address is verified). 201 with the request. */
@@ -124,7 +142,7 @@ export const shopApi = {
     (await api<AddressRequest | undefined>('GET', `${S}/me/address-request`)) ?? null,
   /** Take the waiting request back. 204. */
   cancelAddressRequest: (version: number) => api<void>('DELETE', `${S}/me/address-request?version=${version}`),
-  /** Remove it (owner): customers see "Unregistered" from now on. */
+  /** Remove it (owner): no "Licensed" badge from now on. */
   removeRegistrationDoc: (version: number) =>
     api<Shop>('DELETE', `${S}/me/registration-document?version=${version}`),
   submit: (version: number) => api<Shop>('POST', `${S}/me/submit`, { body: { version } }),

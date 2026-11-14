@@ -1,18 +1,27 @@
 import { addDays, istInstant, MockApi, todayIst } from './mockApi'
 import { atSalon, expect, JPEG, signedIn, test } from './helpers'
 
-test('the owner edits the salon details later; the verified address is locked, a new GSTIN asks first and stays live', async ({ page, context, api }) => {
+test('the owner edits the salon details later; the verified address is locked, and a new name checks the licence again first', async ({ page, context, api }) => {
   await atSalon(page, context, api)
   await page.goto('/setup')
   await page.getByRole('link', { name: /Salon details/ }).click()
   await expect(page.getByRole('heading', { name: 'Salon details' })).toBeVisible()
+  await expect(page.getByLabel('GSTIN')).toHaveCount(0)   // a salon has no GSTIN or Udyam number now
 
-  // The name: saved at once, the salon stays live
+  // The name: the trade licence passed against the old one, so the owner is told first; the salon stays live
   await page.getByLabel('Salon name').fill('Shine Salon & Spa')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText('Your trade licence is checked again against the new details', { exact: false })).toBeVisible()
+  expect(api.shop!.name).toBe('Shine Unisex Salon')   // not saved yet
+  await page.getByRole('button', { name: 'Save and check the licence again' }).click()
   await expect(page.getByText('Saved.')).toBeVisible()
   expect(api.shop!.name).toBe('Shine Salon & Spa')
   expect(api.shop!.status).toBe('APPROVED')
+  expect(api.shop!.licenceCheck).toBe('PENDING')
+  // Its own sign-in name isn't changed here; saved again with only the owner's name the same: no question
+  await page.getByLabel('Owner’s name').fill('Ravi Kumar')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText('Saved.')).toBeVisible()
 
   // The address and pin: read-only, with whom to ask; no GPS or address search
   await expect(page.getByLabel('Shop number, building, street')).toHaveAttribute('readonly', '')
@@ -20,28 +29,16 @@ test('the owner edits the salon details later; the verified address is locked, a
   await expect(page.getByText('only they can change them', { exact: false })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Use my location' })).toHaveCount(0)
   await expect(page.getByLabel("Map: your salon's pin, where customers find you")).toBeVisible()
-
-  // A GSTIN with a typo is caught on the phone; a right one asks first, then the salon waits for the check, live
-  await page.getByLabel('GSTIN').fill('27AAPFU0939F1ZW')
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page.getByText('This GSTIN has a typo')).toBeVisible()
-  await page.getByLabel('GSTIN').fill('27aapfu0939f1zv')
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page.getByText('A new GSTIN or Udyam number goes to our field team for a check', { exact: false })).toBeVisible()
-  await page.getByRole('button', { name: 'Save and send for a check' }).click()
-  await expect(page.getByText('Saved.')).toBeVisible()
-  expect(api.shop!.gstin).toBe('27AAPFU0939F1ZV')
-  expect(api.shop!.status).toBe('APPROVED')
-  await expect(page.getByText('Our field team is checking your changes', { exact: false })).toBeVisible()
   // Saved: nothing unsaved, Back leaves without asking
   await page.getByRole('button', { name: 'Back' }).click()
   await expect(page).toHaveURL(/\/setup$/)
+  await expect(page.getByText('Being checked')).toBeVisible()   // the Trade licence row
 
   // A fix asked for shows with the reason, on Today too
-  api.askToFix('The GSTIN doesn’t match the certificate.')
+  api.askToFix('The board in the shop photo is not readable.')
   await page.goto('/salon/day')
   await expect(page.getByText('Our field team asked you to fix something')).toBeVisible()
-  await expect(page.getByText('The GSTIN doesn’t match the certificate.', { exact: false })).toBeVisible()
+  await expect(page.getByText('The board in the shop photo is not readable.', { exact: false })).toBeVisible()
 })
 
 test('a barber keeps working while the owner’s changes are re-checked (the salon stays APPROVED)', async ({ page, context, api }) => {
@@ -84,21 +81,65 @@ test('photos and video can be changed later, with the re-check said first', asyn
   await expect(page.getByText("This photo's format can't be used", { exact: false })).toBeVisible()
 })
 
-test('the registration document: added on a live salon it waits for a check, and the owner can remove it', async ({ page, context, api }) => {
+test('the trade licence: checked automatically on a live salon, not accepted with why, checked again, and removable', async ({ page, context, api }) => {
   await atSalon(page, context, api)
-  api.shop = { ...api.shop!, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null }
+  api.shop = { ...api.shop!, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, licenceCheck: null, licenceValidUntil: null }
   await page.goto('/setup')
-  await expect(page.getByText('Not added (optional): customers see "Unregistered"')).toBeVisible()
-  await page.getByRole('link', { name: /Registration document/ }).click()
-  await page.getByLabel('Udyam certificate').check()
-  await page.getByLabel('Add the registration document').setInputFiles({ name: 'udyam.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test') })
-  await expect(page.getByText('Waiting for our team to check it')).toBeVisible()
+  await expect(page.getByText('Not added (optional): no "Licensed" badge')).toBeVisible()
+  await page.getByRole('link', { name: /Trade licence/ }).click()
+  await expect(page.getByText('No trade licence added: your salon shows no "Licensed" badge.')).toBeVisible()
+  // Not a photo or a PDF: refused on the phone with what to do
+  await page.getByLabel('Add the trade licence').setInputFiles({ name: 'notes.docx', mimeType: 'application/msword', buffer: Buffer.from('x') })
+  await expect(page.getByText('Pick a photo or a PDF of your trade licence.')).toBeVisible()
+  await page.getByLabel('Add the trade licence').setInputFiles({ name: 'licence.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test') })
+  await expect(page.getByText('Checking your trade licence.', { exact: false })).toBeVisible()
   expect(api.shop!.status).toBe('APPROVED')   // stays live
+  expect(api.calls.find((c) => c.path === '/api/v1/shops/me/registration-document')!.body).toMatchObject({ type: 'TRADE_LICENCE' })
 
-  await page.getByRole('button', { name: 'Remove the document' }).click()
+  // Not accepted: the reason and what to do show by themselves (the page reads the salon again while it waits)
+  api.finishLicenceCheck({ failed: 'NAME_MISMATCH', read: MockApi.licenceRead({ tradeName: 'Royal Cuts', ownerName: 'Mohammed Ali' }) })
+  await expect(page.getByText('Not accepted. The name on it doesn’t match', { exact: false })).toBeVisible()
+  // What was read, to compare with his own details; and support one tap away
+  await expect(page.getByText('On the licence we read: Royal Cuts · Mohammed Ali; Shop 12, Ithum Tower 201309.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Write to support' })).toHaveAttribute('href', '/help')
+  // Checked again without uploading it again (the owner fixed his details elsewhere, or thinks it is right)
+  await page.getByRole('button', { name: 'Check it again' }).click()
+  await expect(page.getByText('Checking your trade licence.', { exact: false })).toBeVisible()
+  api.finishLicenceCheck({ passedUntil: '2027-03-31' })
+  await expect(page.getByText('Checked: customers see "Licensed" on your salon until 31 Mar 2027.')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Remove the trade licence' }).click()
+  await expect(page.getByText('Customers will no longer see "Licensed" on your salon.')).toBeVisible()
   await page.getByRole('button', { name: 'Remove it' }).click()
-  await expect(page.getByText('No document added: customers see "Unregistered" on your salon.')).toBeVisible()
+  await expect(page.getByText('No trade licence added: your salon shows no "Licensed" badge.')).toBeVisible()
   expect(api.shop!.registrationDocFileId).toBeNull()
+})
+
+test('an expired licence and an old Udyam certificate say what to do', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  api.shop = { ...api.shop!, licenceCheck: 'PASSED', licenceValidUntil: '2026-03-31' }
+  await page.goto('/setup/document')
+  await expect(page.getByText('Your trade licence expired on 31 Mar 2026', { exact: false })).toBeVisible()
+  api.shop = { ...api.shop!, registrationDocType: 'UDYAM', licenceCheck: 'FAILED', licenceCheckReason: 'NOT_TRADE_LICENCE', licenceValidUntil: null }
+  await page.goto('/setup')
+  await expect(page.getByText('Only a trade licence counts now: add yours')).toBeVisible()
+  await page.getByRole('link', { name: /Trade licence/ }).click()
+  await expect(page.getByText('Replace your udyam certificate with your trade licence', { exact: false })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Check it again' })).toHaveCount(0)   // it isn't a trade licence
+})
+
+test('a check that waits long says so, and an expired or edited licence can’t be checked again as it is', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  // Open 3 seconds before the 10 minutes: the same page says so by itself, with no reload and the same answer polled
+  api.shop = { ...api.shop!, licenceCheck: 'PENDING', licenceValidUntil: null, licenceCheckSince: new Date(Date.now() - 10 * 60_000 + 3_000).toISOString() }
+  await page.goto('/setup/document')
+  await expect(page.getByText('This usually takes under a minute', { exact: false })).toBeVisible()
+  await expect(page.getByText('Checking your trade licence is taking longer than usual.', { exact: false })).toBeVisible({ timeout: 8_000 })
+  api.shop = { ...api.shop!, licenceCheck: 'FAILED', licenceCheckReason: 'LOOKS_EDITED' }
+  await page.reload()
+  await expect(page.getByText('Not accepted. It looks edited.', { exact: false })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Check it again' })).toHaveCount(0)
+  await expect(page.getByText('Upload another photo or PDF')).toBeVisible()
 })
 
 test('helpers can’t open the owner’s salon details', async ({ page, context, api }) => {
@@ -190,6 +231,8 @@ test('details changed on another phone: the save is refused and the form shows t
   await page.getByLabel('Owner’s name').fill('Ravi K.')
   api.shop = { ...api.shop!, name: 'Shine Salon (new name)', version: (api.shop!.version as number) + 1 }   // another phone
   await page.getByRole('button', { name: 'Save', exact: true }).click()
+  // The owner's name is what the trade licence was matched against: asked first
+  await page.getByRole('button', { name: 'Save and check the licence again' }).click()
   await expect(page.getByLabel('Salon name')).toHaveValue('Shine Salon (new name)')
   expect(api.shop!.name).toBe('Shine Salon (new name)')
 })

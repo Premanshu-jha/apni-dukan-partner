@@ -4,6 +4,8 @@ import { atSalon, expect, test } from './helpers'
 test('a verified salon is edited after a code to the owner’s phone; one code opens every edit for 15 minutes', async ({ page, context, api }) => {
   await atSalon(page, context, api)
   api.editUntil = null
+  // No trade licence: a new name saves at once (one that passed asks first, tested in salon-details)
+  api.shop = { ...api.shop!, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, licenceCheck: null, licenceValidUntil: null }
   await page.goto('/more')
   // More's Edit asks for the code straight away
   await page.getByRole('link', { name: 'Edit salon details' }).click()
