@@ -66,5 +66,7 @@ export const useCurrentOffers = () => useQuery({ queryKey: offerKeys.current, qu
 
 /** After publishing or ending: the list is read again (the new state, the bookings). */
 export function refreshOffers(qc: QueryClient) {
+  // The walk-in prices follow the offers (a new or ended one changes them)
+  void qc.invalidateQueries({ queryKey: ['salon', 'walk-in-prices'] })
   return qc.invalidateQueries({ queryKey: offerKeys.list })
 }

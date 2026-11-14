@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
 import { salonKeys, setupApi, useServices, type ServiceIn, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
 import { useShop } from '../../api/shop'
@@ -7,6 +7,8 @@ import type { ServiceItem } from '../../api/types'
 import { Banner, Button, EmptyState, ErrorState, Field, Loading, Page, Pill, Sheet, Switch } from '../../components/ui'
 import { duration, rupees } from '../../lib/money'
 import { can } from '../../lib/roles'
+import { ServiceIcon } from '../../components/ServiceIcon'
+import { ICON_LABELS, iconsFor, type ServiceIconName } from '../../lib/serviceIcons'
 
 export interface ServiceForm {
   name: string
@@ -15,6 +17,10 @@ export interface ServiceForm {
   from: boolean
   /** Days after a visit to remind the customer to come back; "0": never. */
   returnDays: string
+  /** The picture picked; null: the one the name fits best (the first offered). */
+  icon?: ServiceIconName | null
+  /** The name as saved (editing): while it is unchanged, the saved picture stays even if it isn't offered for it. */
+  savedName?: string
 }
 
 type Form = ServiceForm
@@ -49,7 +55,18 @@ export function serviceIn(f: Form): ServiceIn {
     pricePaise: toPaise(f.rupees)!,
     priceIsFrom: f.from,
     returnAfterDays: Number(f.returnDays),
+    icon: pickedIcon(f),
   }
+}
+
+/**
+ * The icon to save: the one picked if it fits the name (or the name is still the saved one, so editing only the price
+ * never changes the picture), else the one the name fits best.
+ */
+export function pickedIcon(f: Pick<Form, 'name' | 'icon' | 'savedName'>): ServiceIconName {
+  const fits = iconsFor(f.name)
+  const unchanged = f.savedName != null && f.name.trim() === f.savedName.trim()
+  return f.icon && (fits.includes(f.icon) || unchanged) ? f.icon : fits[0]
 }
 
 /** "Reminds after 3 weeks" for a list line; null when it never reminds. */
@@ -97,6 +114,7 @@ export function Services() {
             <ul className="flex flex-col gap-2">
               {services.data.map((s) => (
                 <li key={s.id} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
+                  <ServiceIcon service={s} size={24} className="text-link" />
                   <button
                     type="button"
                     className="flex min-w-0 flex-1 flex-col text-left disabled:cursor-default"
@@ -142,8 +160,10 @@ export function ServiceSheet({ service, onClose }: { service: ServiceItem | null
           rupees: String(service.pricePaise / 100),
           from: service.priceIsFrom,
           returnDays: String(service.returnAfterDays ?? 14),
+          icon: (service.icon as ServiceIconName | null | undefined) ?? null,
+          savedName: service.name,
         }
-      : { name: '', minutes: '30', rupees: '', from: false, returnDays: '14' },
+      : { name: '', minutes: '30', rupees: '', from: false, returnDays: '14', icon: null },
   )
   const [touched, setTouched] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -173,6 +193,7 @@ export function ServiceSheet({ service, onClose }: { service: ServiceItem | null
     <Sheet open title={service ? 'Edit service' : 'New service'} onClose={onClose}>
       <div className="flex flex-col gap-3">
         <Field id="svc-name" label="Name" value={form.name} maxLength={60} onChange={(e) => setForm({ ...form, name: e.target.value })} error={problems.name ?? fieldError(error, 'name')} />
+        <IconPicker name={form.name} value={pickedIcon(form)} onChange={(icon) => setForm({ ...form, icon })} error={fieldError(error, 'icon')} />
         <div className="grid grid-cols-2 gap-3">
           <Field id="svc-minutes" label="Minutes" inputMode="numeric" value={form.minutes} onChange={(e) => setForm({ ...form, minutes: e.target.value.replace(/\D/g, '') })} error={problems.minutes ?? fieldError(error, 'durationMinutes')} />
           <Field id="svc-price" label="Price (₹)" inputMode="decimal" value={form.rupees} onChange={(e) => setForm({ ...form, rupees: e.target.value })} error={problems.rupees ?? fieldError(error, 'pricePaise')} />
@@ -190,7 +211,7 @@ export function ServiceSheet({ service, onClose }: { service: ServiceItem | null
           error={problems.returnDays ?? fieldError(error, 'returnAfterDays')}
         />
         <p className="-mt-2 text-xs text-muted">0 = no reminder. Customers who booked it get one push message, e.g. 21 days after a haircut.</p>
-        {error != null && !['name', 'durationMinutes', 'pricePaise', 'returnAfterDays'].some((k) => fieldError(error, k)) && <Banner tone="bad">{messageOf(error)}</Banner>}
+        {error != null && !['name', 'durationMinutes', 'pricePaise', 'returnAfterDays', 'icon'].some((k) => fieldError(error, k)) && <Banner tone="bad">{messageOf(error)}</Banner>}
         <Button busy={busy} onClick={save}>
           Save
         </Button>
@@ -199,5 +220,71 @@ export function ServiceSheet({ service, onClose }: { service: ServiceItem | null
         </Button>
       </div>
     </Sheet>
+  )
+}
+
+/**
+ * The service's picture: only the icons that fit its name are offered (a haircut gets scissors, never a hair wash),
+ * plus the general one (a barber's pole), which fits anything; the one saved stays offered while it is picked. One is
+ * always picked, so the owner can just go on. Arrow keys move between them (one stop for Tab, as radio buttons).
+ */
+export function IconPicker({
+  name,
+  value,
+  onChange,
+  error,
+}: {
+  name: string
+  value: ServiceIconName
+  onChange: (icon: ServiceIconName) => void
+  error?: string
+}) {
+  const id = useId()
+  const fits = iconsFor(name)
+  const offered = fits.includes(value) ? fits : [value, ...fits]
+  const buttons = useRef<(HTMLButtonElement | null)[]>([])
+  function move(from: number, by: number) {
+    const to = (from + by + offered.length) % offered.length
+    onChange(offered[to])
+    buttons.current[to]?.focus()
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <p id={id} className="mb-1 text-sm font-medium">
+        Picture
+      </p>
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby={id}>
+        {offered.map((icon, i) => (
+          <button
+            key={icon}
+            ref={(b) => {
+              buttons.current[i] = b
+            }}
+            type="button"
+            role="radio"
+            aria-checked={icon === value}
+            tabIndex={icon === value ? 0 : -1}
+            onClick={() => onChange(icon)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                e.preventDefault()
+                move(i, 1)
+              } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault()
+                move(i, -1)
+              }
+            }}
+            className={`flex min-h-12 min-w-12 flex-col items-center justify-center gap-1 rounded-xl border px-3 py-2 text-xs ${icon === value ? 'border-brand bg-brand/10 text-link' : 'border-line bg-surface text-ink'}`}
+          >
+            <ServiceIcon icon={icon} size={24} />
+            {ICON_LABELS[icon]}
+          </button>
+        ))}
+      </div>
+      {fits.length === 1 && name.trim().length >= 2 && (
+        <p className="text-xs text-muted">No picture matches this name, so it gets the general one (a barber's pole).</p>
+      )}
+      {error && <p className="text-sm text-bad">{error}</p>}
+    </div>
   )
 }

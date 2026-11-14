@@ -140,7 +140,8 @@ test('a walk-in: services, a free barber, one request even on a double tap', asy
   await page.getByRole('button', { name: '+ Walk-in' }).click()
   await page.getByLabel(/Haircut/).check()
   await page.getByLabel(/Beard trim/).check()
-  await expect(page.getByText('Who? (45 min, ₹300)')).toBeVisible()
+  await expect(page.getByLabel('Total')).toContainText('Total: 2 services · ₹300')
+  await expect(page.getByLabel('Total')).toContainText('About 45 min')
   await expect(page.getByRole('button', { name: /Imran.*free at 4:30 PM/ })).toBeDisabled()
   await page.getByRole('button', { name: /Ravi.*Free now/ }).click()
   await page.getByLabel("Customer's name (optional)").fill('Sunil')
@@ -148,9 +149,106 @@ test('a walk-in: services, a free barber, one request even on a double tap', asy
   await expect(page).toHaveURL(/\/salon\/day$/)
   const adds = api.calls.filter((c) => c.method === 'POST' && c.path === '/api/v1/salon/walk-ins')
   expect(adds).toHaveLength(1)
-  expect(adds[0].body).toEqual({ serviceIds: ['v1', 'v2'], staffId: 'st1', name: 'Sunil' })
+  expect(adds[0].body).toEqual({ serviceIds: ['v1', 'v2'], staffId: 'st1', name: 'Sunil', expectedPricePaise: 30000 })   // the total shown
   expect(adds[0].idempotencyKey).toMatch(/^[0-9a-f-]{36}$/)
   await expect(page.getByText('Sunil')).toBeVisible()
+})
+
+test('a walk-in shows each price now and the total as services are ticked, with the salon’s offer while it runs', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  api.offerNow = { percentOff: 20, serviceIds: ['v1'], until: '14:00' }   // 20% off the haircut right now, till 2 pm
+  await page.getByRole('button', { name: '+ Walk-in' }).click()
+  const total = page.getByLabel('Total')
+  await expect(total).toContainText('Tick what they want: the total shows here.')
+  // Each service: its picture, its time, and its price now (the haircut's own price crossed out, read as "was")
+  const haircut = page.locator('label', { hasText: 'Haircut' })
+  await expect(haircut.locator('svg[data-icon="HAIRCUT"]')).toBeVisible()
+  await expect(haircut.locator('s')).toHaveText('was ₹200')
+  await expect(haircut).toContainText('now ₹160')
+  await expect(haircut).toContainText('offer till 2:00 PM')
+  await expect(page.locator('label', { hasText: 'Beard trim' }).locator('svg[data-icon="BEARD"]')).toBeVisible()
+  await expect(page.locator('label', { hasText: 'Beard trim' }).locator('s')).toHaveCount(0)
+
+  await page.getByLabel(/Haircut/).check()
+  await expect(total).toContainText('Total: 1 service · was ₹200 now ₹160')
+  await page.getByLabel(/Beard trim/).check()
+  await expect(total).toContainText('Total: 2 services · was ₹300 now ₹260')
+  await expect(total).toContainText("About 45 min · the salon's offer price till 2:00 PM")
+  // The Start button sits under the total, so a long list needn't be scrolled to the end
+  await page.getByRole('button', { name: /Ravi.*Free now/ }).click()
+  await expect(total.locator('..').getByRole('button', { name: 'Start now with Ravi' })).toBeVisible()
+  await page.getByLabel(/Haircut/).uncheck()
+  await expect(total).toContainText('Total: 1 service · ₹100')
+  await expect(total).not.toContainText('offer')
+  await page.getByLabel(/Hair colour/).check()
+  await expect(total).toContainText('Total: 2 services · from ₹900')   // a "from" price says so
+})
+
+test('walk-in prices that can’t be read: the usual prices with a note, and the backend says if the price differs', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  api.offerNow = { percentOff: 20, serviceIds: ['v1'] }
+  api.failOnce.set('/walk-ins/prices', { status: 500, code: 'INTERNAL_ERROR', message: 'Something went wrong on our side.' })
+  await page.getByRole('button', { name: '+ Walk-in' }).click()
+  await page.getByLabel(/Haircut/).check()
+  const total = page.getByLabel('Total')
+  await expect(total).toContainText('Total: 1 service · ₹200')
+  await expect(total).toContainText("Couldn't check the salon's offer, so these are the usual prices.")
+  await page.getByRole('button', { name: /Ravi.*Free now/ }).click()
+  await page.getByRole('button', { name: 'Start now with Ravi' }).click()
+  // The offer applies now: nothing was added, the new total is said and shown
+  await expect(page.getByText("The price changed just now (an offer started or ended): it's ₹160 now.")).toBeVisible()
+  await expect(total).toContainText('Total: 1 service · was ₹200 now ₹160')
+  await expect(total).not.toContainText("Couldn't check")
+  await page.getByRole('button', { name: /Ravi.*Free now/ }).click()
+  await page.getByRole('button', { name: 'Start now with Ravi' }).click()
+  await expect(page).toHaveURL(/\/salon\/day$/)
+  const adds = api.calls.filter((c) => c.method === 'POST' && c.path === '/api/v1/salon/walk-ins')
+  expect(adds.map((a) => (a.body as { expectedPricePaise: number }).expectedPricePaise)).toEqual([20000, 16000])
+  expect(adds[0].idempotencyKey).not.toBe(adds[1].idempotencyKey)
+})
+
+test('prices that stay unreadable: after the backend says the real total, the next Start adds at it', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  api.offerNow = { percentOff: 20, serviceIds: ['v1'] }
+  api.walkInPricesDown = true
+  await page.getByRole('button', { name: '+ Walk-in' }).click()
+  await page.getByLabel(/Haircut/).check()
+  await page.getByRole('button', { name: /Ravi.*Free now/ }).click()
+  await page.getByRole('button', { name: 'Start now with Ravi' }).click()
+  await expect(page.getByText("it's ₹160 now.")).toBeVisible()
+  await page.getByRole('button', { name: /Ravi.*Free now/ }).click()
+  await page.getByRole('button', { name: 'Start now with Ravi' }).click()
+  await expect(page).toHaveURL(/\/salon\/day$/)
+  const adds = api.calls.filter((c) => c.method === 'POST' && c.path === '/api/v1/salon/walk-ins')
+  expect(adds.map((x) => (x.body as { expectedPricePaise: number }).expectedPricePaise)).toEqual([20000, 16000])
+})
+
+test('an offer that ends while the walk-in screen is open: the owner is told before anything is added', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  api.offerNow = { percentOff: 20, serviceIds: ['v1'], until: '14:00' }
+  await page.getByRole('button', { name: '+ Walk-in' }).click()
+  await page.getByLabel(/Haircut/).check()
+  await expect(page.getByLabel('Total')).toContainText('now ₹160')
+  await page.getByRole('button', { name: /Ravi.*Free now/ }).click()
+  api.offerNow = null   // 2 pm came
+  await page.getByRole('button', { name: 'Start now with Ravi' }).click()
+  await expect(page.getByText("it's ₹200 now. Check it with the customer, then tap Start again.")).toBeVisible()
+  await expect(page.getByLabel('Total')).toContainText('Total: 1 service · ₹200')
+  expect(api.appointments.filter((a) => a.kind === 'WALK_IN')).toHaveLength(0)
+})
+
+test('a walk-in has at most 10 services: the rest wait, and the screen says why', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  const base = api.services[0]
+  for (let i = 1; i <= 10; i++) api.services.push({ ...base, id: `x${i}`, name: `Extra ${i}`, sortOrder: 50 + i })
+  for (const st of api.staff) (st.serviceIds as string[]).push(...api.services.map((v) => v.id as string))
+  await page.getByRole('button', { name: '+ Walk-in' }).click()
+  await page.reload()
+  for (let i = 1; i <= 10; i++) await page.getByRole('checkbox', { name: new RegExp(`^Extra ${i} `) }).check()
+  await expect(page.getByText('At most 10 services in one walk-in: untick one to choose another.')).toBeVisible()
+  await expect(page.getByLabel(/Haircut/)).toBeDisabled()
+  await page.getByRole('checkbox', { name: /^Extra 1 / }).uncheck()
+  await expect(page.getByLabel(/Haircut/)).toBeEnabled()
 })
 
 test('a walk-in for a barber who just got busy, and someone without walk-in access', async ({ page, context, api }) => {

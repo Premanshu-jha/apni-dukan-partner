@@ -106,6 +106,55 @@ test('the come-back reminder of a service is set on its sheet', async ({ page, c
   expect(patch.body).toMatchObject({ returnAfterDays: 0 })
 })
 
+test('a service’s picture: only the ones that fit its name are offered, one is always picked, and it is saved', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  await page.goto('/setup/services')
+  // Saved before pictures existed: the one its name fits
+  await expect(page.locator('li', { hasText: 'Haircut' }).locator('svg[data-icon="HAIRCUT"]')).toBeVisible()
+  await expect(page.locator('li', { hasText: 'Hair colour' }).locator('svg[data-icon="HAIR_COLOUR"]')).toBeVisible()
+
+  await page.getByRole('button', { name: '+ Add a service' }).click()
+  const pictures = page.getByRole('radiogroup', { name: 'Picture' })
+  await page.getByLabel('Name').fill('Kids hair-cut')
+  await expect(pictures.getByRole('radio')).toHaveText(['Kids', 'Haircut', 'General (barber pole)'])
+  await expect(pictures.getByRole('radio', { name: 'Kids' })).toHaveAttribute('aria-checked', 'true')
+  // Arrow keys move the pick (one Tab stop for the group, as radio buttons)
+  await pictures.getByRole('radio', { name: 'Kids' }).press('ArrowRight')
+  await expect(pictures.getByRole('radio', { name: 'Haircut' })).toHaveAttribute('aria-checked', 'true')
+  await expect(pictures.getByRole('radio', { name: 'Haircut' })).toBeFocused()
+  await expect(pictures.getByRole('radio', { name: 'Kids' })).toHaveAttribute('tabindex', '-1')
+  // A name that fits nothing: the salon's own, said so
+  await page.getByLabel('Name').fill('Special combo deal')
+  await expect(pictures.getByRole('radio')).toHaveText(['Package', 'General (barber pole)'])
+  await page.getByLabel('Name').fill('Something new')
+  await expect(pictures.getByRole('radio')).toHaveText(['General (barber pole)'])
+  await expect(page.getByText("No picture matches this name, so it gets the general one (a barber's pole).")).toBeVisible()
+  // Back to a haircut name: the picked one fits again and stays picked
+  await page.getByLabel('Name').fill('massage   HEAD')
+  await expect(pictures.getByRole('radio')).toHaveText(['Massage', 'General (barber pole)'])
+  await page.getByLabel('Price (₹)').fill('150')
+  await page.getByRole('button', { name: 'Save' }).click()
+  const added = api.calls.find((c) => c.method === 'POST' && c.path === '/api/v1/salon/services')!
+  expect(added.body).toMatchObject({ name: 'massage HEAD', icon: 'MASSAGE' })
+  await expect(page.locator('li', { hasText: 'massage HEAD' }).locator('svg[data-icon="MASSAGE"]')).toBeVisible()
+
+  // Changing an old one's picture
+  await page.getByRole('button', { name: /Beard trim/ }).click()
+  await page.getByRole('radiogroup', { name: 'Picture' }).getByRole('radio', { name: 'General (barber pole)' }).click()
+  await page.getByRole('button', { name: 'Save' }).click()
+  const patch = api.calls.find((c) => c.method === 'PATCH' && c.path === '/api/v1/salon/services/v2')!
+  expect(patch.body).toMatchObject({ icon: 'OTHER' })
+
+  // A picture saved that the name isn't offered now stays when only the price is changed; a new name drops it
+  api.services.find((v) => v.id === 'v1')!.icon = 'SHAVE'
+  await page.reload()
+  await page.getByRole('button', { name: /^Haircut/ }).click()
+  await expect(page.getByRole('radiogroup', { name: 'Picture' }).getByRole('radio', { name: 'Shave' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByLabel('Price (₹)').fill('210')
+  await page.getByRole('button', { name: 'Save' }).click()
+  expect(api.calls.filter((c) => c.method === 'PATCH' && c.path === '/api/v1/salon/services/v1').at(-1)!.body).toMatchObject({ icon: 'SHAVE' })
+})
+
 test('the owner reads the ratings with the comments; a barber has no ratings page', async ({ page, context, api }) => {
   await atSalon(page, context, api)
   api.ratingSummary = { count: 3, average: 4.3, tags: [{ tag: 'CLEAN', label: 'Clean', count: 2 }] }

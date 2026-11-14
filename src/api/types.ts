@@ -246,6 +246,8 @@ export interface ServiceItem {
   sortOrder: number
   /** Days after a visit the customer is reminded to come back for it; 0: no reminder. */
   returnAfterDays: number
+  /** Its picture (lib/serviceIcons); null for one saved before icons (the one its name fits is shown). */
+  icon?: string | null
   version: number
   createdAt: string
   updatedAt: string
@@ -429,6 +431,18 @@ export interface HistoryView {
   truncated: boolean
   /** The next page's cursor, sent back exactly as received; null on the last page. */
   next: { afterStart: string; afterId: string } | null
+}
+
+/** GET /salon/walk-ins/prices: a service's price for a walk-in starting now (the salon's offer applied). */
+export interface WalkInPrice {
+  serviceId: string
+  /** What the customer pays now: the offer price when one applies now. */
+  pricePaise: number
+  priceIsFrom: boolean
+  /** Its own price when an offer applies now; null otherwise. */
+  listPricePaise: number | null
+  /** When the offer's hours end today ("14:00", India time); null when no offer applies or it runs all day. */
+  offerUntil?: string | null
 }
 
 export interface WalkInOption {
