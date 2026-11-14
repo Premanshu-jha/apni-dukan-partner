@@ -28,6 +28,10 @@ const icons: Record<string, string> = {
   SHOP_NOT_APPROVED: '!',
   SHOP_SUSPENDED: '!',
   SHOP_DOCUMENT_REMOVED: '!',
+  SHOP_LICENCE_PASSED: '✓',
+  SHOP_LICENCE_FAILED: '!',
+  SHOP_LICENCE_EXPIRING: '!',
+  SHOP_LICENCE_EXPIRED: '!',
   SHOP_REINSTATED: '✓',
   SHOP_HANDOVER_REQUEST: '⇄',
   SHOP_HANDOVER_ACCEPTED: '⇄',
@@ -65,6 +69,8 @@ export function safePath(url: string | null): string | null {
   if (/^\/help\/requests\/[0-9A-Za-z-]{1,64}$/.test(url)) return url
   // The owner's salon screens a message about his salon points to (a fix asked for, an address declined)
   if (url === '/setup' || url === '/setup/document' || url === '/setup/address') return url
+  // A salon still registering: its trade licence's step
+  if (url === '/register/photos') return url
   if (url.startsWith('/shops/')) return '/'
   return null
 }
