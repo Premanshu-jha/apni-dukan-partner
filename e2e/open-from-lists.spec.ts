@@ -104,11 +104,25 @@ test('a big salon’s day (50 barbers, 2,000 bookings) opens on one barber and d
   const cards = page.locator('main li > button')
   await expect(page.getByRole('button', { name: 'Barber 0', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(cards).toHaveCount(40)
-  const started = Date.now()
-  await page.getByRole('button', { name: 'Everyone' }).click()
+  // Timed inside the page, from the tap to all 2,000 cards drawn: only the app's own work, not Playwright's polling
+  // or a busy shared CI runner's round trips (which made the old wall-clock timing fail now and then)
+  const drawMs = await page.evaluate(async () => {
+    const everyone = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Everyone')!
+    const t0 = performance.now()
+    everyone.click()
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)))
+    while (document.querySelectorAll('main li > button').length < 2000) {
+      await frame()
+      if (performance.now() - t0 > 20_000) break
+    }
+    // Two more frames: the one that lays out and paints the 2,000 cards has run (a board slow only to lay out or
+    // paint is counted too)
+    await frame()
+    await frame()
+    return performance.now() - t0
+  })
   await expect(cards).toHaveCount(2000)
-  // Generous for a shared CI runner; locally it is well under a second
-  expect(Date.now() - started).toBeLessThan(5000)
+  expect(drawMs).toBeLessThan(5000)
   // One booking changes: the board shows it at the next refresh, the rest stays as it was
   api.appointments.find((a) => a.customerName === 'Guest 7-3')!.customerName = 'Renamed Guest'
   api.salonVersion++
