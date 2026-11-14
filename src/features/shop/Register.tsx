@@ -17,7 +17,7 @@ import { SalonHoursEditor } from '../setup/SalonHours'
 import { docLabel, RegistrationDocCard } from './RegistrationDoc'
 import { RecheckWaiting } from './RecheckWaiting'
 import { SalonVideo } from './SalonVideo'
-import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
+import { Banner, Button, Card, ErrorState, Field, Loading, Page, Sheet } from '../../components/ui'
 import {
   insideIndia,
   locateOnce,
@@ -1030,6 +1030,8 @@ export function RegisterReview() {
   const hours = useSalonHours()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // "Are you sure?" before the registration goes to the field team: the last chance to check, said in words
+  const [asking, setAsking] = useState(false)
   const photos = Boolean(shop.ownerPhotoFileId && shop.shopPhotoFileId)
   const video = Boolean(shop.shopVideoFileId)
   const doc = Boolean(shop.registrationDocFileId)
@@ -1037,13 +1039,20 @@ export function RegisterReview() {
   const open = hours.data?.days ?? []
   const ready = readyForVisit(shop) && offered > 0 && open.length > 0
 
+  // Two taps before React re-renders would both see busy=false: a ref holds the first one
+  const sending = useRef(false)
+
   async function submit() {
+    if (sending.current) return
+    sending.current = true
     setBusy(true)
     setError(null)
     try {
       qc.setQueryData(shopKeys.mine, await shopApi.submit(shop.version))
       navigate('/', { replace: true })
     } catch (e) {
+      // The reason shows on the review itself, next to what needs fixing
+      setAsking(false)
       setError(messageOf(e))
       if (isApiError(e, 'SHOP_CHANGED') || isApiError(e, 'PHOTOS_REQUIRED') || isApiError(e, 'WRONG_STATUS')) {
         await qc.invalidateQueries({ queryKey: shopKeys.mine })
@@ -1056,6 +1065,7 @@ export function RegisterReview() {
         ])
       }
     } finally {
+      sending.current = false
       setBusy(false)
     }
   }
@@ -1155,9 +1165,32 @@ export function RegisterReview() {
         After you submit, our field team calls and visits to check the salon. Meanwhile you can add your barbers.
       </p>
       {error && <Banner tone="bad">{error}</Banner>}
-      <Button busy={busy} disabled={!ready} onClick={submit}>
+      <Button disabled={!ready} onClick={() => setAsking(true)}>
         Submit for the visit
       </Button>
+      <Sheet open={asking} title="Submit for the field visit?" onClose={() => !busy && setAsking(false)}>
+        <div className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-1 rounded-xl border border-line bg-raised px-4 py-3 text-sm">
+            <li className="font-semibold">{shop.name}</li>
+            <li className="text-muted">{`${shop.addressLine}, ${shop.area}, ${shop.city} ${shop.pincode}`}</li>
+            <li>
+              {offered} {offered === 1 ? 'service' : 'services'} · open {open.length} {open.length === 1 ? 'day' : 'days'} a week
+            </li>
+          </ul>
+          <p className="text-muted">
+            After you submit, our field team calls you to fix a time and visits {shop.name}. Customers can book once
+            it's approved.
+          </p>
+          <p className="text-sm text-muted">Something to fix first? Tap Not yet. You can also change details later.</p>
+          {/* Not yet first: the sheet focuses it, so a held Enter can't submit by itself */}
+          <Button variant="secondary" disabled={busy} onClick={() => setAsking(false)}>
+            Not yet
+          </Button>
+          <Button busy={busy} onClick={submit}>
+            Yes, submit
+          </Button>
+        </div>
+      </Sheet>
       {/* Coming back lands here: not going ahead is one tap away, as on step 1 */}
       <DraftExits name={shop.name} />
     </Page>
