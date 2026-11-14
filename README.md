@@ -332,6 +332,29 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.24.0 — 2026-11-14
+
+Needs the backend with V61–V62 (walk-ins at the offer price, service pictures). Deploy the backend first.
+
+- **Walk-in total at the bottom**, always there: "Tick what they want", then "Total: 2 services · ₹300" and "About 45
+  min", following every tick and untick. Once a barber is picked, "Start now with …" sits under it, so a long list
+  needn't be scrolled to the end. At most 10 services: the rest grey out and the screen says why.
+- **Walk-ins get the salon's offer** while it runs (as bookings do): each covered service shows its own price crossed
+  out and the offer price, "offer till 2:00 PM" (screen readers hear "was … now …"), and the total too. Prices are
+  read again every minute and after any offer or service change. The total shown goes with the walk-in: if the price
+  changed meanwhile (an offer started or ended), nothing is added and the screen says the new total, then Start adds
+  it. Prices that can't be read show the usual ones with "Couldn't check the salon's offer… Check again".
+- **A picture for every service** (thin-line SVG, 26 of them: haircut, beard, shave, hair colour, styling,
+  straightening, curls, spa, hair wash, facial, clean-up, massage, threading, eyelashes, waxing, manicure, nail art,
+  pedicure, make-up, bridal, kids, mehendi, body spa, piercing, package, and the general one, a barber's pole). Shown
+  in Salon → Services, registration and walk-in. When adding or editing a service (and for every service ticked or
+  typed in at registration), only the pictures that fit its name are offered, labelled by service, plus the general
+  one; the best fit is picked, so nothing has to be done; arrow keys move the pick. Names are read in any case, word
+  order, spacing or punctuation ("massage Head", "hair.cut", "MAKE-UP"), Hindi in English letters (dadhi, champi,
+  mehndi) and in Devanagari (बाल कटिंग, मालिश). A word that only hints ("spa", "oil", "boy") gives way to the
+  service ("Spa pedicure" is a pedicure, "Boy cut" a haircut). Editing only the price keeps the saved picture.
+  Most drawings are from Lucide (ISC licence); the salon-only ones are drawn for Clozest in the same style.
+
 ### 0.23.0 — 2026-11-14
 
 Needs the backend with V55–V58 (the trade licence checked automatically). Deploy the backend first.
