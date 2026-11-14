@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { authApi, type PhoneChangeSent } from '../../api/auth'
 import { refreshSession, replacingSession } from '../../api/client'
@@ -31,9 +31,16 @@ export function ChangePhone() {
   const newPhone = normalizePhone(input)
   const same = newPhone !== null && newPhone === user.phone
 
+  // Each failure moves the focus to its message, once React has drawn it (a next-frame focus could run before the
+  // message existed, and the focus was lost)
+  const [failures, setFailures] = useState(0)
+  useEffect(() => {
+    if (failures > 0) errorRef.current?.focus()
+  }, [failures])
+
   function fail(text: string) {
     setError(text)
-    requestAnimationFrame(() => errorRef.current?.focus())
+    setFailures((n) => n + 1)
   }
 
   async function send() {

@@ -201,11 +201,11 @@ test('staff of a salon not live yet can delete their account from the waiting sc
   api.approvedSalon('HELPER')
   api.shop = { ...api.shop!, status: 'PENDING_VISIT' }
   await page.goto('/')
-  await expect(page.getByText("Your salon isn't live yet")).toBeVisible()
+  await expect(page.getByText('Waiting for approval')).toBeVisible()
   await page.getByRole('link', { name: 'Delete my account' }).click()
   await expect(page.getByRole('button', { name: /^Send code to \+91/ })).toBeVisible()
   await page.getByRole('button', { name: 'Keep my account' }).click()
-  await expect(page.getByText("Your salon isn't live yet")).toBeVisible()
+  await expect(page.getByText('Waiting for approval')).toBeVisible()
 })
 
 test('closing after a hand-over was accepted first (the race): 404 NO_SHOP says so and the app moves to Start', async ({ page, context, api }) => {

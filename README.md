@@ -133,10 +133,10 @@ sequenceDiagram
   B-->>A: 201 one-time R2 link (15 min)
   A->>R2: PUT the file straight to R2 (progress bar, Cancel, Try again on the same link)
   A->>B: POST /files/video-uploads/{id}/complete, then PUT /shops/me/video (version)
-  O->>A: Submit
+  O->>A: Submit for the visit, then "Yes, submit" (asked once more, with a summary; Not yet sends nothing)
   A->>B: POST /shops/me/submit (version)
   B-->>A: PENDING_VISIT
-  Note over A: Today shows "Waiting for our field team" and the shop code
+  Note over A: Every tab shows "Waiting for approval" on top; Today also says what happens next, with the shop code
 ```
 
 ### A booking on the board
@@ -331,6 +331,24 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 (set `shops.status` to `APPROVED`).
 
 ## Changelog
+
+### 0.22.0 — 2026-11-14
+
+Fixes from a salon owner trying the app (no backend change needed):
+
+- **"Waiting for approval" everywhere** while the field team hasn't approved the salon: a bold bar at the top of
+  every tab and every salon screen (walk-in, time off, services, hours…) says customers can't book it yet, so nothing
+  looks like a live salon's. Today's card under it is now "What happens next" (the call, the visit, the shop code).
+  Helpers and barbers of such a salon see "Waiting for approval" too (of a draft: "still registering").
+- **Submit asks once more**: "Submit for the visit" opens "Submit for the field visit?" with the salon's name,
+  address, services and open days and what happens next; "Not yet" (first) or Escape sends nothing, "Yes, submit"
+  sends it once, even with two taps at once.
+- The big-salon speed test (2,000 bookings) times only the app's own drawing, inside the page (about 0.2 s, limit
+  5 s): the old timing included Playwright's polling and failed now and then on a busy CI runner.
+- **Change number:** a wrong-code (or other) message now always gets the focus, so screen readers read it (it was
+  sometimes lost).
+- Tests: the fake backend refreshes like the real one (a tab reloaded mid-refresh stays signed in), which ends the
+  change-phone and email tests that failed now and then.
 
 ### 0.21.0 — 2026-11-13
 

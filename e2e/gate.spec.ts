@@ -34,7 +34,8 @@ test('a helper of a salon not approved yet waits; the owner meanwhile sets up', 
   api.shop = MockApi.shopOf({ status: 'PENDING_VISIT', myRole: 'HELPER' })
   api.role = 'HELPER'
   await page.goto('/salon/day')
-  await expect(page.getByText("Your salon isn't live yet")).toBeVisible()
+  await expect(page.getByText('Waiting for approval')).toBeVisible()
+  await expect(page.getByText('Ravi Kumar has registered Shine Unisex Salon.', { exact: false })).toBeVisible()
   // The field team approves; "check again" lets them in
   api.shop = MockApi.shopOf({ status: 'APPROVED', myRole: 'HELPER' })
   await page.getByRole('button', { name: 'Check again' }).click()
@@ -90,4 +91,14 @@ test('signed out: every screen goes to sign-in, and a link opened then comes bac
   await page.getByRole('button', { name: 'Send code' }).click()
   await page.getByLabel('Code').fill('123456')
   await expect(page).toHaveURL(/\/salon\/bookings$/)
+})
+
+test('a helper of a salon still being registered (a draft) is told so, not that it waits for approval', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  api.shop = MockApi.shopOf({ status: 'DRAFT', myRole: 'HELPER' })
+  api.role = 'HELPER'
+  await page.goto('/')
+  await expect(page.getByText("Your salon isn't live yet")).toBeVisible()
+  await expect(page.getByText('Ravi Kumar is still registering Shine Unisex Salon.', { exact: false })).toBeVisible()
+  await expect(page.getByText('Waiting for approval')).toHaveCount(0)
 })

@@ -17,6 +17,7 @@ export function Shell() {
   const tabs = tabsFor(useShop().myRole)
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col md:max-w-3xl">
+      <ApprovalBar />
       <div className="flex flex-1 flex-col">
         <Outlet />
       </div>
@@ -44,10 +45,35 @@ export function Shell() {
   )
 }
 
-/** Sign-in and full-screen steps: no bottom bar. */
-export function Bare() {
+/**
+ * A salon submitted but not yet approved by the field team: said at the top of every tab and every salon screen past
+ * registration, so the board, the walk-in button and the setup screens never look like a live salon's. Gone the
+ * moment it is approved. Helpers and barbers of such a salon don't reach these screens (Home's "Waiting for approval").
+ */
+export function ApprovalBar() {
+  const shop = useShop()
+  if (shop.status !== 'PENDING_VISIT') return null
+  return (
+    <section
+      aria-label="Waiting for approval"
+      className="border-b-2 border-warn bg-warn/20 px-4 py-3 text-center"
+    >
+      <p className="font-display text-lg font-bold text-warn">
+        <span aria-hidden>⏳ </span>Waiting for approval
+      </p>
+      <p className="text-sm text-ink">Customers can't book {shop.name} until our field team approves it.</p>
+    </section>
+  )
+}
+
+/**
+ * Sign-in and full-screen steps: no bottom bar. `approvalBar` for the salon's own screens past registration (walk-in,
+ * time off, services, hours…), so they too say a salon not approved yet is waiting.
+ */
+export function Bare({ approvalBar = false }: { approvalBar?: boolean }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
+      {approvalBar && <ApprovalBar />}
       <Outlet />
     </div>
   )

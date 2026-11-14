@@ -49,8 +49,12 @@ function NotLiveYet() {
       <HandoverOffers />
       <InviteOffers />
       <EmptyState
-        title="Your salon isn't live yet"
-        body={`${shop.ownerName} has registered ${shop.name}. Once our field team approves it, you'll see the day's bookings here.`}
+        title={shop.status === 'PENDING_VISIT' ? 'Waiting for approval' : "Your salon isn't live yet"}
+        body={
+          shop.status === 'PENDING_VISIT'
+            ? `${shop.ownerName} has registered ${shop.name}. Once our field team approves it, you'll see the day's bookings here.`
+            : `${shop.ownerName} is still registering ${shop.name}. Once our field team approves it, you'll see the day's bookings here.`
+        }
         action={<Button onClick={() => recheck()}>Check again</Button>}
       />
       <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
@@ -71,7 +75,7 @@ export function WaitingForVisit() {
   const shop = useShop()
   return (
     <Card className="flex flex-col gap-2 border-brand/40">
-      <p className="text-lg font-semibold">Waiting for our field team</p>
+      <p className="text-lg font-semibold">What happens next</p>
       <p className="text-sm text-muted">
         We'll call you to fix a time, visit {shop.name} and switch it on. Customers can book once it's approved.
       </p>

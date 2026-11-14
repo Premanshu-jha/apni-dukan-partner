@@ -102,7 +102,7 @@ export function App() {
                 <Route path="/setup" element={<SetupHub />} />
               </Route>
             </Route>
-            <Route element={<Bare />}>
+            <Route element={<Bare approvalBar />}>
               <Route path="/salon/walk-in" element={<WalkIn />} />
               <Route path="/salon/time-off" element={<TimeOff />} />
               <Route path="/notifications" element={<Inbox />} />

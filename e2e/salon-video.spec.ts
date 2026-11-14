@@ -42,6 +42,7 @@ test('the owner records the salon video: it goes straight to storage, is saved o
   await page.getByRole('link', { name: 'Keep these hours and continue' }).click()
   await expect(page.getByText('Salon video: added')).toBeVisible()
   await page.getByRole('button', { name: 'Submit for the visit' }).click()
+  await page.getByRole('button', { name: 'Yes, submit' }).click()
   await expect(page).toHaveURL(/\/salon\/day$/)
 })
 

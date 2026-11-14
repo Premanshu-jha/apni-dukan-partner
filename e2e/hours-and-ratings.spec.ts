@@ -79,6 +79,7 @@ test('the review shows what is missing and Submit stays off until the hours are 
   await page.getByRole('button', { name: 'Save and continue' }).click()
   await expect(page).toHaveURL(/\/register\/review$/)
   await page.getByRole('button', { name: 'Submit for the visit' }).click()   // without the document
+  await page.getByRole('button', { name: 'Yes, submit' }).click()
   await expect(page).toHaveURL(/\/salon\/day$/)
 })
 
@@ -89,6 +90,7 @@ test('a submit refused for something missing reloads what the review shows', asy
   await expect(page.getByText('Services: 3 added')).toBeVisible()
   api.services = []   // switched off on another phone
   await page.getByRole('button', { name: 'Submit for the visit' }).click()
+  await page.getByRole('button', { name: 'Yes, submit' }).click()
   await expect(page.getByText("Add the salon's services and its opening hours first.")).toBeVisible()
   await expect(page.getByText('Services: missing')).toBeVisible()
 })

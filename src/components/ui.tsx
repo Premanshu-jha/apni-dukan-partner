@@ -202,7 +202,11 @@ export function Sheet({
       if (e.key === 'Escape') close.current()
       if (e.key !== 'Tab') return
       const list = focusable()
-      if (!list.length) return
+      // Nothing to move to (every button busy): Tab stays in the sheet rather than going to the page behind it
+      if (!list.length) {
+        e.preventDefault()
+        return
+      }
       const first = list[0]
       const last = list[list.length - 1]
       if (e.shiftKey && document.activeElement === first) {

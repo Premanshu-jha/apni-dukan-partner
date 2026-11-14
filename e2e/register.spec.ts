@@ -119,8 +119,10 @@ test('a new owner signs up, registers the salon in five steps and waits for the 
   expect(api.staff[0]).toMatchObject({ loginPhone: api.user.phone, serviceIds: ['v1', 'v2'].map(() => expect.any(String)) })
   expect((api.staff[0].hours as unknown[]).length).toBe(6)
   await page.getByRole('button', { name: 'Submit for the visit' }).click()
+  await page.getByRole('button', { name: 'Yes, submit' }).click()
   await expect(page).toHaveURL(/\/salon\/day$/)
-  await expect(page.getByText('Waiting for our field team')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Waiting for approval' })).toBeVisible()
+  await expect(page.getByText('What happens next')).toBeVisible()
   await expect(page.getByText('10234')).toBeVisible()
 
 })
@@ -174,8 +176,10 @@ test('typing is kept on the phone before the first save, and a stale save reload
   api.failOnce.set('/shops/me/submit', { status: 409, code: 'SHOP_CHANGED', message: 'Someone changed your shop. Reload and try again.' })
   await page.goto('/register/review')
   await page.getByRole('button', { name: 'Submit for the visit' }).click()
+  await page.getByRole('button', { name: 'Yes, submit' }).click()
   await expect(page.getByText('Someone changed your shop')).toBeVisible()
   await page.getByRole('button', { name: 'Submit for the visit' }).click()
+  await page.getByRole('button', { name: 'Yes, submit' }).click()
   await expect(page).toHaveURL(/\/salon\/day$/)
 })
 
@@ -225,4 +229,116 @@ test('his own barber profile switched off: the review says nobody can book his c
   await page.goto('/register/review')
   await expect(page.getByText("Your barber profile is switched off, so customers can't book your chair.")).toBeVisible()
   await expect(page.getByRole('button', { name: 'Yes, add me' })).toHaveCount(0)
+})
+
+test('Submit asks once more, with what is being sent; Not yet, Escape or a tap outside send nothing', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  api.shop = MockApi.shopOf({ status: 'DRAFT' })
+  await page.goto('/register/review')
+  const submits = () => api.calls.filter((c) => c.path.endsWith('/submit')).length
+  await page.getByRole('button', { name: 'Submit for the visit' }).click()
+  const ask = page.getByRole('dialog', { name: 'Submit for the field visit?' })
+  await expect(ask).toBeVisible()
+  // What is going: the salon, its address, how many services and open days
+  await expect(ask.getByText('Shop 12, Ithum Tower, Sector 62, Noida 201309')).toBeVisible()
+  await expect(ask.getByText(/3 services · open \d days? a week/)).toBeVisible()
+  await expect(ask.getByText('our field team calls you to fix a time and visits Shine Unisex Salon', { exact: false })).toBeVisible()
+  // Not yet has the focus: a held Enter can't submit
+  await expect(ask.getByRole('button', { name: 'Not yet' })).toBeFocused()
+  await ask.getByRole('button', { name: 'Not yet' }).click()
+  await expect(ask).toHaveCount(0)
+  await expect(page).toHaveURL(/\/register\/review$/)
+  await page.getByRole('button', { name: 'Submit for the visit' }).click()
+  await page.keyboard.press('Escape')
+  await expect(ask).toHaveCount(0)
+  await page.getByRole('button', { name: 'Submit for the visit' }).click()
+  await page.mouse.click(10, 10)   // the dimmed page behind the sheet
+  await expect(ask).toHaveCount(0)
+  expect(submits()).toBe(0)
+  // Yes: sent once, even with two taps in the same instant
+  await page.getByRole('button', { name: 'Submit for the visit' }).click()
+  await ask.getByRole('button', { name: 'Yes, submit' }).evaluate((b: HTMLButtonElement) => {
+    b.click()
+    b.click()
+  })
+  await expect(page).toHaveURL(/\/salon\/day$/)
+  expect(submits()).toBe(1)
+})
+
+test('a salon waiting for approval says so at the top of every tab and salon screen, and not once approved', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  api.shop = MockApi.shopOf({ status: 'PENDING_VISIT' })
+  const bar = page.getByRole('region', { name: 'Waiting for approval' })
+  for (const path of ['/salon/day', '/salon/bookings', '/setup', '/more', '/salon/walk-in', '/setup/services', '/setup/hours']) {
+    await page.goto(path)
+    await expect(bar, path).toBeVisible()
+    await expect(bar).toContainText("Customers can't book Shine Unisex Salon until our field team approves it.")
+  }
+  api.shop = MockApi.shopOf({ status: 'APPROVED' })
+  for (const path of ['/salon/day', '/salon/walk-in']) {
+    await page.goto(path)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(bar).toHaveCount(0)
+  }
+})
+
+test('Submit while offline: the question closes, the review says why, and Submit again works', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  api.shop = MockApi.shopOf({ status: 'DRAFT' })
+  await page.goto('/register/review')
+  await page.route('**/shops/me/submit', (r) => r.abort('internetdisconnected'), { times: 1 })
+  await page.getByRole('button', { name: 'Submit for the visit' }).click()
+  await page.getByRole('dialog', { name: 'Submit for the field visit?' }).getByRole('button', { name: 'Yes, submit' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('alert')).toContainText("You're offline or the server can't be reached. Try again.")
+  await expect(page).toHaveURL(/\/register\/review$/)
+  await page.getByRole('button', { name: 'Submit for the visit' }).click()
+  await page.getByRole('dialog', { name: 'Submit for the field visit?' }).getByRole('button', { name: 'Yes, submit' }).click()
+  await expect(page).toHaveURL(/\/salon\/day$/)
+})
+
+test('while it sends, the question can’t be closed and Tab stays inside it', async ({ page, context, api }) => {
+  await signedIn(context, api)
+  api.shop = MockApi.shopOf({ status: 'DRAFT' })
+  await page.goto('/register/review')
+  let release!: () => void
+  const held = new Promise<void>((r) => (release = r))
+  await page.route('**/shops/me/submit', async (r) => {
+    await held
+    await r.fallback()
+  })
+  await page.getByRole('button', { name: 'Submit for the visit' }).click()
+  const ask = page.getByRole('dialog', { name: 'Submit for the field visit?' })
+  await ask.getByRole('button', { name: 'Yes, submit' }).click()
+  await page.keyboard.press('Escape')
+  await page.mouse.click(10, 10)
+  await expect(ask).toBeVisible()
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Tab')
+  // Focus never lands on the page behind the sheet
+  expect(await page.evaluate(() => {
+    const a = document.activeElement
+    return a !== null && a !== document.body && a.closest('[role="dialog"]') === null
+  })).toBe(false)
+  release()
+  await expect(page).toHaveURL(/\/salon\/day$/)
+})
+
+test('the approval bar costs no request: moving between tabs reads the shop no more often than for an approved salon', async ({ page, context, api }) => {
+  const reads = async (status: string) => {
+    api.shop = MockApi.shopOf({ status })
+    await page.goto('/salon/day')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    const before = api.calls.length
+    for (const tab of ['Bookings', 'More', 'Today']) {
+      await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: tab }).click()
+      await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible()
+    }
+    await page.waitForTimeout(300)
+    return api.calls.slice(before).filter((c) => c.path.startsWith('/api/v1/shops/me')).length
+  }
+  await signedIn(context, api)
+  const approved = await reads('APPROVED')
+  const pending = await reads('PENDING_VISIT')
+  expect(pending).toBeLessThanOrEqual(approved)
 })
