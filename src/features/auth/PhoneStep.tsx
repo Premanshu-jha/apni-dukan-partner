@@ -7,6 +7,7 @@ import { Turnstile } from '../../components/Turnstile'
 import { TURNSTILE_SITE_KEY } from '../../lib/config'
 import { formatPhone, normalizePhone } from '../../lib/phone'
 import { takePhoneMove } from '../../lib/phoneMoved'
+import { LegalLinks } from '../legal/LegalPage'
 import { Brand } from './Brand'
 
 export function PhoneStep() {
@@ -76,6 +77,9 @@ export function PhoneStep() {
           Recover with your email
         </Link>
       </p>
+      <div className="mt-auto pt-6">
+        <LegalLinks />
+      </div>
     </Page>
   )
 }

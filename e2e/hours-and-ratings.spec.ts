@@ -145,8 +145,10 @@ test('a service’s picture comes with it; Change offers the others that fit onl
   await expect(pictures).toHaveCount(0)
   await page.getByLabel('Price (₹)').fill('150')
   await page.getByRole('button', { name: 'Save' }).click()
-  const added = api.calls.find((c) => c.method === 'POST' && c.path === '/api/v1/salon/services')!
-  expect(added.body).toMatchObject({ name: 'massage HEAD', icon: 'HEAD_MASSAGE' })
+  // The request may reach the fake backend just after the click returns: wait for it
+  await expect
+    .poll(() => api.calls.find((c) => c.method === 'POST' && c.path === '/api/v1/salon/services')?.body)
+    .toMatchObject({ name: 'massage HEAD', icon: 'HEAD_MASSAGE' })
   await expect(page.locator('li', { hasText: 'massage HEAD' }).locator('svg[data-icon="HEAD_MASSAGE"]')).toBeVisible()
 
   // Changing an old one's picture
@@ -154,8 +156,9 @@ test('a service’s picture comes with it; Change offers the others that fit onl
   await change.click()
   await pictures.getByRole('radio', { name: 'Trim' }).click()
   await page.getByRole('button', { name: 'Save' }).click()
-  const patch = api.calls.find((c) => c.method === 'PATCH' && c.path === '/api/v1/salon/services/v2')!
-  expect(patch.body).toMatchObject({ icon: 'TRIM' })
+  await expect
+    .poll(() => api.calls.find((c) => c.method === 'PATCH' && c.path === '/api/v1/salon/services/v2')?.body)
+    .toMatchObject({ icon: 'TRIM' })
 
   // A picture saved that the name isn't offered now stays when only the price is changed (and Change shows it)
   api.services.find((v) => v.id === 'v1')!.icon = 'SHAVE'
@@ -165,7 +168,9 @@ test('a service’s picture comes with it; Change offers the others that fit onl
   await expect(change).toBeVisible()
   await page.getByLabel('Price (₹)').fill('210')
   await page.getByRole('button', { name: 'Save' }).click()
-  expect(api.calls.filter((c) => c.method === 'PATCH' && c.path === '/api/v1/salon/services/v1').at(-1)!.body).toMatchObject({ icon: 'SHAVE' })
+  await expect
+    .poll(() => api.calls.filter((c) => c.method === 'PATCH' && c.path === '/api/v1/salon/services/v1').at(-1)?.body)
+    .toMatchObject({ icon: 'SHAVE' })
 
   // A service saved with the general picture can get its own back; the choices stay open until Done
   api.services.find((v) => v.id === 'v1')!.icon = 'OTHER'
@@ -177,7 +182,9 @@ test('a service’s picture comes with it; Change offers the others that fit onl
   await expect(picture).toHaveText('Picture: Haircut')
   await expect(pictures.getByRole('radio', { name: 'General (salon chair)' })).toBeVisible()   // still open
   await page.getByRole('button', { name: 'Save' }).click()
-  expect(api.calls.filter((c) => c.method === 'PATCH' && c.path === '/api/v1/salon/services/v1').at(-1)!.body).toMatchObject({ icon: 'HAIRCUT' })
+  await expect
+    .poll(() => api.calls.filter((c) => c.method === 'PATCH' && c.path === '/api/v1/salon/services/v1').at(-1)?.body)
+    .toMatchObject({ icon: 'HAIRCUT' })
 })
 
 test('the owner reads the ratings with the comments; a barber has no ratings page', async ({ page, context, api }) => {

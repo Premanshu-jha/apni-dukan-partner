@@ -3,6 +3,13 @@ import type { Tokens, User } from '../api/types'
 import { storage } from '../lib/storage'
 
 const KEY = 'adp.session'
+/** Set once anyone signs in on this browser; kept after sign-out, so a returning person isn't shown the front page. */
+const SIGNED_IN_BEFORE = 'adp.signedInBefore'
+
+/** Has anyone signed in on this browser before (a returning person, or an installed app)? */
+export function signedInHereBefore(): boolean {
+  return storage.get(SIGNED_IN_BEFORE) === '1'
+}
 
 interface Saved {
   refreshToken: string
@@ -38,6 +45,7 @@ export const useSession = create<SessionState>((set, get) => ({
 
   signIn: (tokens) => {
     storage.setJson(KEY, { refreshToken: tokens.refreshToken, user: tokens.user } satisfies Saved)
+    storage.set(SIGNED_IN_BEFORE, '1')
     set({
       status: 'signedIn',
       user: tokens.user,
@@ -71,6 +79,8 @@ export const useSession = create<SessionState>((set, get) => ({
       set({ status: 'signedOut' })
       return
     }
+    // Someone signed in here before (also from before this flag existed): a refused refresh still goes to sign-in
+    storage.set(SIGNED_IN_BEFORE, '1')
     // Still 'starting' until the app's first refresh succeeds or fails.
     set({ user: saved.user, refreshToken: saved.refreshToken })
   },

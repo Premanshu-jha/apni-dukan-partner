@@ -4,7 +4,7 @@ import { Loading } from '../components/ui'
 import { useShop } from '../api/shop'
 import type { ShopRole } from '../api/types'
 import { forgetReturn, nextAfterSignIn, rememberReturn } from '../features/auth/flow'
-import { missingSteps, useSession } from '../store/session'
+import { missingSteps, signedInHereBefore, useSession } from '../store/session'
 
 /** Screens for signed-out people only (sign-in); a signed-in person goes on to the app. */
 export function SignedOutOnly() {
@@ -41,6 +41,14 @@ export function SignedIn() {
   }, [ready])
   if (status === 'starting') return <Loading />
   if (status !== 'signedIn' || !user) {
+    // A first-time visitor opening the site's address (partner.clozest.in) sees what Clozest offers salons first, with
+    // Sign in on it. Anyone who has signed in on this browser before (signed out, session ended, the installed app)
+    // goes straight to sign-in, as before. A path saved by an earlier visit is dropped, so sign-in from About ends at
+    // the start.
+    if (location.pathname === '/' && !endedHere && !signedInHereBefore()) {
+      forgetReturn()
+      return <Navigate to="/about" replace />
+    }
     // Coming from a link: come back here after sign-in. Just signed out here: the next person starts at Home.
     if (!endedHere) rememberReturn(location.pathname + location.search)
     return <Navigate to="/signin" replace />

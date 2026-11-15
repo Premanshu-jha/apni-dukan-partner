@@ -75,7 +75,9 @@ there, and reviews walk the list against the code.
 
 | Screen | Address | Who |
 | --- | --- | --- |
-| Sign in, code, email, name | `/signin`, `/signin/code`, `/welcome/*` | Everyone (same as the customer app) |
+| About ("Clozest for salons": what salons get, ₹500 a month after a 30-day trial, Sign in or sign up) | `/about` (a first-time visitor at `/` lands here) | Public |
+| Contact, Terms, Privacy, Refund policy, Delivery | `/contact`, `/terms`, `/privacy`, `/refunds`, `/delivery` | Public (Razorpay's website check) |
+| Sign in, code, email, name | `/signin`, `/signin/code`, `/welcome/*` | Everyone (same as the customer app); links to the public pages at the bottom |
 | Start (no shop yet) | `/start` | New people |
 | Register: details, photos, submit | `/register`, `/register/photos`, `/register/review` | Owner of a draft |
 | Today (the day board) | `/salon/day?date=` | Everyone |
@@ -331,6 +333,22 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 (set `shops.status` to `APPROVED`).
 
 ## Changelog
+
+### 0.26.0 — 2026-11-15
+
+- **Public pages for Razorpay's website check**: salons pay the subscription in this app, so partner.clozest.in is
+  the website registered with Razorpay. About ("Clozest for salons": what salons get, **₹500 a month after a 30-day
+  free trial** from field approval, UPI AutoPay/card/netbanking, cancel any time), Contact, Terms, Privacy, Refund
+  policy (no refunds; cancelling stops the AutoPay mandate from the next month) and Delivery (nothing shipped), open
+  without signing in. Each says "Clozest is operated by Premanshu Jha, a sole proprietor", the name on the Razorpay
+  account. Business details live in one place, `src/lib/business.ts`.
+- **A first-time visitor opening partner.clozest.in sees About first** instead of the sign-in form. Anyone who has
+  signed in on this browser before (signed out, session ended, the installed app) still goes straight to sign-in.
+  Back on a public page opened from a link goes to About (the start when signed in) in its place, so the phone's Back
+  can't loop; `Page` got `backReplace` for that.
+- Links to the pages at the bottom of sign-in, More and every public page.
+- Test fix: "a service's picture comes with it…" waits for the saves to reach the fake backend (it failed now and
+  then, on main too).
 
 ### 0.25.0 — 2026-11-15
 

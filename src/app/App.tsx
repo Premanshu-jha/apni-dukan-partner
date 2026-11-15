@@ -10,6 +10,12 @@ import { TimeOff } from '../features/day/TimeOff'
 import { Today } from '../features/day/Today'
 import { WalkIn } from '../features/day/WalkIn'
 import { Inbox } from '../features/notifications/Inbox'
+import { About } from '../features/legal/About'
+import { Contact } from '../features/legal/Contact'
+import { Delivery } from '../features/legal/Delivery'
+import { Privacy } from '../features/legal/Privacy'
+import { Refunds } from '../features/legal/Refunds'
+import { Terms } from '../features/legal/Terms'
 import { ChangeEmail } from '../features/profile/ChangeEmail'
 import { ChangePhone } from '../features/profile/ChangePhone'
 import { DeleteAccount } from '../features/profile/DeleteAccount'
@@ -56,6 +62,13 @@ export function App() {
           <Route path="/welcome/email" element={<EmailStep />} />
           <Route path="/welcome/name" element={<NameStep />} />
         </Route>
+        {/* Public pages: open to everyone, signed in or not (Razorpay's website check, and anyone opening a link) */}
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/refunds" element={<Refunds />} />
+        <Route path="/delivery" element={<Delivery />} />
       </Route>
 
       <Route element={<SignedIn />}>
