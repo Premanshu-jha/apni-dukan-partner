@@ -332,6 +332,27 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.25.0 — 2026-11-15
+
+Needs the backend with V63–V64 (the second set of service pictures). Deploy the backend first.
+
+- **Service pictures, second set** (28), each checked with a blind recognition test: fresh reviewers named the
+  service from the picture alone, at phone size, and the ones they couldn't name or mixed up were redrawn or merged.
+  New: **trim** (an electric clipper, apart from the haircut's scissors), **moustache** (beard is now a real beard),
+  **head massage** (a hand on a head: champi, maalish, oil massage; body massage keeps the person lying down),
+  **braids**, **waxing** as a wax pot, **bridal/groom** as wedding rings, **shave** as a razor, **hair wash** as
+  shampoo, **body spa** as a lotus. Clean-up and de-tan share the facial's picture, nail art the manicure's (nail
+  polish), hair treatments the hair spa's. The general picture, for anything none of them shows (saree draping,
+  tattoo, hair extensions…), is a **salon chair**. Labels in the picker name the service; Hindi in English letters
+  and Devanagari are read as before (चोटी, मूंछ, मालिश, हेड मसाज added). Words that only hint ("relaxing", "party",
+  "head", "treatment") give way to the service ("Body maalish" is a body massage, "Upper lip wax" waxing). A saved
+  picture this app doesn't know (a newer backend's) is drawn as the one the name fits, and never sent back.
+- **A picture comes with every service**: ticked from the list, it has its own, with nothing to choose; typed in or
+  edited, the sheet shows "Picture: …", with "Change" only when the name fits more than one (a "Beard trim": beard,
+  clipper or scissors).
+- **Once per phone**, Salon → Services says the pictures are new and that tapping a service shows or changes its
+  picture.
+
 ### 0.24.0 — 2026-11-14
 
 Needs the backend with V61–V62 (walk-ins at the offer price, service pictures). Deploy the backend first.
@@ -346,7 +367,7 @@ Needs the backend with V61–V62 (walk-ins at the offer price, service pictures)
   it. Prices that can't be read show the usual ones with "Couldn't check the salon's offer… Check again".
 - **A picture for every service** (thin-line SVG, 26 of them: haircut, beard, shave, hair colour, styling,
   straightening, curls, spa, hair wash, facial, clean-up, massage, threading, eyelashes, waxing, manicure, nail art,
-  pedicure, make-up, bridal, kids, mehendi, body spa, piercing, package, and the general one, a barber's pole). Shown
+  pedicure, make-up, bridal, kids, mehendi, body spa, piercing, package, and the general one; replaced in 0.25.0). Shown
   in Salon → Services, registration and walk-in. When adding or editing a service (and for every service ticked or
   typed in at registration), only the pictures that fit its name are offered, labelled by service, plus the general
   one; the best fit is picked, so nothing has to be done; arrow keys move the pick. Names are read in any case, word
