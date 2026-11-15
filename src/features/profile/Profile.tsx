@@ -11,6 +11,7 @@ import { MapBoundary } from '../../components/MapBoundary'
 import { formatPhone } from '../../lib/phone'
 import { takePhoneChanged } from '../../lib/phoneMoved'
 import { SUPPORT_EMAIL } from '../../lib/config'
+import { LegalLinks } from '../legal/LegalPage'
 import { useSession } from '../../store/session'
 import { NotificationsRow } from './Notifications'
 import { licenceSummary } from '../shop/RegistrationDoc'
@@ -272,6 +273,8 @@ export function Profile() {
           </p>
         )}
       </div>
+
+      <LegalLinks />
 
       <Sheet open={confirmAll} title="Sign out everywhere?" onClose={() => setConfirmAll(false)}>
         <div className="flex flex-col gap-3">
