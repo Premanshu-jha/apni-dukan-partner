@@ -80,20 +80,20 @@ test('a new owner signs up, registers the salon in five steps and waits for the 
   await page.getByRole('button', { name: 'Save 1 service and continue' }).click()
   await expect(page.getByText('Haircut: enter the price.')).toBeVisible()
   await page.getByLabel('Haircut price (₹)').fill('150')   // each row's boxes name their service
-  // A ticked one's picture can be changed here too, among the ones that fit its name
-  const cutPictures = page.locator('li', { hasText: 'Haircut' }).getByRole('radiogroup', { name: 'Picture' })
-  await expect(cutPictures.getByRole('radio')).toHaveText(['Haircut', 'General (barber pole)'])
-  await cutPictures.getByRole('radio', { name: 'General (barber pole)' }).click()
+  // A service from the list comes with its picture: nothing to choose
+  await expect(page.locator('li', { hasText: 'Haircut' }).getByText(/^Picture:/)).toHaveCount(0)
+  await expect(page.locator('li', { hasText: 'Haircut' }).locator('svg[data-icon="HAIRCUT"]')).toBeVisible()
   await page.getByRole('button', { name: '+ Add your own service' }).click()
   await page.getByLabel('Service name').fill('Head massage')
+  await expect(page.getByText(/^Picture:/)).toHaveText('Picture: Head massage')   // one typed in shows the picture it gets
   await page.locator('[id^="own-"][id$="-price"]').fill('100')
   await page.getByRole('button', { name: 'Save 2 services and continue' }).click()
   await expect(page).toHaveURL(/\/register\/hours$/)
   const batch = api.calls.find((c) => c.path === '/api/v1/salon/services/batch')!
   expect(batch.body).toEqual({
     services: [
-      { name: 'Haircut', durationMinutes: 30, pricePaise: 15000, priceIsFrom: false, returnAfterDays: 21, icon: 'OTHER' },
-      { name: 'Head massage', durationMinutes: 30, pricePaise: 10000, priceIsFrom: false, returnAfterDays: 14, icon: 'MASSAGE' },
+      { name: 'Haircut', durationMinutes: 30, pricePaise: 15000, priceIsFrom: false, returnAfterDays: 21, icon: 'HAIRCUT' },
+      { name: 'Head massage', durationMinutes: 30, pricePaise: 10000, priceIsFrom: false, returnAfterDays: 14, icon: 'HEAD_MASSAGE' },
     ],
   })
 

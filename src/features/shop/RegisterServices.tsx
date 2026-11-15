@@ -216,8 +216,9 @@ export function RegisterServices() {
                 <span className="font-semibold">{r.form.name}</span>
               </label>
             )}
-            {/* Typed in or ticked: its picture can be changed here, among those that fit the name */}
-            {(r.custom || r.ticked) && r.form.name.trim().length >= 2 && (
+            {/* A service from the list comes with its picture; one typed in shows the picture its name gets ("Change" when
+                more than one fits) */}
+            {r.custom && r.form.name.trim().length >= 2 && (
               <div className="mt-2">
                 <IconPicker name={r.form.name} value={pickedIcon(r.form)} onChange={(icon) => setField(r.key, 'icon', icon)} />
               </div>

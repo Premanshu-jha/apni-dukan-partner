@@ -8,7 +8,7 @@ import { Banner, Button, EmptyState, ErrorState, Field, Loading, Page, Pill, She
 import { duration, rupees } from '../../lib/money'
 import { can } from '../../lib/roles'
 import { ServiceIcon } from '../../components/ServiceIcon'
-import { ICON_LABELS, iconsFor, type ServiceIconName } from '../../lib/serviceIcons'
+import { ICON_LABELS, iconsFor, SERVICE_ICONS, type ServiceIconName } from '../../lib/serviceIcons'
 
 export interface ServiceForm {
   name: string
@@ -66,7 +66,9 @@ export function serviceIn(f: Form): ServiceIn {
 export function pickedIcon(f: Pick<Form, 'name' | 'icon' | 'savedName'>): ServiceIconName {
   const fits = iconsFor(f.name)
   const unchanged = f.savedName != null && f.name.trim() === f.savedName.trim()
-  return f.icon && (fits.includes(f.icon) || unchanged) ? f.icon : fits[0]
+  // A saved name this app doesn't know (a newer backend's, or one retired) can't be drawn or sent back: the best fit
+  const known = f.icon != null && SERVICE_ICONS.includes(f.icon)
+  return f.icon && known && (fits.includes(f.icon) || unchanged) ? f.icon : fits[0]
 }
 
 /** "Reminds after 3 weeks" for a list line; null when it never reminds. */
@@ -74,6 +76,17 @@ export function comeBackText(days: number): string | null {
   if (days === 0) return null
   if (days % 7 === 0) return `back in ${days / 7} week${days === 7 ? '' : 's'}`
   return `back in ${days} day${days === 1 ? '' : 's'}`
+}
+
+/** Remembers on this phone that the owner saw the note about the second set of service pictures (0.25.0). */
+const PICTURES_NOTE_KEY = 'clozest.servicePictures2.noted'
+
+function picturesNoteSeen(): boolean {
+  try {
+    return localStorage.getItem(PICTURES_NOTE_KEY) === '1'
+  } catch {
+    return false
+  }
 }
 
 /** The salon's services: what customers can book, how long each takes and its price. */
@@ -85,6 +98,16 @@ export function Services() {
   const [editing, setEditing] = useState<ServiceItem | 'new' | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [picturesNoted, setPicturesNoted] = useState(picturesNoteSeen)
+
+  function hidePicturesNote() {
+    setPicturesNoted(true)
+    try {
+      localStorage.setItem(PICTURES_NOTE_KEY, '1')
+    } catch {
+      // storage off (private mode): the note just shows again next time
+    }
+  }
 
   async function toggle(s: ServiceItem, active: boolean) {
     setBusyId(s.id)
@@ -108,6 +131,14 @@ export function Services() {
       ) : (
         <>
           {error && <Banner tone="bad">{error}</Banner>}
+          {edit && services.data.length > 0 && !picturesNoted && (
+            <Banner live={false}>
+              <p>The service pictures are new: each service comes with the one that shows it. Tap a service to see or change it.</p>
+              <button type="button" className="mt-1 font-medium text-link underline" onClick={hidePicturesNote}>
+                Got it
+              </button>
+            </Banner>
+          )}
           {services.data.length === 0 ? (
             <EmptyState title="No services yet" body={edit ? 'Add what you offer, like Haircut ₹200 for 30 minutes.' : undefined} />
           ) : (
@@ -224,9 +255,10 @@ export function ServiceSheet({ service, onClose }: { service: ServiceItem | null
 }
 
 /**
- * The service's picture: only the icons that fit its name are offered (a haircut gets scissors, never a hair wash),
- * plus the general one (a barber's pole), which fits anything; the one saved stays offered while it is picked. One is
- * always picked, so the owner can just go on. Arrow keys move between them (one stop for Tab, as radio buttons).
+ * The service's picture, which comes with it: the one its name fits best is shown, so the owner needn't do anything.
+ * "Change" is there only when the name fits more than one (a "Beard trim": beard, clipper or scissors); it opens the
+ * ones that fit (plus the general one, a salon chair, and the one saved while it is picked) as radio buttons, arrow
+ * keys moving between them (one stop for Tab).
  */
 export function IconPicker({
   name,
@@ -240,8 +272,14 @@ export function IconPicker({
   error?: string
 }) {
   const id = useId()
+  const [open, setOpen] = useState(false)
+  const line = useRef<HTMLParagraphElement>(null)
   const fits = iconsFor(name)
   const offered = fits.includes(value) ? fits : [value, ...fits]
+  // A real choice: two pictures fit besides the general one, or the one picked isn't the best fit (a service saved
+  // with the general one or another); once opened it stays until Done, even if the pick makes it the best fit
+  const choice = open || fits.length > 2 || value !== fits[0]
+  const label = name.trim() || 'this service'
   const buttons = useRef<(HTMLButtonElement | null)[]>([])
   function move(from: number, by: number) {
     const to = (from + by + offered.length) % offered.length
@@ -250,39 +288,60 @@ export function IconPicker({
   }
   return (
     <div className="flex flex-col gap-2">
-      <p id={id} className="mb-1 text-sm font-medium">
-        Picture
-      </p>
-      <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby={id}>
-        {offered.map((icon, i) => (
+      <div className="flex items-center gap-2 text-sm">
+        <ServiceIcon icon={value} size={22} className="text-link" />
+        <p ref={line} tabIndex={-1} aria-live="polite">
+          Picture: <span className="font-medium">{ICON_LABELS[value]}</span>
+        </p>
+        {choice && (
           <button
-            key={icon}
-            ref={(b) => {
-              buttons.current[i] = b
-            }}
             type="button"
-            role="radio"
-            aria-checked={icon === value}
-            tabIndex={icon === value ? 0 : -1}
-            onClick={() => onChange(icon)}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                e.preventDefault()
-                move(i, 1)
-              } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                e.preventDefault()
-                move(i, -1)
-              }
+            className="ml-auto font-medium text-link underline"
+            aria-label={open ? `Done choosing the picture for ${label}` : `Change the picture for ${label}`}
+            aria-expanded={open}
+            aria-controls={id}
+            onClick={() => {
+              // Done may take the button away (the pick is now the only fit): focus stays on the picture line
+              if (open) line.current?.focus()
+              setOpen(!open)
             }}
-            className={`flex min-h-12 min-w-12 flex-col items-center justify-center gap-1 rounded-xl border px-3 py-2 text-xs ${icon === value ? 'border-brand bg-brand/10 text-link' : 'border-line bg-surface text-ink'}`}
           >
-            <ServiceIcon icon={icon} size={24} />
-            {ICON_LABELS[icon]}
+            {open ? 'Done' : 'Change'}
           </button>
-        ))}
+        )}
       </div>
+      {open && (
+        <div id={id} className="flex flex-wrap gap-2" role="radiogroup" aria-label={`Pictures for ${label}`}>
+          {offered.map((icon, i) => (
+            <button
+              key={icon}
+              ref={(b) => {
+                buttons.current[i] = b
+              }}
+              type="button"
+              role="radio"
+              aria-checked={icon === value}
+              tabIndex={icon === value ? 0 : -1}
+              onClick={() => onChange(icon)}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  move(i, 1)
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  move(i, -1)
+                }
+              }}
+              className={`flex min-h-12 min-w-12 flex-col items-center justify-center gap-1 rounded-xl border px-3 py-2 text-xs ${icon === value ? 'border-brand bg-brand/10 text-link' : 'border-line bg-surface text-ink'}`}
+            >
+              <ServiceIcon icon={icon} size={24} />
+              {ICON_LABELS[icon]}
+            </button>
+          ))}
+        </div>
+      )}
       {fits.length === 1 && name.trim().length >= 2 && (
-        <p className="text-xs text-muted">No picture matches this name, so it gets the general one (a barber's pole).</p>
+        <p className="text-xs text-muted">No picture matches this name, so it gets the general one (a salon chair).</p>
       )}
       {error && <p className="text-sm text-bad">{error}</p>}
     </div>
