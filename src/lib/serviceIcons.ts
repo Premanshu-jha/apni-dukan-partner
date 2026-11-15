@@ -2,23 +2,25 @@
  * The pictures shown next to a salon service (the backend's ServiceIcon names) and which of them fit a service's
  * name. The same file is in the partner and customer apps.
  *
- * Drawings: thin-line SVG on a 24×24 grid. Most are from Lucide (https://lucide.dev, ISC licence: "Copyright (c)
- * Lucide Icons and Contributors; permission to use, copy, modify and distribute is granted"); the salon-only ones
- * (marked below) are drawn for Clozest in the same style (stroke 2, round ends).
+ * Drawings: thin-line SVG on a 24×24 grid, stroke 2, round ends, drawn for Clozest; a few use Lucide's shapes (marked
+ * below; https://lucide.dev, ISC licence: "Copyright (c) Lucide Icons and Contributors; permission to use, copy,
+ * modify and distribute is granted"). Each was checked with a blind recognition test (fresh reviewers named the
+ * service from the picture alone, at phone size); a service that can't be drawn without confusion gets OTHER, the
+ * salon chair, rather than a picture that reads as something else.
  */
 
 export const SERVICE_ICONS = [
-  'HAIRCUT', 'BEARD', 'SHAVE', 'HAIR_COLOUR', 'STYLING', 'HAIR_SPA', 'HAIR_WASH', 'FACIAL', 'CLEANUP', 'MASSAGE',
-  'THREADING', 'WAXING', 'MANICURE', 'PEDICURE', 'MAKEUP', 'BRIDAL', 'KIDS', 'MEHENDI', 'STRAIGHTENING', 'CURLS',
-  'NAIL_ART', 'EYELASH', 'BODY_SPA', 'PIERCING', 'PACKAGE', 'OTHER',
+  'HAIRCUT', 'TRIM', 'BEARD', 'MOUSTACHE', 'SHAVE', 'HAIR_WASH', 'HAIR_SPA', 'HEAD_MASSAGE', 'HAIR_COLOUR',
+  'STYLING', 'STRAIGHTENING', 'CURLS', 'BRAIDS', 'FACIAL', 'THREADING', 'WAXING', 'EYELASH', 'MAKEUP', 'BRIDAL',
+  'MEHENDI', 'MANICURE', 'PEDICURE', 'MASSAGE', 'BODY_SPA', 'PIERCING', 'KIDS', 'PACKAGE', 'OTHER',
 ] as const
 export type ServiceIconName = (typeof SERVICE_ICONS)[number]
 
 /** One SVG element: its tag and attributes. */
-export type IconNode = [tag: 'path' | 'circle' | 'rect', attrs: Record<string, string>]
+export type IconNode = [tag: 'path' | 'circle' | 'rect' | 'ellipse', attrs: Record<string, string>]
 
 export const ICON_DRAWINGS: Record<ServiceIconName, IconNode[]> = {
-  // Lucide "scissors"
+  // Scissors (Lucide "scissors")
   HAIRCUT: [
     ['circle', { cx: '6', cy: '6', r: '3' }],
     ['path', { d: 'M8.12 8.12 12 12' }],
@@ -26,148 +28,111 @@ export const ICON_DRAWINGS: Record<ServiceIconName, IconNode[]> = {
     ['circle', { cx: '6', cy: '18', r: '3' }],
     ['path', { d: 'M14.8 14.8 20 20' }],
   ],
-  // A curled moustache (the barber's sign for beard work)
+  // An electric clipper
+  TRIM: [
+    ['path', { d: 'M8 9h8v8a4 4 0 0 1-8 0z' }],
+    ['rect', { x: '7', y: '5.5', width: '10', height: '3.5', rx: '1' }],
+    ['path', { d: 'M8.5 3v2.5M11 3v2.5M13.5 3v2.5M16 3v2.5' }],
+    ['path', { d: 'M12 13v2' }],
+  ],
+  // A full beard
   BEARD: [
+    ['path', { d: 'M5 4v6c0 6.5 3 11 7 11s7-4.5 7-11V4' }],
+    ['path', { d: 'M8 10.5c1 3 2.3 4 4 4s3-1 4-4' }],
+    ['path', { d: 'M9 12.5c1-.8 2-.8 3 0 1-.8 2-.8 3 0' }],
+    ['path', { d: 'M10.5 17.5h3' }],
+  ],
+  // A curled moustache
+  MOUSTACHE: [
     ['path', { d: 'M12 11C10.3 8.2 7.2 7.6 5.3 9.3 3.9 10.6 3.4 13 1.8 12.6c-.9-.3-.8-1.7.2-2' }],
     ['path', { d: 'M1.8 12.6C3 15.6 6.6 16.8 9.2 15.4 10.4 14.8 11.3 13.9 12 13c.7.9 1.6 1.8 2.8 2.4 2.6 1.4 6.2.2 7.4-2.8' }],
     ['path', { d: 'M12 11c1.7-2.8 4.8-3.4 6.7-1.7 1.4 1.3 1.9 3.7 3.5 3.3.9-.3.8-1.7-.2-2' }],
   ],
   // A safety razor
   SHAVE: [
-    ['rect', { x: '5', y: '3', width: '14', height: '5', rx: '1.5' }],
-    ['path', { d: 'M8 5.5h8' }],
-    ['path', { d: 'M12 8v3' }],
-    ['path', { d: 'M10.5 11h3l-.5 10h-2z' }],
+    ['rect', { x: '4', y: '3', width: '16', height: '4.5', rx: '1.5' }],
+    ['path', { d: 'M6 5.25h12' }],
+    ['path', { d: 'M12 7.5v2.5' }],
+    ['path', { d: 'M10.5 10h3v11a1.5 1.5 0 0 1-3 0z' }],
+    ['path', { d: 'M10.5 13.5h3M10.5 16.5h3' }],
   ],
-  // Lucide "palette"
+  // A shampoo tube with foam
+  HAIR_WASH: [
+    ['path', { d: 'M5 4h8l-1 15a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z' }],
+    ['path', { d: 'M4 4h10' }],
+    ['path', { d: 'M7.5 21v1.5h3V21' }],
+    ['path', { d: 'M7 9h4' }],
+    ['circle', { cx: '18', cy: '9', r: '2.3' }],
+    ['circle', { cx: '17.5', cy: '15', r: '1.5' }],
+    ['circle', { cx: '20.5', cy: '4', r: '1' }],
+  ],
+  // Steam rising from a head
+  HAIR_SPA: [
+    ['path', { d: 'M5 21v-2.5a7 7 0 0 1 14 0V21' }],
+    ['path', { d: 'M8.5 9.5c-1-1.3 1-2.2 0-3.5s1-2.2 0-3.5' }],
+    ['path', { d: 'M12 9.5c-1-1.3 1-2.2 0-3.5s1-2.2 0-3.5' }],
+    ['path', { d: 'M15.5 9.5c-1-1.3 1-2.2 0-3.5s1-2.2 0-3.5' }],
+  ],
+  // A hand on a head, rubbing (champi); the hand is Lucide "hand"
+  HEAD_MASSAGE: [
+    ['path', { d: 'M5 22v-3a7 7 0 0 1 14 0v3' }],
+    ['path', { d: 'M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v2M10 10.5V6a2 2 0 0 0-4 0v8M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15', transform: 'translate(19 13) rotate(180) scale(.55)', strokeWidth: '2.6' }],
+    ['path', { d: 'M3 16c-1-1.5-1-3.5 0-5M21 16c1-1.5 1-3.5 0-5' }],
+  ],
+  // A colour bowl and tint brush
   HAIR_COLOUR: [
-    ['path', { d: 'M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z' }],
-    ['circle', { cx: '13.5', cy: '6.5', r: '.5', fill: 'currentColor' }],
-    ['circle', { cx: '17.5', cy: '10.5', r: '.5', fill: 'currentColor' }],
-    ['circle', { cx: '6.5', cy: '12.5', r: '.5', fill: 'currentColor' }],
-    ['circle', { cx: '8.5', cy: '7.5', r: '.5', fill: 'currentColor' }],
+    ['path', { d: 'M2.5 13h13a6.5 6.5 0 0 1-13 0z' }],
+    ['path', { d: 'M21.5 2.5 15.5 8.5' }],
+    ['path', { d: 'M14.5 7.5l2 2-3.5 3.5a1.4 1.4 0 0 1-2-2z' }],
   ],
-  // A hair dryer blowing air
+  // A hair dryer
   STYLING: [
     ['path', { d: 'M3 9a5 5 0 0 1 5-5h7l3 1.5v7L15 14H8a5 5 0 0 1-5-5z' }],
     ['circle', { cx: '8', cy: '9', r: '1.5' }],
     ['path', { d: 'M10 14l-1.5 6.5a1 1 0 0 0 1 1.5h1.5a1 1 0 0 0 1-.8L13 14' }],
     ['path', { d: 'M21 7v4' }],
   ],
-  // Lucide "soap-dispenser-droplet"
-  HAIR_SPA: [
-    ['path', { d: 'M10.5 2v4' }],
-    ['path', { d: 'M14 2H7a2 2 0 0 0-2 2' }],
-    ['path', { d: 'M19.29 14.76A6.67 6.67 0 0 1 17 11a6.6 6.6 0 0 1-2.29 3.76c-1.15.92-1.71 2.04-1.71 3.19 0 2.22 1.8 4.05 4 4.05s4-1.83 4-4.05c0-1.16-.57-2.26-1.71-3.19' }],
-    ['path', { d: 'M9.607 21H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h7V7a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3' }],
-  ],
-  // Lucide "shower-head"
-  HAIR_WASH: [
-    ['path', { d: 'm4 4 2.5 2.5' }],
-    ['path', { d: 'M13.5 6.5a4.95 4.95 0 0 0-7 7' }],
-    ['path', { d: 'M15 5 5 15' }],
-    ['path', { d: 'M14 17v.01' }],
-    ['path', { d: 'M10 16v.01' }],
-    ['path', { d: 'M13 13v.01' }],
-    ['path', { d: 'M16 10v.01' }],
-    ['path', { d: 'M11 20v.01' }],
-    ['path', { d: 'M17 14v.01' }],
-    ['path', { d: 'M20 11v.01' }],
-  ],
-  // Lucide "smile"
-  FACIAL: [
-    ['path', { d: 'M15 10V9' }],
-    ['path', { d: 'M16.472 15a6 6 0 01-8.943 0' }],
-    ['path', { d: 'M9 10V9' }],
-    ['circle', { cx: '12', cy: '12', r: '10' }],
-  ],
-  // Lucide "sparkles"
-  CLEANUP: [
-    ['path', { d: 'M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z' }],
-    ['path', { d: 'M20 2v4' }],
-    ['path', { d: 'M22 4h-4' }],
-    ['circle', { cx: '4', cy: '20', r: '2' }],
-  ],
-  // Lucide "hand-heart"
-  MASSAGE: [
-    ['path', { d: 'M11 14h2a2 2 0 0 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 16' }],
-    ['path', { d: 'm14.45 13.39 5.05-4.694C20.196 8 21 6.85 21 5.75a2.75 2.75 0 0 0-4.797-1.837.276.276 0 0 1-.406 0A2.75 2.75 0 0 0 11 5.75c0 1.2.802 2.248 1.5 2.946L16 11.95' }],
-    ['path', { d: 'm2 15 6 6' }],
-    ['path', { d: 'm7 20 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a1 1 0 0 0-2.75-2.91' }],
-  ],
-  // An eyebrow above an eye, and the twisted thread
-  THREADING: [
-    ['path', { d: 'M3 8c3-3 8-3.5 13-1.5' }],
-    ['path', { d: 'M3 14s3-4 8-4 8 4 8 4-3 4-8 4-8-4-8-4z' }],
-    ['circle', { cx: '11', cy: '14', r: '1.5' }],
-    ['path', { d: 'M18 3l3 3' }],
-    ['path', { d: 'M21 3l-3 3' }],
-  ],
-  // A wax strip being pulled away
-  WAXING: [
-    ['path', { d: 'M3 17h10' }],
-    ['path', { d: 'M13 17c3 0 5-2 6-5' }],
-    ['path', { d: 'M8 14l9-9a1.4 1.4 0 0 1 2 2l-9 9' }],
-    ['path', { d: 'M11 11l2 2' }],
-    ['path', { d: 'M14 8l2 2' }],
-  ],
-  // Lucide "hand"
-  MANICURE: [
-    ['path', { d: 'M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2' }],
-    ['path', { d: 'M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2' }],
-    ['path', { d: 'M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8' }],
-    ['path', { d: 'M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15' }],
-  ],
-  // Lucide "footprints"
-  PEDICURE: [
-    ['path', { d: 'M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z' }],
-    ['path', { d: 'M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z' }],
-    ['path', { d: 'M16 17h4' }],
-    ['path', { d: 'M4 13h4' }],
-  ],
-  // A lipstick
-  MAKEUP: [
-    ['path', { d: 'M9.5 11V6.5l5-3.5v8' }],
-    ['rect', { x: '8.5', y: '11', width: '7', height: '3', rx: '.5' }],
-    ['rect', { x: '8', y: '14', width: '8', height: '8', rx: '1' }],
-  ],
-  // Lucide "crown"
-  BRIDAL: [
-    ['path', { d: 'M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z' }],
-    ['path', { d: 'M5 21h14' }],
-  ],
-  // Lucide "baby"
-  KIDS: [
-    ['path', { d: 'M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5' }],
-    ['path', { d: 'M15 12h.01' }],
-    ['path', { d: 'M19.38 6.813A9 9 0 0 1 20.8 10.2a2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1' }],
-    ['path', { d: 'M9 12h.01' }],
-  ],
-  // A henna cone drawing its line
-  MEHENDI: [
-    ['path', { d: 'M14 3l7 7-9.5 4.5L9.5 12z' }],
-    ['path', { d: 'M9.5 12l-1.2 1.2a1.4 1.4 0 0 0 0 2l.5.5a1.4 1.4 0 0 0 2 0L12 14.5' }],
-    ['path', { d: 'M8 16c-2 1-3 2.5-2.5 4 .4 1.2 2 1.2 2.8.3.9-1-.6-2.3-2-1.6-1.4.7-2.2 1.5-3.3 1.3' }],
-  ],
-  // A flat iron (hair straightener)
+  // A flat iron: wavy hair above it, straight below
   STRAIGHTENING: [
-    ['path', { d: 'M5 21l4-12' }],
-    ['path', { d: 'M9 21l2-12' }],
-    ['rect', { x: '7.5', y: '3', width: '5', height: '6', rx: '1' }],
-    ['path', { d: 'M15 6c2.5 1 3.5 3 3.5 6s-1 5-3.5 6' }],
-    ['path', { d: 'M17.5 9c1.5.5 2.5 1.5 2.5 3s-1 2.5-2.5 3' }],
+    ['path', { d: 'M6 2c-1.5 1.5 1.5 3 0 4.5S7.5 9.5 6 11M12 2c-1.5 1.5 1.5 3 0 4.5s1.5 3 0 4.5M18 2c-1.5 1.5 1.5 3 0 4.5s1.5 3 0 4.5' }],
+    ['path', { d: 'M3 12.5h18' }],
+    ['path', { d: 'M6 14v8M12 14v8M18 14v8' }],
   ],
-  // A curl of hair
+  // Ringlets
   CURLS: [
-    ['path', { d: 'M12 3c-4 0-7 3-7 6.5S7.5 15 10.5 15s4.5-2 4.5-4-1.5-3.5-3.5-3.5S8.5 9 9 10.5' }],
-    ['path', { d: 'M15 11c2 1 4 3 4 5.5S17 21 14 21s-5-1.5-5-3.5' }],
+    ['path', { d: 'M7 2c2 0 2 2.2 0 2.2S5 6.4 7 6.4 9 8.6 7 8.6 5 10.8 7 10.8s2 2.2 0 2.2-2 2.2 0 2.2' }],
+    ['path', { d: 'M12 2c2 0 2 2.2 0 2.2s-2 2.2 0 2.2 2 2.2 0 2.2-2 2.2 0 2.2 2 2.2 0 2.2-2 2.2 0 2.2 2 2.2 0 2.2-2 2.2 0 2.2' }],
+    ['path', { d: 'M17 2c2 0 2 2.2 0 2.2s-2 2.2 0 2.2 2 2.2 0 2.2-2 2.2 0 2.2 2 2.2 0 2.2' }],
   ],
-  // A bottle of nail polish
-  NAIL_ART: [
-    ['rect', { x: '6', y: '11', width: '12', height: '10', rx: '2.5' }],
-    ['path', { d: 'M9 11V8h6v3' }],
-    ['path', { d: 'M10 8V3.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V8' }],
-    ['path', { d: 'M9 15h6' }],
+  // A plait
+  BRAIDS: [
+    ['path', { d: 'M12 3c-3 0-3.5 3.5-1.5 5 3-.5 3.5-3.5 1.5-5z' }],
+    ['path', { d: 'M12 7.5c3 0 3.5 3.5 1.5 5-3-.5-3.5-3.5-1.5-5z' }],
+    ['path', { d: 'M12 12c-3 0-3.5 3.5-1.5 5 3-.5 3.5-3.5 1.5-5z' }],
+    ['path', { d: 'M11 17.5h2.5' }],
+    ['path', { d: 'M12.2 17.5c-.8 1.3-1.2 2.8-1.2 4.5M12.2 17.5c.8 1.3 1.2 2.8 1.2 4.5' }],
+  ],
+  // A face with a spa headband and a face pack
+  FACIAL: [
+    ['path', { d: 'M12 2.5a7.5 9.5 0 0 0 0 19 7.5 9.5 0 0 0 0-19z' }],
+    ['path', { d: 'M4.8 7.5c4.5-1.6 9.9-1.6 14.4 0' }],
+    ['path', { d: 'M5 9.5c4.5-1.4 9.5-1.4 14 0' }],
+    ['path', { d: 'M8 12.5c.7.6 1.6.6 2.3 0M13.7 12.5c.7.6 1.6.6 2.3 0' }],
+    ['path', { d: 'M7.5 15.5h.01M16.5 15.5h.01M12 17.8h.01' }],
+  ],
+  // An eyebrow above an eye, and the thread
+  THREADING: [
+    ['path', { d: 'M3 9c3-3.5 9-4 15-1.5' }],
+    ['path', { d: 'M4 15s3-3.5 8-3.5 8 3.5 8 3.5-3 3.5-8 3.5-8-3.5-8-3.5z' }],
+    ['circle', { cx: '12', cy: '15', r: '1.5' }],
+    ['path', { d: 'M14 2.5c2 1.5 4 1.5 7 0M14 4.5c2-1.5 4-1.5 7 0' }],
+  ],
+  // A wax pot and spatula
+  WAXING: [
+    ['path', { d: 'M4 10h12v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z' }],
+    ['path', { d: 'M3 10h14' }],
+    ['path', { d: 'M7 10v2.5a1 1 0 0 0 2 0V10M12 10v1.5a1 1 0 0 0 2 0V10' }],
+    ['path', { d: 'M11 13 20 3.5a1.5 1.5 0 0 1 2 2L13 15' }],
   ],
   // A closed eye with long lashes
   EYELASH: [
@@ -178,44 +143,117 @@ export const ICON_DRAWINGS: Record<ServiceIconName, IconNode[]> = {
     ['path', { d: 'M4.5 11.5L2.5 14' }],
     ['path', { d: 'M19.5 11.5l2 2.5' }],
   ],
-  // A lotus: spa and body care
-  BODY_SPA: [
-    ['path', { d: 'M12 20c-3-2-4.5-5-4.5-8.5 0-2.5 1.5-5 4.5-7.5 3 2.5 4.5 5 4.5 7.5S15 18 12 20z' }],
-    ['path', { d: 'M12 20c-3.5 0-6.5-1.5-8.5-4.5 1-1.5 2.5-2.5 4.3-3' }],
-    ['path', { d: 'M12 20c3.5 0 6.5-1.5 8.5-4.5-1-1.5-2.5-2.5-4.3-3' }],
+  // A lipstick
+  MAKEUP: [
+    ['path', { d: 'M9.5 11V6.5l5-3.5v8' }],
+    ['rect', { x: '8.5', y: '11', width: '7', height: '3', rx: '.5' }],
+    ['rect', { x: '8', y: '14', width: '8', height: '8', rx: '1' }],
   ],
-  // An ear with a stud
+  // Wedding rings (bride and groom)
+  BRIDAL: [
+    ['circle', { cx: '9', cy: '14', r: '5.5' }],
+    ['circle', { cx: '15', cy: '14', r: '5.5' }],
+    ['path', { d: 'M13.5 3.5 15 2l1.5 1.5L15 5.5z' }],
+    ['path', { d: 'M8 4l1 1.2M20 4l-1 1.2' }],
+  ],
+  // A palm with a henna design (Lucide "hand")
+  MEHENDI: [
+    ['path', { d: 'M18 11V6a2 2 0 0 0-4 0' }],
+    ['path', { d: 'M14 10V4a2 2 0 0 0-4 0v2' }],
+    ['path', { d: 'M10 10.5V6a2 2 0 0 0-4 0v8' }],
+    ['path', { d: 'M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15' }],
+    ['circle', { cx: '13', cy: '15', r: '2' }],
+    ['circle', { cx: '13', cy: '15', r: '.4', fill: 'currentColor' }],
+  ],
+  // A bottle of nail polish
+  MANICURE: [
+    ['rect', { x: '6', y: '11', width: '12', height: '10', rx: '2.5' }],
+    ['path', { d: 'M9 11V8h6v3' }],
+    ['path', { d: 'M10 8V3.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V8' }],
+    ['path', { d: 'M9 15h6' }],
+  ],
+  // A foot in a tub of water
+  PEDICURE: [
+    ['path', { d: 'M3 13h18l-1.5 8h-15z' }],
+    ['path', { d: 'M8 2v9.5' }],
+    ['path', { d: 'M12.5 2v6c0 1.8 1 3 2.5 3.5' }],
+    ['path', { d: 'M6 16.5c2 1 4-1 6 0s4 1 6 0' }],
+  ],
+  // Someone lying down, a hand on the back (Lucide "hand")
+  MASSAGE: [
+    ['circle', { cx: '4.5', cy: '13', r: '2' }],
+    ['path', { d: 'M8 14.5c3-2 9-2 13-.5' }],
+    ['path', { d: 'M2 17.5h20M4 17.5V21M20 17.5V21' }],
+    ['path', { d: 'M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v2M10 10.5V6a2 2 0 0 0-4 0v8M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15', transform: 'translate(8 1) scale(.42)', strokeWidth: '3' }],
+  ],
+  // A lotus
+  BODY_SPA: [
+    ['path', { d: 'M12 20c-2.5-1.8-3.8-4.5-3.8-7.5S9.5 6.8 12 4.5c2.5 2.3 3.8 5 3.8 8S14.5 18.2 12 20z' }],
+    ['path', { d: 'M12 20c-4 .2-7.3-1.6-9-5.3 1.6-1 3.4-1.4 5.3-1.1' }],
+    ['path', { d: 'M12 20c4 .2 7.3-1.6 9-5.3-1.6-1-3.4-1.4-5.3-1.1' }],
+    ['path', { d: 'M5 22h14' }],
+  ],
+  // An ear with an earring
   PIERCING: [
     ['path', { d: 'M6 8.5a6 6 0 0 1 12 0c0 2.5-1.5 3.8-2.8 5-1.2 1.1-1.7 2-1.7 3.5a3.5 3.5 0 0 1-7 0' }],
     ['path', { d: 'M9.5 9.5a2.5 2.5 0 0 1 5 0c0 1.5-1.5 2-1.5 3.5' }],
-    ['circle', { cx: '9', cy: '18.5', r: '1', fill: 'currentColor' }],
+    ['circle', { cx: '9', cy: '20.3', r: '2' }],
   ],
-  // Lucide "gift": a package or combo of services
+  // A child (Lucide "baby")
+  KIDS: [
+    ['path', { d: 'M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5' }],
+    ['path', { d: 'M15 12h.01' }],
+    ['path', { d: 'M19.38 6.813A9 9 0 0 1 20.8 10.2a2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1' }],
+    ['path', { d: 'M9 12h.01' }],
+  ],
+  // A price tag with a plus: a combo of services
   PACKAGE: [
-    ['path', { d: 'M12 7v14' }],
-    ['path', { d: 'M20 11v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8' }],
-    ['path', { d: 'M7.5 7a1 1 0 0 1 0-5A4.8 8 0 0 1 12 7a4.8 8 0 0 1 4.5-5 1 1 0 0 1 0 5' }],
-    ['rect', { x: '3', y: '7', width: '18', height: '4', rx: '1' }],
+    ['path', { d: 'M3 12.5V4a1 1 0 0 1 1-1h8.5l9 9a1.4 1.4 0 0 1 0 2L14 21.5a1.4 1.4 0 0 1-2 0z' }],
+    ['circle', { cx: '7.5', cy: '7.5', r: '1.2' }],
+    ['path', { d: 'M11 14h5M13.5 11.5v5' }],
   ],
-  // A barber's pole: any salon service
+  // A salon chair: any service none of the others shows
   OTHER: [
-    ['path', { d: 'M7 3h10' }],
-    ['path', { d: 'M7 21h10' }],
-    ['rect', { x: '8', y: '5', width: '8', height: '14', rx: '2' }],
-    ['path', { d: 'M8 10.5l8-3.5' }],
-    ['path', { d: 'M8 15l8-3.5' }],
-    ['path', { d: 'M9.5 19l6.5-3' }],
+    ['rect', { x: '4.5', y: '1.5', width: '4', height: '2.5', rx: '1' }],
+    ['rect', { x: '5', y: '5', width: '3.5', height: '7.5', rx: '1' }],
+    ['rect', { x: '5', y: '12.5', width: '10.5', height: '2.5', rx: '1' }],
+    ['path', { d: 'M8.5 9h6a1 1 0 0 1 1 1v2.5' }],
+    ['path', { d: 'M10.25 15v4' }],
+    ['path', { d: 'M6.5 21h7.5' }],
+    ['path', { d: 'M15.5 14.5 18.5 19H16' }],
   ],
 }
 
 /** What each picture is for, as the picker names it (the service, not the drawing). */
 export const ICON_LABELS: Record<ServiceIconName, string> = {
-  HAIRCUT: 'Haircut', BEARD: 'Beard', SHAVE: 'Shave', HAIR_COLOUR: 'Hair colour', STYLING: 'Styling',
-  HAIR_SPA: 'Spa', HAIR_WASH: 'Hair wash', FACIAL: 'Facial', CLEANUP: 'Clean-up', MASSAGE: 'Massage',
-  THREADING: 'Threading', WAXING: 'Waxing', MANICURE: 'Manicure', PEDICURE: 'Pedicure', MAKEUP: 'Make-up',
-  BRIDAL: 'Bridal', KIDS: 'Kids', MEHENDI: 'Mehendi', STRAIGHTENING: 'Straightening', CURLS: 'Curls',
-  NAIL_ART: 'Nail art', EYELASH: 'Eyelashes', BODY_SPA: 'Body spa', PIERCING: 'Piercing', PACKAGE: 'Package',
-  OTHER: 'General (barber pole)',
+  HAIRCUT: 'Haircut',
+  TRIM: 'Trim',
+  BEARD: 'Beard',
+  MOUSTACHE: 'Moustache',
+  SHAVE: 'Shave',
+  HAIR_WASH: 'Hair wash',
+  HAIR_SPA: 'Hair spa',
+  HEAD_MASSAGE: 'Head massage',
+  HAIR_COLOUR: 'Hair colour',
+  STYLING: 'Blow-dry / styling',
+  STRAIGHTENING: 'Straightening',
+  CURLS: 'Curls',
+  BRAIDS: 'Braids',
+  FACIAL: 'Facial / clean-up',
+  THREADING: 'Threading',
+  WAXING: 'Waxing',
+  EYELASH: 'Eyelashes',
+  MAKEUP: 'Make-up',
+  BRIDAL: 'Bridal / groom',
+  MEHENDI: 'Mehendi',
+  MANICURE: 'Manicure / nails',
+  PEDICURE: 'Pedicure',
+  MASSAGE: 'Body massage',
+  BODY_SPA: 'Body spa',
+  PIERCING: 'Piercing',
+  KIDS: 'Kids',
+  PACKAGE: 'Package / combo',
+  OTHER: 'General (salon chair)',
 }
 
 /**
@@ -223,33 +261,35 @@ export const ICON_LABELS: Record<ServiceIconName, string> = {
  * English letters, and in Devanagari. A plain keyword also matches the start of a longer word (4 letters or more:
  * "facials") or a word holding it (5 or more: "beardtrim"). "=word" matches only that whole word ("baby" but not
  * "babylights", "perm" but not "permanent"). "~word" is a weak hint: it fits, but any other word in the name goes
- * before it ("Spa pedicure" is a pedicure first, "Oil massage" a massage, "Boy cut" a haircut). On a tie, the order
- * below decides (a "Gel nails" is nail art before a styling gel).
+ * before it ("Spa pedicure" is a pedicure first, "Relaxing head massage" a head massage, "Boy cut" a haircut). On a
+ * tie, the order below decides ("massage head" is a head massage before a body massage). "~=word" is both.
  */
 const KEYWORDS: [ServiceIconName, string[]][] = [
   ['PACKAGE', ['package', 'packages', 'combo', 'combos', 'deal', 'membership', 'पैकेज']],
-  ['BRIDAL', ['bridal', 'bride', '=groom', 'wedding', 'dulha', 'dulhan', 'shaadi', 'engagement', 'reception', 'दुल्हन', 'दूल्हा', 'शादी']],
-  ['KIDS', ['=kid', 'kids', 'child', 'children', '=baby', '~boy', '~boys', '~girl', '~girls', 'bachcha', 'mundan', 'बच्चा', 'बच्चे', 'मुंडन']],
-  ['BEARD', ['beard', 'moustache', 'mustache', 'goatee', 'dadhi', 'daadhi', 'stubble', 'दाढ़ी', 'दाढी', 'मूंछ']],
-  ['SHAVE', ['shave', 'shaving', 'razor', 'शेव', 'शेविंग']],
-  ['HAIRCUT', ['haircut', 'cut', 'cutting', 'crop', 'fade', 'skinfade', 'trim', 'trimming', 'bob', 'layer', 'layers', 'undercut', 'boycut', 'baal', 'कटिंग', 'कट', 'हेयरकट', '~बाल']],
+  ['BRIDAL', ['bridal', 'bride', '=groom', 'wedding', 'dulha', 'dulhan', 'shaadi', 'sehra', 'engagement', 'reception', 'दुल्हन', 'दूल्हा', 'शादी']],
+  ['KIDS', ['=kid', 'kids', 'child', 'children', '=baby', '~boy', '~boys', '~girl', '~girls', 'bachcha', 'baccha', 'bacche', 'mundan', 'बच्चा', 'बच्चे', 'बच्चों', 'मुंडन']],
+  ['BEARD', ['beard', 'goatee', 'dadhi', 'daadhi', 'daari', 'daadi', 'stubble', 'दाढ़ी', 'दाढी']],
+  ['MOUSTACHE', ['moustache', 'mustache', 'mooch', 'mooche', 'muchh', 'moochh', 'मूंछ', 'मूँछ']],
+  ['SHAVE', ['shave', 'shaving', 'razor', 'headshave', 'शेव', 'शेविंग']],
+  ['HAIRCUT', ['haircut', 'cut', 'cutting', 'crop', 'fade', 'skinfade', 'bob', 'layer', 'layers', 'undercut', 'boycut', '~baal', 'katai', 'kating', '~trim', 'कटिंग', 'कट', 'हेयरकट']],
+  ['TRIM', ['trim', 'trimming', 'trimmer', 'hairtrim', 'clipper', 'clippers', 'machinecut', 'ट्रिम']],
   ['HAIR_COLOUR', ['colour', 'color', 'colouring', 'coloring', 'dye', 'highlight', 'highlights', 'babylights', 'balayage', 'ombre', 'streak', 'streaks', 'grey', 'gray', 'global', 'root', 'touchup', 'कलर', 'डाई', 'मेहंदीकलर']],
   ['STRAIGHTENING', ['straighten', 'straightening', 'straightener', 'smoothening', 'smoothing', 'rebond', 'rebonding', 'keratin', 'botox', 'nanoplastia', 'ironing', 'relaxer']],
   ['CURLS', ['curl', 'curls', 'curling', '=perm', 'perming', 'wave', 'waves', 'crimp', 'crimping']],
-  ['NAIL_ART', ['nailart', 'nailpolish', 'gelnail', 'gelnails', 'gelpolish', 'acrylic', 'nailextension', 'nailextensions', 'nailpaint']],
-  ['STYLING', ['styling', 'style', 'hairstyle', 'hairdo', 'blow', 'blowdry', 'blowout', 'setting', 'updo', 'bun', 'braid', 'braids', 'choti', 'hairgel', 'hairwax', 'hairextension', 'hairextensions']],
-  ['MANICURE', ['manicure', '=mani', 'nail', 'nails', '~hand', '~hands', 'मैनीक्योर']],
+  ['BRAIDS', ['braid', 'braids', 'braiding', 'plait', 'plaits', 'choti', 'chotti', 'चोटी']],
+  ['MANICURE', ['manicure', '=mani', 'nail', 'nails', 'nailart', 'nailpolish', 'gelnail', 'gelnails', 'gelpolish', 'acrylic', 'nailextension', 'nailextensions', 'nailpaint', '~hand', '~hands', 'मैनीक्योर']],
+  ['STYLING', ['styling', 'style', 'hairstyle', 'hairdo', 'blow', 'blowdry', 'blowout', 'setting', 'updo', 'bun', 'hairgel', 'hairwax']],
   ['PEDICURE', ['pedicure', '=pedi', 'foot', 'feet', 'heel', 'heels', 'पेडीक्योर']],
-  ['HAIR_SPA', ['~spa', 'hairspa', '~treatment', '~oil', '~oiling', 'serum', 'nourish', 'dandruff', 'hairfall', 'scalp', 'protein', 'hairmask', 'hairpack', 'olaplex', 'स्पा']],
+  ['HEAD_MASSAGE', ['headmassage', 'massagehead', 'headoil', 'headoilmassage', 'oilmassage', 'champi', 'chumpi', 'malish', 'maalish', '~head', '~oil', '~oiling', 'चंपी', 'मालिश', 'हेडमसाज', 'हेडमालिश', '~सिर']],
+  ['HAIR_SPA', ['~spa', 'hairspa', '~treatment', 'serum', 'nourish', 'dandruff', 'hairfall', 'scalp', 'protein', 'hairmask', 'hairpack', 'olaplex', 'स्पा']],
   ['BODY_SPA', ['~body', 'bodyspa', 'polishing', 'aroma', 'aromatherapy', 'ayurvedic', 'ayurveda', '~steam', 'sauna', 'wrap', 'reflexology']],
-  ['HAIR_WASH', ['wash', 'shampoo', 'headbath', 'hairbath', '~bath', 'conditioning']],
-  ['FACIAL', ['facial', 'face', 'facepack', 'detan', 'tan', 'bleach', 'glow', '=hydra', 'hydrafacial', 'antiageing', 'ageing', 'aging', '~skin', 'फेशियल', 'ब्लीच']],
-  ['CLEANUP', ['cleanup', 'scrub', 'peel', 'blackhead', 'whitehead', 'क्लीनअप']],
-  ['MASSAGE', ['massage', 'champi', '=relax', 'relaxing', 'malish', 'maalish', 'shiatsu', 'मसाज', 'मालिश', 'चंपी']],
+  ['HAIR_WASH', ['wash', 'shampoo', 'headbath', 'hairbath', '~bath', 'conditioning', 'conditioner', 'dhona', 'dhulai', 'धोना', 'वॉश', 'शैम्पू']],
+  ['FACIAL', ['facial', 'face', 'facepack', 'detan', 'tan', 'bleach', 'glow', '=hydra', 'hydrafacial', 'antiageing', 'ageing', 'aging', 'acne', 'pimple', 'pimples', 'undereye', 'darkcircle', 'darkcircles', 'pigmentation', 'cleanup', 'scrub', 'peel', 'blackhead', 'whitehead', '~skin', 'फेशियल', 'ब्लीच', 'क्लीनअप', 'डीटैन']],
+  ['MASSAGE', ['massage', 'bodymassage', 'backmassage', 'bodymalish', 'bodymaalish', 'bodyoil', 'bodyoilmassage', 'footmassage', 'legmassage', 'footmaalish', 'footmalish', 'pairkimaalish', 'pairkimalish', '~=relax', '~relaxing', 'shiatsu', 'मसाज', 'बॉडीमालिश', 'बॉडीमसाज', 'पैरकीमालिश']],
   ['EYELASH', ['lash', 'lashes', 'eyelash', 'eyelashes']],
-  ['THREADING', ['threading', 'thread', 'eyebrow', 'eyebrows', 'brow', 'brows', 'upperlip', 'upperlips', 'forehead', '=chin', 'sidelocks', 'sideburns', 'थ्रेडिंग', 'आइब्रो']],
+  ['THREADING', ['threading', 'thread', 'eyebrow', 'eyebrows', 'brow', 'brows', '~upperlip', '~upperlips', '~forehead', '~=chin', '~sidelocks', '~sideburns', 'थ्रेडिंग', 'आइब्रो']],
   ['WAXING', ['wax', 'waxing', 'rica', 'laser', 'hairremoval', 'underarm', 'underarms', '~arms', '~legs', 'वैक्स', 'वैक्सिंग']],
-  ['MAKEUP', ['makeup', 'party', 'draping', 'saree', 'lipstick', 'lipcolour', 'lipcolor', 'eyeliner', 'hd', 'airbrush', 'मेकअप']],
+  ['MAKEUP', ['makeup', '~party', 'lipstick', 'lipcolour', 'lipcolor', 'eyeliner', 'hd', 'airbrush', 'मेकअप']],
   ['MEHENDI', ['mehendi', 'mehndi', 'henna', 'मेहंदी', 'मेहँदी']],
   ['PIERCING', ['piercing', 'pierce', 'earpiercing', 'nosepiercing']],
 ]
@@ -266,9 +306,9 @@ interface Key {
 const KEYS: [ServiceIconName, Key[]][] = KEYWORDS.map(([icon, keys]) => [
   icon,
   keys.map((k) => ({
-    text: k.replace(/^[=~]/, '').toLowerCase().normalize('NFKC'),
-    exact: k.startsWith('='),
-    weak: k.startsWith('~'),
+    text: k.replace(/^[=~]+/, '').toLowerCase().normalize('NFKC'),
+    exact: /^[~]?=/.test(k),
+    weak: /^=?~/.test(k),
   })),
 ])
 
@@ -276,7 +316,7 @@ const KEYS: [ServiceIconName, Key[]][] = KEYWORDS.map(([icon, keys]) => [
 const WEAK = 1000
 
 /**
- * The icons that fit a service's name, best first, always ending with OTHER (the general one, a barber's pole): the
+ * The icons that fit a service's name, best first, always ending with OTHER (the general one, a salon chair): the
  * picker offers these first. "Haircut" → HAIRCUT, OTHER; "Kids haircut" → KIDS, HAIRCUT, OTHER; "Special package" →
  * PACKAGE, OTHER. Any case and any common way of writing it: "HAIR CUT", "hair-cut", "Haircutting", "beardtrim",
  * "Make up", "massage Head", "बाल कटिंग".
@@ -294,7 +334,7 @@ export function iconsFor(name: string): ServiceIconName[] {
     }
     if (best < Infinity) found.push([icon, best])
   }
-  // The one named first leads ("Haircut and beard": scissors; "Beard trim": moustache); on a tie, the list's order
+  // The one named first leads ("Haircut and beard": scissors; "Beard trim": the beard, then the clipper); on a tie, the list's order
   found.sort((x, y) => x[1] - y[1])
   return [...found.map(([icon]) => icon), 'OTHER']
 }

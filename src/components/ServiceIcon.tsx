@@ -17,7 +17,9 @@ export function ServiceIcon({
   size?: number
   className?: string
 }) {
-  const name = icon ?? (service ? iconOf(service) : 'OTHER')
+  // A name this app doesn't know (a newer backend's) is drawn as the general one rather than nothing
+  const asked = icon ?? (service ? iconOf(service) : 'OTHER')
+  const name: ServiceIconName = ICON_DRAWINGS[asked] ? asked : 'OTHER'
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
