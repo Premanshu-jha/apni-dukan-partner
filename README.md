@@ -334,6 +334,11 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.26.1 — 2026-11-15
+
+- **Full business address on the Contact page**: the Udyam-registered
+  address with its PIN code, as Razorpay's website check asks for, in place of just the city.
+
 ### 0.26.0 — 2026-11-15
 
 - **Public pages for Razorpay's website check**: salons pay the subscription in this app, so partner.clozest.in is

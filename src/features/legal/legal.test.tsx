@@ -90,6 +90,8 @@ describe('public pages', () => {
     expect(screen.getAllByRole('link', { name: BUSINESS.email })[0]).toHaveAttribute('href', `mailto:${BUSINESS.email}`)
     expect(screen.getByRole('link', { name: BUSINESS.phone })).toHaveAttribute('href', 'tel:+919381251613')
     expect(screen.getByText(new RegExp(BUSINESS.address))).toBeInTheDocument()
+    // The full registered (Udyam) address, with its PIN code: Razorpay's website check wants a full address
+    expect(BUSINESS.address).toMatch(/G-10, A Block, G\.K\. Habitat Royal, Yapral, Secunderabad, Hyderabad, Telangana 500094/)
     expect(screen.getByText('Write to support')).toBeInTheDocument()
   })
 
