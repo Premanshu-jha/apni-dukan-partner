@@ -131,12 +131,15 @@ export function EmptyState({ title, body, action }: { title: string; body?: stri
 export function Page({
   title,
   back,
+  backReplace,
   children,
   footer,
   leaveWarning,
 }: {
   title?: string
   back?: boolean | string
+  /** With a string `back`: go there in place of this screen (no history entry), so Back can't loop */
+  backReplace?: boolean
   children: ReactNode
   footer?: ReactNode
   /** When set, the back button asks first (e.g. an upload under way). */
@@ -153,7 +156,7 @@ export function Page({
               aria-label="Back"
               onClick={() => {
                 if (leaveWarning && !window.confirm(leaveWarning)) return
-                if (typeof back === 'string') navigate(back)
+                if (typeof back === 'string') navigate(back, { replace: backReplace })
                 else navigate(-1)
               }}
               className="flex h-11 w-11 items-center justify-center rounded-full text-xl hover:bg-raised"
