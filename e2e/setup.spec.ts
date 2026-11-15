@@ -22,7 +22,7 @@ test('the owner adds a service, edits its price and switches one off', async ({ 
     pricePaise: 14950,
     priceIsFrom: false,
     returnAfterDays: 14,
-    icon: 'MASSAGE',
+    icon: 'HEAD_MASSAGE',
   })
 
   await page.getByRole('button', { name: /Haircut/ }).click()
@@ -172,4 +172,25 @@ test('pause online bookings for the rest of today, then resume', async ({ page, 
   expect(api.calls.find((c) => c.path === '/api/v1/salon/pause' && c.method === 'POST')!.body).toEqual({})
   await page.getByRole('button', { name: 'Resume' }).click()
   await expect(page.getByRole('button', { name: 'Too busy? Pause online bookings' })).toBeVisible()
+})
+
+test('the new service pictures are said once; a picture this app doesn’t know still opens and saves the one that fits', async ({ page, context, api }) => {
+  await atSalon(page, context, api)
+  api.services.find((v) => v.id === 'v1')!.icon = 'SOMETHING_NEWER'   // saved by a newer app
+  await page.goto('/setup/services')
+  const note = page.getByText('The service pictures are new: each service comes with the one that shows it. Tap a service to see or change it.')
+  await expect(note).toBeVisible()
+  await expect(page.locator('li', { hasText: 'Haircut' }).locator('svg[data-icon="HAIRCUT"]')).toBeVisible()   // drawn from the name
+  await page.getByRole('button', { name: 'Got it' }).click()
+  await expect(note).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByRole('button', { name: /^Haircut/ })).toBeVisible()
+  await expect(note).toHaveCount(0)   // once per phone
+
+  await page.getByRole('button', { name: /^Haircut/ }).click()
+  await expect(page.getByText(/^Picture:/)).toHaveText('Picture: Haircut')
+  await page.getByLabel('Price (₹)').fill('210')
+  await page.getByRole('button', { name: 'Save' }).click()
+  const patch = api.calls.filter((c) => c.method === 'PATCH' && c.path === '/api/v1/salon/services/v1').at(-1)!
+  expect(patch.body).toMatchObject({ icon: 'HAIRCUT' })
 })
