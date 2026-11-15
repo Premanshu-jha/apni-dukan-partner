@@ -3,7 +3,10 @@ import { expect, fakeMp4, JPEG, signedIn, stubVideoLength, test } from './helper
 
 test('a new owner signs up, registers the salon in five steps and waits for the visit', async ({ page, context, api }) => {
   await stubVideoLength(context, 30)
+  // A new visitor first sees what Clozest offers salons (the About page), then signs up from there
   await page.goto('/')
+  await expect(page).toHaveURL(/\/about$/)
+  await page.getByRole('link', { name: 'Sign in or sign up' }).click()
   await expect(page).toHaveURL(/\/signin$/)
   await page.getByLabel('Mobile number').fill('98480 12345')
   await page.getByRole('button', { name: 'Send code' }).click()
