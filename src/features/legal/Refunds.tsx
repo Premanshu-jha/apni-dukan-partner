@@ -16,8 +16,11 @@ export function Refunds() {
 
       <Section title="Cancelling">
         <ul>
-          <li>Cancel any time, by stopping the AutoPay mandate in your UPI app or bank, or by writing to us.</li>
-          <li>Payment stops from the next month: nothing more is charged after you cancel.</li>
+          <li>
+            Cancel any time: stop Clozest's AutoPay in your UPI app (PhonePe, Google Pay, Paytm…) or with your bank, or
+            write to us and we'll stop it.
+          </li>
+          <li>You keep the month already paid; nothing more is charged after you cancel.</li>
           <li>The salon keeps taking online bookings until the end of the month already paid.</li>
         </ul>
       </Section>

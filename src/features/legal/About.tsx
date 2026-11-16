@@ -45,7 +45,7 @@ export function About() {
         <ul>
           <li>The trial starts when the field team approves your salon, not when you sign up.</li>
           <li>Pay by UPI AutoPay (approve once with your UPI PIN), card or netbanking, through Razorpay.</li>
-          <li>Cancel any time; payment stops from the next month.</li>
+          <li>Cancel any time: you keep the month already paid, and nothing more is taken.</li>
           <li>₹{BUSINESS.salonPricePerMonth} is the full price: no GST is added.</li>
           <li>Paying opens in the app when your trial is ending; we tell you before the first payment.</li>
         </ul>
