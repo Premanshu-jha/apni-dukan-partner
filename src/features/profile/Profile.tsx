@@ -1,5 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { lazy, Suspense, useState } from 'react'
+import { useSubscription } from '../../api/subscription'
+import { summary as subscriptionSummary } from '../subscription/text'
 import { Link, useNavigate } from 'react-router'
 import { authApi } from '../../api/auth'
 import { shopApi, useAddressRequest, useShop } from '../../api/shop'
@@ -220,6 +222,8 @@ export function Profile() {
         <NotificationsRow />
       </Card>
 
+      <SubscriptionRow />
+
       <Card className="flex flex-col gap-1">
         <p className="font-medium">Need help?</p>
         <p className="text-sm text-muted">
@@ -313,5 +317,25 @@ function Row({ label, value, action }: { label: string; value: string; action?: 
       </div>
       {action}
     </div>
+  )
+}
+
+/** The salon's subscription in one line, the whole card opening its page (not for a suspended salon). */
+function SubscriptionRow() {
+  const shop = useShop()
+  const sub = useSubscription()
+  if (!sub.data || shop.status === 'SUSPENDED') return null
+  return (
+    <Link to="/subscription" aria-label="Subscription" className="block">
+      <Card className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-medium">Subscription</p>
+          <p className="text-sm text-muted">{subscriptionSummary(sub.data)}</p>
+        </div>
+        <span aria-hidden="true" className="shrink-0 text-link">
+          Open
+        </span>
+      </Card>
+    </Link>
   )
 }

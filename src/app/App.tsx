@@ -43,6 +43,7 @@ import { HandoverPage } from '../features/shop/HandoverOffers'
 import { InvitesPage } from '../features/shop/InviteOffers'
 import { Start } from '../features/shop/Start'
 import { Team } from '../features/team/Team'
+import { SubscriptionPage } from '../features/subscription/SubscriptionPage'
 import { NeedHelp } from '../features/help/NeedHelp'
 import { MyRequests, RequestDetail } from '../features/help/MyRequests'
 import { EmptyState, Page } from '../components/ui'
@@ -123,6 +124,8 @@ export function App() {
               <Route path="/profile/phone" element={<ChangePhone />} />
               {/* Anyone in the salon: hours, services, offers (a barber's only view of them) */}
               <Route path="/salon/info" element={<SalonInfo />} />
+              {/* Anyone in the salon sees the subscription; only the owner pays */}
+              <Route path="/subscription" element={<SubscriptionPage />} />
               <Route element={<RoleOnly roles={['OWNER', 'HELPER']} />}>
                 <Route path="/setup/services" element={<Services />} />
                 <Route path="/setup/staff" element={<StaffList />} />
