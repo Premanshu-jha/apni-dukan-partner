@@ -5,9 +5,12 @@ const base = process.argv[2] ?? 'http://localhost:8080'
 const API = 'https://api.example.com'
 const TURNSTILE = 'https://challenges.cloudflare.com'
 const R2 = 'https://*.r2.cloudflarestorage.com'
-// What this app may use (Permissions-Policy)
-const ALLOWED = ['geolocation=(self)']
-const DENIED = ['camera=()', 'microphone=()', 'payment=()']
+// Razorpay's checkout, for the salon subscription
+const RAZORPAY_SCRIPT = 'https://checkout.razorpay.com'
+const RAZORPAY_API = 'https://api.razorpay.com'
+// What this app may use (Permissions-Policy): payments only for Razorpay's checkout frame
+const ALLOWED = ['geolocation=(self)', `payment=(self "${RAZORPAY_API}")`]
+const DENIED = ['camera=()', 'microphone=()']
 
 const failures = []
 const check = (ok, what) => {
@@ -23,9 +26,13 @@ async function headersOf(path) {
   const directive = (name) => csp.split(';').map((d) => d.trim()).find((d) => d.startsWith(`${name} `)) ?? ''
   check(directive('default-src') === "default-src 'self'", `${path}: default-src is "${directive('default-src')}"`)
   check(directive('frame-ancestors') === "frame-ancestors 'none'", `${path}: frame-ancestors is "${directive('frame-ancestors')}"`)
-  check(directive('script-src') === `script-src 'self' ${TURNSTILE}`, `${path}: script-src is "${directive('script-src')}"`)
-  // The backend, and R2 for the salon video's upload (the build sets no PHOTO_ORIGIN: any R2 address)
-  check(directive('connect-src') === `connect-src 'self' ${API} ${R2}`, `${path}: connect-src is "${directive('connect-src')}"`)
+  check(directive('script-src') === `script-src 'self' ${TURNSTILE} ${RAZORPAY_SCRIPT}`, `${path}: script-src is "${directive('script-src')}"`)
+  check(directive('frame-src') === `frame-src ${TURNSTILE} ${RAZORPAY_API} ${RAZORPAY_SCRIPT}`, `${path}: frame-src is "${directive('frame-src')}"`)
+  // The backend, R2 for the salon video's upload (the build sets no PHOTO_ORIGIN: any R2 address), Razorpay's checkout
+  check(
+    directive('connect-src') === `connect-src 'self' ${API} ${R2} ${RAZORPAY_API} https://lumberjack.razorpay.com`,
+    `${path}: connect-src is "${directive('connect-src')}"`,
+  )
   check(directive('media-src') === `media-src 'self' blob: ${R2}`, `${path}: media-src is "${directive('media-src')}"`)
   check(directive('object-src') === "object-src 'none'", `${path}: object-src is "${directive('object-src')}"`)
   check(directive('worker-src') === "worker-src 'self'", `${path}: worker-src is "${directive('worker-src')}"`)
