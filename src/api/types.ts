@@ -590,3 +590,52 @@ export interface MyRequestDetail {
   ticket: MyRequest
   messages: MyRequestMessage[]
 }
+
+/**
+ * The salon's subscription (GET /shops/me/subscription, SubscriptionService.View): ₹500 a month after a 30-day free
+ * trial from the field team's approval. Only the owner pays; helpers and barbers see it.
+ */
+export type SubscriptionState = 'NONE' | 'AUTOPAY' | 'TRIAL' | 'PAID' | 'GRACE' | 'HIDDEN'
+
+export interface SubscriptionView {
+  /**
+   * NONE: not approved yet; AUTOPAY: Razorpay charges each month by itself; TRIAL; PAID (paid up, AutoPay off);
+   * GRACE: ended, still visible until hiddenFrom; HIDDEN: customers can't find the salon until it pays.
+   */
+  state: SubscriptionState
+  trialEndsAt: string | null
+  paidUntil: string | null
+  /** The trial's or the paid month's end */
+  accessUntil: string | null
+  /**
+   * When customers stop finding the salon without a payment: midnight (India time) ending the third day after
+   * accessUntil, so "pay by" is the day before it.
+   */
+  hiddenFrom: string | null
+  razorpayStatus: string | null
+  pricePerMonth: number
+  /** Whether the salon is really hidden then (payments live); false: it isn't yet */
+  enforced: boolean
+  /** The owner, with payments set up and AutoPay not on */
+  canPay: boolean
+  /** Razorpay is set up (else "Paying isn't available yet") */
+  paymentsReady: boolean
+  /** Razorpay test keys: nothing real is charged */
+  testMode: boolean
+  /** The last AutoPay charge failed, or one is overdue: the owner is told and may pay another way */
+  autoPayFailed?: boolean
+}
+
+/** POST /shops/me/subscription/checkout: what Razorpay's checkout opens with. */
+export interface SubscriptionCheckout {
+  keyId: string
+  subscriptionId: string
+  name: string
+  description: string
+  image: string
+  themeColor: string
+  prefill: { name?: string; email?: string; contact?: string }
+  /** The first charge (the trial's end), or null: at once */
+  firstChargeAt: string | null
+  testMode: boolean
+}
