@@ -334,6 +334,30 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 ## Changelog
 
+### 0.27.0 — 2026-11-16
+
+Needs the backend with V65 (the salon subscription); deploy the backend first.
+
+- **Salon subscription (₹500 a month after a 30-day free trial)**, paid only by the owner, in this app:
+  - **Subscription page** (`/subscription`, `src/features/subscription/`): price, trial and paid-until dates, and for
+    the owner **Set up AutoPay** (during the trial: approve once with the UPI PIN; nothing taken until the trial ends)
+    or **Pay ₹500** (after it). Opens Razorpay's checkout (`src/lib/razorpay.ts`) in Clozest's name, logo and navy
+    (#0B0F26), the owner's details filled in, then confirms with the backend. Helpers and barbers see it read-only.
+  - **Never paying twice by accident:** if the approval reached Razorpay but not us (network), the page says "we're
+    checking it, please don't pay again" with **Check again** (the same signed answer) instead of the Pay button.
+    After a checkout the page reads the subscription every 5 seconds for 90 seconds, so a payment approved in the UPI
+    app shows up by itself. A failed payment says "if money was taken anyway, it shows here within a few minutes".
+  - **Today banner**: the owner in the last week of the trial or paid month ("Set up AutoPay", nothing taken before
+    then), at once when an AutoPay payment failed, and once it has ended ("pay by <day>": the last day before
+    customers stop finding the salon at midnight). Helpers and barbers are asked to remind the owner during the 3
+    days, and told when customers can't find the salon. Standing states are shown, not announced as alerts each time.
+  - **More**: a Subscription card (tap anywhere on it) with its state in one line; not for a suspended salon, whose
+    page says paying doesn't lift a suspension.
+  - **Stopping AutoPay** explained plainly: in the UPI app (PhonePe, Google Pay, Paytm…), or ask us when paid by card
+    or netbanking; "you keep the month already paid". The same on the Refund policy and About pages.
+  - **Content-Security-Policy**: allows Razorpay's checkout script, frames, calls and images, and the Payment Request
+    API for its frame; nothing else changed. The checkout script gives up after 20 seconds instead of spinning.
+
 ### 0.26.1 — 2026-11-15
 
 - **Full business address on the Contact page**: the Udyam-registered

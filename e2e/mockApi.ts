@@ -240,6 +240,22 @@ export class MockApi {
   members: Json[] = []
   closures: Json[] = []
   pausedUntil: string | null = null
+  /**
+   * The salon's subscription (salon_subscriptions): null before approval (NONE). approvedSalon() starts a trial that
+   * ends in 20 days. status is Razorpay's (null, CREATED, AUTHENTICATED, ACTIVE, HALTED, ...).
+   */
+  subscription: { trialEndsAt: string; paidUntil: string | null; status: string | null; subscriptionId: string | null; madeAt: number } | null = null
+  /** Razorpay's keys and plan are set (else 503 SUBSCRIPTIONS_OFF); and whether lapsed salons are really hidden. */
+  paymentsReady = true
+  subscriptionsEnforced = true
+  /** POST /shops/me/subscription/checkout calls that asked "Razorpay" for a new subscription. */
+  razorpaySubscriptionsMade = 0
+  /** Razorpay subscriptions the checkout cancelled first (an old one still live: SubscriptionService.checkout). */
+  razorpayCancelled: string[] = []
+  /** Live Razorpay keys (rzp_live_): no "test mode" line. */
+  liveKeys = false
+  /** The next POST .../confirm never reaches the server (network dropped after the owner approved). */
+  dropNextConfirm = false
   inbox: Json[] = []
   files: Json[] = []
   /** The staff id this person signs in as (a barber). */
@@ -420,6 +436,7 @@ export class MockApi {
   approvedSalon(role: Role = 'OWNER', over: Json = {}) {
     this.role = role
     this.shop = MockApi.shopOf({ status: 'APPROVED', myRole: role, ...over })
+    this.subscription = { trialEndsAt: new Date(Date.now() + 20 * 86_400_000).toISOString(), paidUntil: null, status: null, subscriptionId: null, madeAt: 0 }
     this.members = [
       { userId: 'u1', name: this.user.name, phone: this.user.phone, role, staffId: role === 'BARBER' ? 'st2' : null, walkInAccess: role === 'OWNER' },
     ]
@@ -630,6 +647,39 @@ export class MockApi {
     }
   }
 
+  /** SubscriptionStore.bookableAfter: hidden from midnight (India time) ending the third day after access. */
+  static bookableAfter(access: number): number {
+    const ist = 5.5 * 3_600_000
+    const day = Math.floor((access + 3 * 86_400_000 + ist) / 86_400_000)
+    return (day + 1) * 86_400_000 - ist
+  }
+
+  /** SubscriptionService.view: the salon's subscription as the partner app gets it. */
+  subscriptionView(): Json {
+    const s = this.subscription
+    const base = {
+      pricePerMonth: 500, enforced: this.subscriptionsEnforced, paymentsReady: this.paymentsReady,
+      testMode: this.paymentsReady && !this.liveKeys, testSalon: false,
+    }
+    if (!s) {
+      return { state: 'NONE', trialEndsAt: null, paidUntil: null, accessUntil: null, hiddenFrom: null, razorpayStatus: null, canPay: false, autoPayFailed: false, ...base }
+    }
+    const trial = Date.parse(s.trialEndsAt)
+    const access = Math.max(trial, s.paidUntil ? Date.parse(s.paidUntil) : 0)
+    const hidden = MockApi.bookableAfter(access)
+    const now = Date.now()
+    const setUp = s.status === 'AUTHENTICATED' || s.status === 'ACTIVE'
+    // AutoPay counts until a day after access ended (or after it was set up, if later) without a charge
+    // (SubscriptionStore.Row.autoPayOn)
+    const autoPay = setUp && now < Math.max(access, s.madeAt) + 86_400_000
+    const state = autoPay ? 'AUTOPAY' : now < access ? (s.paidUntil && Date.parse(s.paidUntil) > trial ? 'PAID' : 'TRIAL') : now < hidden ? 'GRACE' : 'HIDDEN'
+    return {
+      state, trialEndsAt: s.trialEndsAt, paidUntil: s.paidUntil, accessUntil: new Date(access).toISOString(), hiddenFrom: new Date(hidden).toISOString(),
+      razorpayStatus: s.status, canPay: this.role === 'OWNER' && this.paymentsReady && !autoPay,
+      autoPayFailed: s.status === 'PENDING' || s.status === 'HALTED' || (setUp && !autoPay), ...base,
+    }
+  }
+
   async attach(context: BrowserContext) {
     await context.route(`${API}/**`, async (route) => {
       if (this.offline) return route.abort('internetdisconnected')
@@ -638,6 +688,10 @@ export class MockApi {
         if (route.request().url().includes(part)) await new Promise((r) => setTimeout(r, ms))
       }
       if (this.offline) return route.abort('internetdisconnected')
+      if (this.dropNextConfirm && route.request().method() === 'POST' && route.request().url().endsWith('/shops/me/subscription/confirm')) {
+        this.dropNextConfirm = false
+        return route.abort('internetdisconnected')   // a reset would be retried by the browser by itself
+      }
       try {
         await this.handle(route)
       } catch (e) {
@@ -2128,6 +2182,53 @@ export class MockApi {
       return ok(204)
     }
 
+    // ---------- the salon's subscription (SubscriptionController) ----------
+    if (p === '/shops/me/subscription' && method === 'GET') {
+      if (!this.shop) return fail(404, 'NO_SHOP', "You haven't registered a shop yet.")
+      return ok(200, this.subscriptionView())
+    }
+    if (p === '/shops/me/subscription/checkout' && method === 'POST') {
+      if (!this.shop) return fail(404, 'NO_SHOP', "You haven't registered a shop yet.")
+      if (this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the salon owner can pay.')
+      if (!this.paymentsReady) return fail(503, 'SUBSCRIPTIONS_OFF', "Payments aren't set up yet. Please try again later.")
+      const s = this.subscription
+      if (!s) return fail(409, 'SUBSCRIPTION_NOT_STARTED', "Your salon's free trial starts when our field team approves it. Nothing to pay until then.")
+      if (this.subscriptionView().state === 'AUTOPAY') return fail(409, 'ALREADY_SUBSCRIBED', 'AutoPay is already on for your salon. Nothing more to do.')
+      // The same one again within the hour (a closed checkout, a second tap); else a new one, any old one still live
+      // at Razorpay cancelled first
+      if (!(s.subscriptionId && s.status === 'CREATED' && Date.now() - s.madeAt < 3_600_000)) {
+        if (s.subscriptionId && !['CANCELLED', 'COMPLETED', 'EXPIRED'].includes(s.status ?? '')) this.razorpayCancelled.push(s.subscriptionId)
+        this.razorpaySubscriptionsMade++
+        s.subscriptionId = `sub_E2E${this.razorpaySubscriptionsMade}`
+        s.status = 'CREATED'
+        s.madeAt = Date.now()
+      }
+      const v = this.subscriptionView()
+      const first = Date.parse(v.accessUntil as string) > Date.now() + 15 * 60_000 ? (v.accessUntil as string) : null
+      // SubscriptionService.day: "10 Dec 2026", India time
+      const day = (iso: string) => new Date(Date.parse(iso) + IST).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+      return ok(200, {
+        keyId: 'rzp_test_e2e', subscriptionId: s.subscriptionId, name: 'Clozest',
+        description: `Salon subscription: ₹500 a month, first payment ${first ? `on ${day(first)}` : 'today'}`,
+        image: 'https://partner.clozest.in/icon-512.png', themeColor: '#0B0F26',
+        prefill: { name: this.user.name ?? '', email: this.user.email ?? '', contact: this.user.phone }, firstChargeAt: first,
+        testMode: !this.liveKeys,
+      })
+    }
+    if (p === '/shops/me/subscription/confirm' && method === 'POST') {
+      if (!this.shop) return fail(404, 'NO_SHOP', "You haven't registered a shop yet.")
+      if (this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the salon owner can pay.')
+      const b = body as Json
+      const s = this.subscription
+      if (!s) return fail(409, 'SUBSCRIPTION_NOT_STARTED', "Your salon's free trial starts when our field team approves it. Nothing to pay until then.")
+      if (!this.paymentsReady) return fail(503, 'SUBSCRIPTIONS_OFF', "Payments aren't set up yet. Please try again later.")
+      // The fake checkout signs "sig:<payment>|<subscription>" (the backend checks Razorpay's HMAC)
+      if (b.razorpaySubscriptionId !== s.subscriptionId || b.razorpaySignature !== `sig:${b.razorpayPaymentId}|${b.razorpaySubscriptionId}`) {
+        return fail(400, 'PAYMENT_NOT_CONFIRMED', "We couldn't confirm that payment. If money was taken, it will show here within a few minutes.")
+      }
+      if (!s.status || s.status === 'CREATED') s.status = 'AUTHENTICATED'
+      return ok(200, this.subscriptionView())
+    }
     return fail(404, 'NOT_FOUND', `No mock for ${method} ${p}`)
   }
 

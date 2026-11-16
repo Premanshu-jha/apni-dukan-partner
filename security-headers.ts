@@ -11,7 +11,10 @@
  *   address); a photo just taken is shown from a blob: address;
  * - the salon video: sent straight to R2 with a one-time link (connect-src) and played back from a signed R2 link
  *   (media-src); its length is read from a blob: address before it is sent;
- * - map tiles for the location pin (VITE_MAP_TILES, default OpenStreetMap's).
+ * - map tiles for the location pin (VITE_MAP_TILES, default OpenStreetMap's);
+ * - Razorpay's checkout for the salon's subscription: its script (checkout.razorpay.com), its frames
+ *   (api.razorpay.com, checkout.razorpay.com), its calls (api.razorpay.com, lumberjack.razorpay.com: its own logs)
+ *   and its images (cdn.razorpay.com); the Payment Request API for its frame.
  * Styles allow 'unsafe-inline': the map's pin and the Turnstile widget set inline styles. Scripts never run inline.
  */
 export interface HeaderSettings {
@@ -23,6 +26,8 @@ export interface HeaderSettings {
 
 const TURNSTILE = 'https://challenges.cloudflare.com'
 const R2 = 'https://*.r2.cloudflarestorage.com'
+const RAZORPAY_SCRIPT = 'https://checkout.razorpay.com'
+const RAZORPAY_API = 'https://api.razorpay.com'
 const OSM_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 
 /** The origin of a URL (the app falls back to these defaults, so does this). */
@@ -42,10 +47,10 @@ export function securityHeaders(env: HeaderSettings): Record<string, string> {
   const photos = env.PHOTO_ORIGIN || R2
   const csp = [
     "default-src 'self'",
-    `script-src 'self'${turnstile}`,
-    `frame-src ${turnstile ? TURNSTILE : "'none'"}`,
-    `connect-src 'self' ${api} ${photos}`,
-    `img-src 'self' data: blob: ${photos} ${tiles}`,
+    `script-src 'self'${turnstile} ${RAZORPAY_SCRIPT}`,
+    `frame-src${turnstile} ${RAZORPAY_API} ${RAZORPAY_SCRIPT}`,
+    `connect-src 'self' ${api} ${photos} ${RAZORPAY_API} https://lumberjack.razorpay.com`,
+    `img-src 'self' data: blob: ${photos} ${tiles} https://cdn.razorpay.com`,
     `media-src 'self' blob: ${photos}`,
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
@@ -63,12 +68,17 @@ export function securityHeaders(env: HeaderSettings): Record<string, string> {
     'X-Content-Type-Options': 'nosniff',
     // Only the location is used (the salon's pin); photos are taken through the file picker, which needs no camera
     // permission. Everything else is off, for this page and any frame in it
-    'Permissions-Policy': 'geolocation=(self), camera=(), microphone=(), payment=(), usb=(), midi=(), accelerometer=(), gyroscope=(), magnetometer=()',
+    'Permissions-Policy': 'geolocation=(self), camera=(), microphone=(), payment=(self "https://api.razorpay.com"), usb=(), midi=(), accelerometer=(), gyroscope=(), magnetometer=()',
   }
 }
 
-/** The same headers as a Caddyfile snippet (a `header` block), for the Caddyfile's `import`. */
+/**
+ * The same headers as a Caddyfile snippet (a `header` block), for the Caddyfile's `import`. A value with double quotes
+ * in it (Permissions-Policy's payment=(self "https://api.razorpay.com")) goes in backticks, Caddyfile's other quoting:
+ * in double quotes it would split into several tokens, which Caddy reads as a search-and-replace.
+ */
 export function caddyHeaders(headers: Record<string, string>): string {
-  const lines = Object.entries(headers).map(([name, value]) => `\t${name} "${value}"`)
+  const quote = (value: string) => (value.includes('"') ? `\`${value}\`` : `"${value}"`)
+  const lines = Object.entries(headers).map(([name, value]) => `\t${name} ${quote(value)}`)
   return `# Written by the build from security-headers.ts. Do not edit: change security-headers.ts.\nheader {\n${lines.join('\n')}\n}\n`
 }

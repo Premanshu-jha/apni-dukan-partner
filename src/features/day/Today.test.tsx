@@ -38,6 +38,7 @@ vi.mock('../profile/Notifications', () => ({ NotificationsPrompt: () => null }))
 vi.mock('../shop/HandoverOffers', () => ({ HandoverOffers: () => null }))
 vi.mock('../shop/InviteOffers', () => ({ InviteOffers: () => null }))
 vi.mock('./Pause', () => ({ PauseControl: () => null }))
+vi.mock('../subscription/SubscriptionBanner', () => ({ SubscriptionBanner: () => null }))
 vi.mock('./AppointmentSheet', () => ({
   AppointmentSheet: ({ a, gone }: { a: Appointment; gone: boolean }) => (
     <div role="dialog" aria-label="Appointment">
