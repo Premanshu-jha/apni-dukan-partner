@@ -86,3 +86,50 @@ export function fakeMp4(size = 4096): Buffer {
   bytes.write('ftypisom', 4, 'latin1')
   return bytes
 }
+
+/**
+ * A stand-in for Razorpay's checkout (window.Razorpay, which the app uses before loading the real script): a dialog
+ * showing the name, description and colour it was opened with, and buttons to approve (signs the answer as the fake
+ * backend expects: "sig:<payment>|<subscription>"), make the payment fail, or close it. The options it was opened
+ * with are kept in window.__rzpOpened.
+ */
+export async function fakeRazorpay(context: BrowserContext) {
+  await context.addInitScript(() => {
+    type Options = Record<string, unknown> & { subscription_id: string; handler: (a: unknown) => void; modal: { ondismiss: () => void }; theme: { color: string } }
+    const w = window as unknown as { Razorpay: unknown; __rzpOpened: Options[] }
+    w.__rzpOpened = []
+    w.Razorpay = class {
+      private failed: Array<(e: unknown) => void> = []
+      constructor(private o: Options) {}
+      on(event: string, fn: (e: unknown) => void) {
+        if (event === 'payment.failed') this.failed.push(fn)
+      }
+      open() {
+        w.__rzpOpened.push(this.o)
+        const box = document.createElement('div')
+        box.setAttribute('role', 'dialog')
+        box.setAttribute('aria-label', 'Razorpay checkout')
+        box.dataset.color = this.o.theme.color
+        const title = document.createElement('p')
+        title.textContent = `${String(this.o.name)} · ${String(this.o.description)}`
+        box.appendChild(title)
+        const button = (label: string, fn: () => void) => {
+          const b = document.createElement('button')
+          b.textContent = label
+          b.onclick = fn
+          box.appendChild(b)
+        }
+        button('Approve with UPI PIN', () => {
+          box.remove()
+          this.o.handler({ razorpay_payment_id: 'pay_e2e', razorpay_subscription_id: this.o.subscription_id, razorpay_signature: `sig:pay_e2e|${this.o.subscription_id}` })
+        })
+        button('Make it fail', () => this.failed.forEach((fn) => fn({ error: { description: 'Your bank declined it.' } })))
+        button('Close checkout', () => {
+          box.remove()
+          this.o.modal.ondismiss()
+        })
+        document.body.appendChild(box)
+      }
+    }
+  })
+}
