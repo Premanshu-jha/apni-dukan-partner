@@ -780,7 +780,11 @@ Needs the backend with V34–V36 (salon registration, opening hours, ratings).
   push isn't offered.
 - A refresh answered 409 `TRY_AGAIN` (another tab or request swapped the same token first) uses the newer token that
   was saved and retries the call once; never a loop.
-- Dependabot (npm and GitHub Actions, weekly) and `npm audit --audit-level=high` in CI.
+- Dependabot (npm and GitHub Actions, weekly) and `npm audit` in CI through `scripts/audit.mjs`: any high or critical
+  advisory fails the build, except one listed there on purpose, with its reason and a last day after which it fails
+  again. Listed now: `picomatch` (GHSA-fc5q-39xc-vjpf, no fixed version as of 2026-11-18), until 2026-12-31. Only vite
+  and vitest use it, on our own config patterns while building and testing; it never reaches the phone. When a fixed
+  version comes out, upgrade and delete the entry.
 - Barbers' hours and services: a change refused with 409 `BOOKINGS_IN_THE_WAY` lists the bookings in the way, each a
   link that opens it on its day's board. "Add a second shift" starts an hour after the first (10:00–14:00, then 15:00–20:00; a shift to
   8 PM is split with an hour's break), never overlapping it. The barbers list shows "Invited: +91 …" while a
