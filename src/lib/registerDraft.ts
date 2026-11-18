@@ -16,3 +16,20 @@ export function loadRegisterDraft<T>(userId: string | undefined): Partial<T> | n
 export function forgetRegisterDraft() {
   storage.remove(KEY)
 }
+
+/** What the person said they run ("What do you run?"), kept until the shop is saved (then the shop says it). */
+const KIND_KEY = 'adp.registerKind'
+
+export function saveRegisterKind(userId: string, kind: 'KIRANA' | 'SALON') {
+  storage.setJson(KIND_KEY, { userId, kind })
+}
+
+/** The kind picked on this phone, only if it was this person's. */
+export function loadRegisterKind(userId: string | undefined): 'KIRANA' | 'SALON' | null {
+  const d = storage.getJson<{ userId: string; kind: 'KIRANA' | 'SALON' }>(KIND_KEY)
+  return d && userId && d.userId === userId && (d.kind === 'KIRANA' || d.kind === 'SALON') ? d.kind : null
+}
+
+export function forgetRegisterKind() {
+  storage.remove(KIND_KEY)
+}

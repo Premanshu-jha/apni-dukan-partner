@@ -25,16 +25,20 @@ export const test = base.extend<{ api: MockApi; cspClean: void }>({
 })
 export { expect }
 
-/** Starts the test already signed in with a complete profile. */
-export async function signedIn(context: BrowserContext, api: MockApi) {
+/**
+ * Starts the test already signed in with a complete profile. `registering`: what "What do you run?" was answered
+ * with on this phone (a salon unless said otherwise, as the salon tests start at step 1; null: not answered yet).
+ */
+export async function signedIn(context: BrowserContext, api: MockApi, registering: 'SALON' | 'KIRANA' | null = 'SALON') {
   api.user = MockApi.completeUser()
   const session = api.savedSession()
-  await context.addInitScript((s) => {
+  await context.addInitScript(([s, kind, userId]) => {
     // Once per test (shared by all its tabs), so a reload or a second tab doesn't put the old token back.
     if (localStorage.getItem('e2e.seeded')) return
     localStorage.setItem('e2e.seeded', '1')
-    localStorage.setItem('adp.session', s)
-  }, session)
+    localStorage.setItem('adp.session', s!)
+    if (kind) localStorage.setItem('adp.registerKind', JSON.stringify({ userId, kind }))
+  }, [session, registering, api.user.id] as const)
 }
 
 /** Signed in as someone in an approved salon, on the day board. */

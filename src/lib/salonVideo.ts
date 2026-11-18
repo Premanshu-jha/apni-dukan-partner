@@ -188,7 +188,7 @@ export function readVideoSeconds(file: Blob, timeoutMs = 10_000): Promise<number
   })
 }
 
-/** What the backend needs before Submit for visit (else 409 PHOTOS_REQUIRED): both photos, and a salon's video. */
+/** Both photos and the shop's video (a salon's and, since 0.28.0, a kirana's): what the field team needs before a visit. */
 export function readyForVisit(shop: Pick<Shop, 'ownerPhotoFileId' | 'shopPhotoFileId' | 'shopVideoFileId'> & { type?: Shop['type'] }): boolean {
-  return Boolean(shop.ownerPhotoFileId && shop.shopPhotoFileId && (shop.type === 'KIRANA' || shop.shopVideoFileId))
+  return Boolean(shop.ownerPhotoFileId && shop.shopPhotoFileId && shop.shopVideoFileId)
 }

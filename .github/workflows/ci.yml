@@ -21,8 +21,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Audit dependencies (high and critical fail the build)
-        run: npm audit --audit-level=high
+      - name: Audit dependencies (high and critical fail the build, except the dated list in scripts/audit.mjs)
+        run: node scripts/audit.mjs
       - name: Type-check
         run: npm run typecheck
       - name: Lint

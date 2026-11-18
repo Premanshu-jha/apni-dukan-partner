@@ -42,12 +42,19 @@ import { HandOver } from '../features/shop/HandOver'
 import { HandoverPage } from '../features/shop/HandoverOffers'
 import { InvitesPage } from '../features/shop/InviteOffers'
 import { Start } from '../features/shop/Start'
+import { RegisterKind, RegisterUpi } from '../features/shop/KiranaRegister'
+import { KiranaLicencesPage, RegisterLicences } from '../features/shop/KiranaLicences'
+import { Counter } from '../features/kirana/Counter'
+import { BillPage, Bills, Day } from '../features/kirana/Bills'
+import { NewProduct, ProductPage, Products } from '../features/kirana/Products'
+import { Customer, Khata } from '../features/kirana/Khata'
+import { KiranaTeam, KiranaUpi } from '../features/kirana/KiranaTeam'
 import { Team } from '../features/team/Team'
 import { SubscriptionPage } from '../features/subscription/SubscriptionPage'
 import { NeedHelp } from '../features/help/NeedHelp'
 import { MyRequests, RequestDetail } from '../features/help/MyRequests'
 import { EmptyState, Page } from '../components/ui'
-import { FinishingProfile, PastRegistration, RoleOnly, SignedIn, SignedOutOnly } from './guards'
+import { FinishingProfile, KindOnly, PastRegistration, RoleOnly, SignedIn, SignedOutOnly } from './guards'
 import { Bare, Shell } from './Shell'
 
 export function App() {
@@ -83,12 +90,20 @@ export function App() {
           <Route path="/help/requests" element={<MyRequests />} />
           <Route path="/help/requests/:id" element={<RequestDetail />} />
           <Route element={<RegisterLayout needShop={false} />}>
+            {/* "What do you run?": first, and again from "Change" on any step until Submit */}
+            <Route path="/register/kind" element={<RegisterKind />} />
             <Route path="/register" element={<RegisterDetails />} />
           </Route>
           <Route element={<RegisterLayout needShop />}>
             <Route path="/register/photos" element={<RegisterPhotos />} />
-            <Route path="/register/services" element={<RegisterServices />} />
-            <Route path="/register/hours" element={<RegisterHours />} />
+            <Route element={<KindOnly kind="SALON" />}>
+              <Route path="/register/services" element={<RegisterServices />} />
+              <Route path="/register/hours" element={<RegisterHours />} />
+            </Route>
+            <Route element={<KindOnly kind="KIRANA" />}>
+              <Route path="/register/licences" element={<RegisterLicences />} />
+              <Route path="/register/upi" element={<RegisterUpi />} />
+            </Route>
             <Route path="/register/review" element={<RegisterReview />} />
           </Route>
         </Route>
@@ -109,19 +124,48 @@ export function App() {
           </Route>
           <Route element={<PastRegistration />}>
             <Route element={<Shell />}>
-              <Route path="/salon/day" element={<Today />} />
-              <Route path="/salon/bookings" element={<Bookings />} />
               <Route path="/more" element={<Profile />} />
-              <Route element={<RoleOnly roles={['OWNER', 'HELPER']} />}>
-                <Route path="/setup" element={<SetupHub />} />
+              <Route element={<KindOnly kind="SALON" />}>
+                <Route path="/salon/day" element={<Today />} />
+                <Route path="/salon/bookings" element={<Bookings />} />
+                <Route element={<RoleOnly roles={['OWNER', 'HELPER']} />}>
+                  <Route path="/setup" element={<SetupHub />} />
+                </Route>
+              </Route>
+              {/* A kirana's owner and helpers: the counter and its book */}
+              <Route element={<KindOnly kind="KIRANA" />}>
+                <Route path="/kirana/counter" element={<Counter />} />
+                <Route path="/kirana/bills" element={<Bills />} />
+                <Route path="/kirana/products" element={<Products />} />
+                <Route path="/kirana/khata" element={<Khata />} />
               </Route>
             </Route>
             <Route element={<Bare approvalBar />}>
-              <Route path="/salon/walk-in" element={<WalkIn />} />
-              <Route path="/salon/time-off" element={<TimeOff />} />
+              <Route element={<KindOnly kind="KIRANA" />}>
+                <Route path="/kirana/bills/:id" element={<BillPage />} />
+                <Route path="/kirana/day" element={<Day />} />
+                <Route path="/kirana/products/new" element={<NewProduct />} />
+                <Route path="/kirana/products/:id" element={<ProductPage />} />
+                <Route path="/kirana/khata/:id" element={<Customer />} />
+                <Route element={<RoleOnly roles={['OWNER']} />}>
+                  <Route path="/kirana/team" element={<KiranaTeam />} />
+                  <Route path="/kirana/upi" element={<EditGate><KiranaUpi /></EditGate>} />
+                  <Route path="/kirana/licences" element={<EditGate><KiranaLicencesPage /></EditGate>} />
+                </Route>
+              </Route>
               <Route path="/notifications" element={<Inbox />} />
               <Route path="/profile/email" element={<ChangeEmail />} />
               <Route path="/profile/phone" element={<ChangePhone />} />
+              <Route element={<RoleOnly roles={['OWNER']} />}>
+                {/* What the owner gave at registration, editable any time (once verified: after a phone code) */}
+                <Route path="/setup/details" element={<EditGate><RegisterDetails edit /></EditGate>} />
+                <Route path="/setup/photos" element={<EditGate><RegisterPhotos edit /></EditGate>} />
+              </Route>
+            </Route>
+            <Route element={<Bare approvalBar />}>
+              <Route element={<KindOnly kind="SALON" />}>
+              <Route path="/salon/walk-in" element={<WalkIn />} />
+              <Route path="/salon/time-off" element={<TimeOff />} />
               {/* Anyone in the salon: hours, services, offers (a barber's only view of them) */}
               <Route path="/salon/info" element={<SalonInfo />} />
               {/* Anyone in the salon sees the subscription; only the owner pays */}
@@ -137,12 +181,11 @@ export function App() {
               </Route>
               <Route element={<RoleOnly roles={['OWNER']} />}>
                 {/* What the owner gave at registration, editable any time (once verified: after a phone code) */}
-                <Route path="/setup/details" element={<EditGate><RegisterDetails edit /></EditGate>} />
-                <Route path="/setup/photos" element={<EditGate><RegisterPhotos edit /></EditGate>} />
                 <Route path="/setup/document" element={<EditGate><SalonDocumentPage /></EditGate>} />
                 <Route path="/team" element={<Team />} />
                 <Route path="/salon/closures" element={<Closures />} />
                 <Route path="/salon/offers/new" element={<NewOffer />} />
+              </Route>
               </Route>
             </Route>
           </Route>
@@ -158,7 +201,7 @@ export function App() {
                 title="Page not found"
                 action={
                   <Link to="/" className="text-link underline">
-                    Go to today
+                    Go to the start
                   </Link>
                 }
               />

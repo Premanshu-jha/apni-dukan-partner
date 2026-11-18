@@ -39,7 +39,8 @@ interface Progress {
 
 type Phase = 'idle' | 'checking' | 'unknown-length' | 'sending' | 'saving' | 'failed' | 'blocked'
 
-const LEAVE_WARNING = 'The salon video is still uploading. Leave anyway? It will have to be sent again.'
+const leaveWarning = (kirana: boolean) =>
+  `The ${kirana ? 'shop' : 'salon'} video is still uploading. Leave anyway? It will have to be sent again.`
 
 /**
  * Registration step 2's "Salon video" card: how to film it, Record video / Choose from gallery, then the upload
@@ -51,10 +52,13 @@ export function SalonVideo({
   fileId,
   save,
   onBusy,
+  kirana = false,
 }: {
   fileId: string | null
   save: (fileId: string, signal: AbortSignal) => Promise<void>
   onBusy?: (busy: boolean) => void
+  /** A kirana's shop video: the same upload, its own words (the shelves and the counter). */
+  kirana?: boolean
 }) {
   const recordInput = useRef<HTMLInputElement>(null)
   const galleryInput = useRef<HTMLInputElement>(null)
@@ -77,12 +81,12 @@ export function SalonVideo({
     if (!uploading) return
     const warn = (e: BeforeUnloadEvent) => {
       e.preventDefault()
-      e.returnValue = LEAVE_WARNING
+      e.returnValue = leaveWarning(kirana)
     }
     const link = (e: MouseEvent) => {
       const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
       if (!a || a.target === '_blank' || new URL(a.href, location.href).origin !== location.origin) return
-      if (!window.confirm(LEAVE_WARNING)) {
+      if (!window.confirm(leaveWarning(kirana))) {
         e.preventDefault()
         e.stopPropagation()
       }
@@ -178,7 +182,7 @@ export function SalonVideo({
         setMessage('Upload cancelled. Tap Try again to send it, or pick another video.')
         return
       }
-      setMessage(videoErrorText(e))
+      setMessage(kirana ? videoErrorText(e).replace(/salon/g, 'shop') : videoErrorText(e))
       if (isApiError(e, 'UPLOAD_GONE')) {
         // The completed video expired before it was saved on the salon: Try again sends it again from the start
         state.current = { held: null, sent: false, fileId: null }
@@ -188,7 +192,7 @@ export function SalonVideo({
         setPhase('blocked')
       } else if (refusedForGood(e) || afterCompleteFailure(e) === 'pick-again') {
         reset()
-        setMessage(videoErrorText(e))
+        setMessage(kirana ? videoErrorText(e).replace(/salon/g, 'shop') : videoErrorText(e))
       } else {
         setPhase('failed')
       }
@@ -210,14 +214,14 @@ export function SalonVideo({
   return (
     <Card className="flex flex-col gap-3">
       <div>
-        <p className="font-medium">Salon video</p>
+        <p className="font-medium">{kirana ? 'Shop video' : 'Salon video'}</p>
         <p className="text-sm text-muted">
           {VIDEO_MIN_SECONDS}–{VIDEO_MAX_SECONDS} seconds. Only our field team sees it, before the visit.
         </p>
       </div>
       {fileId && !replacing && (
         <>
-          <Preview fileId={fileId} />
+          <Preview fileId={fileId} kirana={kirana} />
           <Button variant="secondary" onClick={() => setReplacing(true)}>
             Replace video
           </Button>
@@ -227,8 +231,17 @@ export function SalonVideo({
         <>
           <ol className="list-decimal space-y-1 pl-5 text-sm">
             <li>Hold the phone sideways. If your camera is set to 4K, switch it to 1080p (HD) first.</li>
-            <li>Start outside: show the board with the salon's name and the entrance (about 5 seconds).</li>
-            <li>Walk in, stand near the door, turn slowly from left to right showing the chairs, mirrors and waiting area.</li>
+            {kirana ? (
+              <>
+                <li>Start outside: show the board with the shop's name and the entrance (about 5 seconds).</li>
+                <li>Walk in, stand near the counter, turn slowly from left to right showing the shelves and the counter.</li>
+              </>
+            ) : (
+              <>
+                <li>Start outside: show the board with the salon's name and the entrance (about 5 seconds).</li>
+                <li>Walk in, stand near the door, turn slowly from left to right showing the chairs, mirrors and waiting area.</li>
+              </>
+            )}
             <li>Lights on, keep the phone steady, no need to talk.</li>
             <li>Avoid customers' faces where you can.</li>
           </ol>
@@ -296,7 +309,7 @@ export function SalonVideo({
  * (changing it would stop a video being watched); it takes the newest link only before it loaded, or once after an
  * error (a link that ran out), then says to reload.
  */
-function Preview({ fileId }: { fileId: string }) {
+function Preview({ fileId, kirana = false }: { fileId: string; kirana?: boolean }) {
   const link = useVideoLink(fileId)
   const [src, setSrc] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
@@ -329,7 +342,7 @@ function Preview({ fileId }: { fileId: string }) {
       controls
       playsInline
       preload="metadata"
-      aria-label="Your salon video"
+      aria-label={kirana ? 'Your shop video' : 'Your salon video'}
       className="aspect-video w-full rounded-xl bg-scrim/20"
       onLoadedMetadata={() => setLoaded(true)}
       onError={() => void failed()}

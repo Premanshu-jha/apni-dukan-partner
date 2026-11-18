@@ -17,12 +17,12 @@ import '@fontsource/poppins/700.css'
 import './index.css'
 
 const queryClient: QueryClient = new QueryClient({
-  // A salon call saying "no shop" or "not a salon": this person's shop changed (removed as a helper, sign-in taken
+  // A salon or kirana call saying "no shop", "not a salon" or "not a kirana": this person's shop changed (removed as a helper, sign-in taken
   // away, left on another phone). Check the shop again so the gate sends them to the right place.
   queryCache: new QueryCache({
     onError: (error, query) => {
       if (query.queryKey[0] === 'shop') return
-      if (error instanceof ApiError && (error.code === 'NO_SHOP' || error.code === 'NOT_A_SALON')) {
+      if (error instanceof ApiError && (error.code === 'NO_SHOP' || error.code === 'NOT_A_SALON' || error.code === 'NOT_A_KIRANA')) {
         void queryClient.invalidateQueries({ queryKey: ['shop'] })
       }
       // 403 SHOP_REQUIRED (a file link): the token names no shop, or one the database no longer agrees with (taken

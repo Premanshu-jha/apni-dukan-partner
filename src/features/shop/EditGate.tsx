@@ -107,8 +107,8 @@ export function EditGate({ children, ending = false }: { children: ReactNode; en
           <>
             <span>
               {ending
-                ? 'Your salon is verified: this needs a code we send to your phone.'
-                : 'Your salon is verified: changes need a code we send to your phone.'}
+                ? `Your ${shop.type === 'KIRANA' ? 'shop' : 'salon'} is verified: this needs a code we send to your phone.`
+                : `Your ${shop.type === 'KIRANA' ? 'shop' : 'salon'} is verified: changes need a code we send to your phone.`}
             </span>
             <button type="button" className="shrink-0 text-link underline" onClick={() => setAsking(true)}>
               {ending ? 'Get the code' : 'Start editing'}
@@ -147,6 +147,7 @@ function UnlockSheet({
   onClose: () => void
 }) {
   const phone = useSession((s) => s.user?.phone)
+  const shop = useShop()
   // Kept while the sheet is closed: a code already sent can still be typed when it opens again
   const [sentAt, setSentAt] = useState<number | null>(null)
   const [code, setCode] = useState('')
@@ -194,7 +195,7 @@ function UnlockSheet({
     <Sheet open={open} title="Confirm it's you" onClose={onClose}>
       <div className="flex flex-col gap-3">
         <p className="text-muted">
-          Your salon is verified, so we check it's you first. One code to +91 {formatPhone(phone ?? null)}{' '}
+          Your {shop.type === 'KIRANA' ? 'shop' : 'salon'} is verified, so we check it's you first. One code to +91 {formatPhone(phone ?? null)}{' '}
           {ending ? 'confirms it on this phone for 15 minutes.' : 'lets you change everything on this phone for 15 minutes.'}
         </p>
         {loadError !== null && <Banner tone="warn">{messageOf(loadError)}</Banner>}

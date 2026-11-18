@@ -14,7 +14,8 @@ import { InviteOffers } from './InviteOffers'
 import { closedNotice, forgetClosed, startNotice } from './ownership'
 
 /**
- * Signed in, no shop yet (404 NO_SHOP): register a salon, or, for someone who works in one, show the number the
+ * Signed in, no shop yet (404 NO_SHOP): register a shop (a kirana or a salon: "What do you run?" comes next), or,
+ * for someone who works in one, show the number the
  * owner must add.
  */
 export function Start() {
@@ -57,10 +58,10 @@ export function Start() {
 
   return (
     <Page>
-      <Brand subtitle={`Welcome, ${user.name ?? ''}. Let's get your salon on Clozest.`} />
+      <Brand subtitle={`Welcome, ${user.name ?? ''}. Let's get your shop on Clozest.`} />
       {closed && (
         <Banner tone="info">
-          {closed} is closed. Its upcoming bookings were cancelled and the customers told. You can register a new salon,
+          {closed} is closed. Its upcoming bookings were cancelled and the customers told. You can register a new shop,
           or delete your account below.
         </Banner>
       )}
@@ -71,17 +72,18 @@ export function Start() {
       {!worker ? (
         <div className="flex flex-col gap-3">
           <Card className="flex flex-col gap-3">
-            <p className="text-lg font-semibold">I own a salon</p>
+            <p className="text-lg font-semibold">I own a shop</p>
             <p className="text-sm text-muted">
-              Register it in three short steps. Our field team visits, and then customers nearby can book you.
+              A kirana or a salon: register it in a few short steps. Our field team visits, and then customers nearby
+              find you.
             </p>
-            <Button onClick={() => navigate('/register')}>Register my salon</Button>
+            <Button onClick={() => navigate('/register/kind')}>Register my shop</Button>
           </Card>
           <Card className="flex flex-col gap-3">
-            <p className="text-lg font-semibold">I work at a salon</p>
-            <p className="text-sm text-muted">A barber or a helper whose owner already uses Clozest.</p>
+            <p className="text-lg font-semibold">I work at a shop</p>
+            <p className="text-sm text-muted">A helper, or a barber, whose owner already uses Clozest.</p>
             <Button variant="secondary" onClick={() => setWorker(true)}>
-              I work at a salon
+              I work at a shop
             </Button>
           </Card>
         </div>
