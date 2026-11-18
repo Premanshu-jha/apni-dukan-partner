@@ -15,8 +15,16 @@ export function RecheckWaiting() {
       <p className="font-semibold">
         {fix ? 'Our field team asked you to fix something' : `Our field team is checking your changes since ${dayMonth(shop.recheckSince)}`}
       </p>
-      {fix && <p className="text-sm break-words">“{fix}” Fix it in the Salon tab → Salon details or Photos and video (for the address: Salon details → Request address change).</p>}
-      <p className="text-sm text-muted">Your salon stays live and customers can book as usual.</p>
+      {fix && (
+        <p className="text-sm break-words">
+          {shop.type === 'KIRANA'
+            ? `“${fix}” Fix it in More → Edit (shop details), Photos or UPI ID (for the address: Request address change).`
+            : `“${fix}” Fix it in the Salon tab → Salon details or Photos and video (for the address: Salon details → Request address change).`}
+        </p>
+      )}
+      <p className="text-sm text-muted">
+        {shop.type === 'KIRANA' ? 'Your shop stays open and customers can order as usual.' : 'Your salon stays live and customers can book as usual.'}
+      </p>
     </Card>
   )
 }

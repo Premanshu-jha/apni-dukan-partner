@@ -72,6 +72,9 @@ const REASONS: Record<LicenceCheckReason, (addressLocked: boolean) => string> = 
       : 'The address on it doesn’t match your salon’s address. If your address is wrong, change it in Salon details: the licence is checked again by itself.',
   DUPLICATE: () => 'This licence is already used by another salon. If it is yours, write to support and we’ll sort it out.',
   NOT_READ: () => 'We couldn’t read it. Try a clearer photo, or the PDF.',
+  NOT_A_SHOP_TRADE: () => 'It is for another kind of business, not a grocery or general store.',
+  NOT_SHOPS_ESTABLISHMENT: () =>
+    'It isn’t a Shops and Establishments certificate. If it is your trade licence, choose Trade licence and upload it again.',
 }
 
 /**

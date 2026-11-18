@@ -66,7 +66,7 @@ describe('the salon video, before anything is sent', () => {
     expect(readyForVisit(all)).toBe(true)
     expect(readyForVisit({ ...all, shopVideoFileId: null })).toBe(false)
     expect(readyForVisit({ ...all, shopVideoFileId: undefined, type: 'SALON' })).toBe(false)
-    expect(readyForVisit({ ...all, shopVideoFileId: null, type: 'KIRANA' })).toBe(true)
+    expect(readyForVisit({ ...all, shopVideoFileId: null, type: 'KIRANA' })).toBe(false)   // a kirana records one too (0.28.0)
     expect(readyForVisit({ ...all, ownerPhotoFileId: null })).toBe(false)
   })
 })

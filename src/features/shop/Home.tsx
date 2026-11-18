@@ -1,6 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { useSalonHours, useServices } from '../../api/salon'
+import { useKiranaSettings, useOnline } from '../../api/kirana'
+import { licencesReady } from './KiranaLicences'
 import { useShop } from '../../api/shop'
 import { Button, Card, EmptyState, Loading, Page } from '../../components/ui'
 import { CopyCode } from '../../components/CopyCode'
@@ -13,9 +15,27 @@ import { useRecheckShop } from './ShopGate'
 /** Where "/" goes: registration for a draft owner, a wait screen for staff of a salon not live yet, else today. */
 export function Home() {
   const shop = useShop()
-  if (shop.myRole === 'OWNER' && shop.status === 'DRAFT') return <ResumeRegistration />
-  if (shop.myRole !== 'OWNER' && (shop.status === 'DRAFT' || shop.status === 'PENDING_VISIT')) return <NotLiveYet />
-  return <Navigate to="/salon/day" replace />
+  const kirana = shop.type === 'KIRANA'
+  if (shop.myRole === 'OWNER' && shop.status === 'DRAFT') return kirana ? <ResumeKiranaRegistration /> : <ResumeRegistration />
+  if (shop.myRole !== 'OWNER' && (shop.status === 'DRAFT' || (shop.status === 'PENDING_VISIT' && !kirana))) return <NotLiveYet />
+  return <Navigate to={kirana ? '/kirana/counter' : '/salon/day'} replace />
+}
+
+/**
+ * A kirana's owner back to his registration: the first step not done yet (photos and video, licences, UPI ID), else
+ * the review.
+ */
+function ResumeKiranaRegistration() {
+  const shop = useShop()
+  const settings = useKiranaSettings()
+  const online = useOnline()
+  if (shop.statusReason) return <Navigate to="/register/review" replace />
+  if (!readyForVisit(shop)) return <Navigate to="/register/photos" replace />
+  if (settings.isError || online.isError) return <Navigate to="/register/review" replace />
+  if (!settings.data || !online.data) return <Loading />
+  if (!licencesReady(settings.data, online.data.fssai)) return <Navigate to="/register/licences" replace />
+  if (!settings.data.upiId) return <Navigate to="/register/upi" replace />
+  return <Navigate to="/register/review" replace />
 }
 
 /**
@@ -49,11 +69,10 @@ function NotLiveYet() {
       <HandoverOffers />
       <InviteOffers />
       <EmptyState
-        title={shop.status === 'PENDING_VISIT' ? 'Waiting for approval' : "Your salon isn't live yet"}
+        title={shop.status === 'PENDING_VISIT' ? 'Waiting for approval' : `Your ${shop.type === 'KIRANA' ? 'shop' : 'salon'} isn't live yet`}
         body={
-          shop.status === 'PENDING_VISIT'
-            ? `${shop.ownerName} has registered ${shop.name}. Once our field team approves it, you'll see the day's bookings here.`
-            : `${shop.ownerName} is still registering ${shop.name}. Once our field team approves it, you'll see the day's bookings here.`
+          `${shop.ownerName} ${shop.status === 'PENDING_VISIT' ? 'has registered' : 'is still registering'} ${shop.name}. Once our field team approves it, ${
+            shop.type === 'KIRANA' ? "you'll bill at the counter here." : "you'll see the day's bookings here."}`
         }
         action={<Button onClick={() => recheck()}>Check again</Button>}
       />
@@ -77,7 +96,8 @@ export function WaitingForVisit() {
     <Card className="flex flex-col gap-2 border-brand/40">
       <p className="text-lg font-semibold">What happens next</p>
       <p className="text-sm text-muted">
-        We'll call you to fix a time, visit {shop.name} and switch it on. Customers can book once it's approved.
+        We'll call you to fix a time, visit {shop.name} and switch it on.{' '}
+        {shop.type === 'KIRANA' ? 'Nearby customers can order once it’s approved; your counter works already.' : "Customers can book once it's approved."}
       </p>
       <p className="text-sm">
         Your shop code: <span className="font-bold tracking-wide">{shop.shopCode}</span>{' '}

@@ -22,7 +22,7 @@ import { signOutHere } from './signOut'
 /** The map library is big: loaded only when the owner opens the pin. */
 const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ default: m.PinMap })))
 
-/** More: the person's profile, the salon's other screens, help and signing out. */
+/** More: the person's profile, the shop's other screens (a salon's or a kirana's), help and signing out. */
 export function Profile() {
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -40,6 +40,8 @@ export function Profile() {
   const [confirmAll, setConfirmAll] = useState(false)
   const [showPin, setShowPin] = useState(false)
   const owner = shop.myRole === 'OWNER'
+  const kirana = shop.type === 'KIRANA'
+  const noun = kirana ? 'shop' : 'salon'
   const addressAsked = useAddressRequest(owner && Boolean(shop.addressLocked))
 
   async function saveName() {
@@ -84,14 +86,20 @@ export function Profile() {
     }
   }
 
-  const links = [
+  const links = (kirana ? [
+    owner && { to: '/kirana/team', text: 'Team: your helpers' },
+    { to: '/kirana/day', text: "Day's totals" },
+    owner && { to: '/kirana/upi', text: 'UPI ID for the counter QR' },
+    owner && { to: '/kirana/licences', text: 'Licences: FSSAI, trade licence' },
+    { to: '/notifications', text: 'Messages' },
+  ] : [
     rights.team && { to: '/team', text: 'Team and walk-in access' },
     rights.closures && { to: '/salon/closures', text: 'Closed days' },
     rights.seeSetup && { to: '/salon/offers', text: 'Offers' },
     rights.seeSetup && { to: '/salon/ratings', text: 'Ratings' },
     !rights.seeSetup && { to: '/salon/info', text: 'Salon info: hours, services, offers' },
     { to: '/notifications', text: 'Messages' },
-  ].filter(Boolean) as Array<{ to: string; text: string }>
+  ]).filter(Boolean) as Array<{ to: string; text: string }>
 
   return (
     <Page title="More">
@@ -106,7 +114,7 @@ export function Profile() {
         <div className="flex items-start justify-between gap-3">
           <p className="min-w-0 font-semibold break-words">{shop.name}</p>
           {owner && (
-            <Link to="/setup/details" state={{ from: '/more', edit: true }} className="shrink-0 text-sm text-link" aria-label="Edit salon details">
+            <Link to="/setup/details" state={{ from: '/more', edit: true }} className="shrink-0 text-sm text-link" aria-label={`Edit ${noun} details`}>
               Edit
             </Link>
           )}
@@ -127,7 +135,7 @@ export function Profile() {
           </p>
         )}
         <p className="text-sm text-muted break-words">Owner: {shop.ownerName}</p>
-        {owner && (
+        {owner && !kirana && (
           <p className="text-sm break-words">
             <Link to="/setup/document" state={{ from: '/more' }} className="text-link underline">
               Trade licence: {licenceSummary(shop)}
@@ -140,7 +148,7 @@ export function Profile() {
           <span>· You are the {owner ? 'owner' : shop.myRole === 'HELPER' ? 'helper' : 'barber'}</span>
         </div>
         {shop.recheckSince && (
-          <p className="text-sm text-muted">Our field team will check your recent changes. Your salon stays live meanwhile.</p>
+          <p className="text-sm text-muted">Our field team will check your recent changes. Your {noun} stays {kirana ? 'open' : 'live'} meanwhile.</p>
         )}
         {owner && (
           <p className="flex flex-wrap gap-x-4 text-sm">
@@ -177,7 +185,7 @@ export function Profile() {
       <Card className="flex flex-col gap-4">
         {editing ? (
           <div className="flex flex-col gap-3">
-            <Field id="profile-name" label="Your name" hint="Your sign-in name. The salon's owner name is in the salon details." value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+            <Field id="profile-name" label="Your name" hint={`Your sign-in name. The ${noun}'s owner name is in the ${noun} details.`} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
             {error && <Banner tone="bad">{error}</Banner>}
             <div className="flex gap-2">
               <Button busy={busy} disabled={name.trim().length < 2} onClick={saveName} className="flex-1">
@@ -222,13 +230,14 @@ export function Profile() {
         <NotificationsRow />
       </Card>
 
-      <SubscriptionRow />
+      {!kirana && <SubscriptionRow />}
 
       <Card className="flex flex-col gap-1">
         <p className="font-medium">Need help?</p>
         <p className="text-sm text-muted">
-          A problem with a booking, the app or your salon's listing? Write to us: we see your salon with your message
-          and reply by email.
+          {kirana
+            ? "A problem with a bill, the app or your shop's listing? Write to us: we see your shop with your message and reply by email."
+            : "A problem with a booking, the app or your salon's listing? Write to us: we see your salon with your message and reply by email."}
         </p>
         <Link to="/help" className="text-sm text-link underline">
           Write to support
@@ -294,7 +303,7 @@ export function Profile() {
       </Sheet>
       <Sheet open={leaving} title={`Leave ${shop.name}?`} onClose={() => setLeaving(false)}>
         <div className="flex flex-col gap-3">
-          <p className="text-muted">You won't see this salon's bookings any more. The owner can add you again.</p>
+          <p className="text-muted">{kirana ? "You won't be able to bill at this shop's counter any more." : "You won't see this salon's bookings any more."} The owner can add you again.</p>
           {leaveError && <Banner tone="bad">{leaveError}</Banner>}
           <Button variant="danger" busy={busy} onClick={leave}>
             Leave

@@ -67,6 +67,8 @@ export type LicenceCheckReason =
   | 'ADDRESS_MISMATCH'
   | 'DUPLICATE'
   | 'NOT_READ'
+  | 'NOT_A_SHOP_TRADE'
+  | 'NOT_SHOPS_ESTABLISHMENT'
 
 /** CLOSED: its owner closed it for good (seen in the answer to closing; after that the owner has no shop). */
 export type ShopStatus = 'DRAFT' | 'PENDING_VISIT' | 'APPROVED' | 'SUSPENDED' | 'CLOSED'
@@ -135,6 +137,8 @@ export interface ShopDetailsIn {
   pincode: string
   latitude: number
   longitude: number
+  /** A kirana's GSTIN (optional; "" removes it on PATCH). A salon has none: the backend ignores it. */
+  gstin?: string
 }
 
 /** A new address and pin (an address change request to the field team). */

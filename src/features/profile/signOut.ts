@@ -2,7 +2,9 @@ import type { QueryClient } from '@tanstack/react-query'
 import { authApi } from '../../api/auth'
 import { refreshSettled } from '../../api/client'
 import { closeShownNotifications, turnOffPush } from '../../api/push'
-import { forgetRegisterDraft } from '../../lib/registerDraft'
+import { forgetRegisterDraft, forgetRegisterKind } from '../../lib/registerDraft'
+import { forgetProductDraft } from '../kirana/drafts'
+import { forgetCart } from '../kirana/cart'
 import { forgetReturn } from '../auth/flow'
 import { forgetHelpDrafts } from '../help/drafts'
 import { useSession } from '../../store/session'
@@ -36,6 +38,9 @@ export async function signOutHere(qc: QueryClient, opts: { everywhere?: boolean;
 export function forgetThisPerson(qc: QueryClient) {
   forgetReturn()
   forgetRegisterDraft()
+  forgetRegisterKind()
+  forgetCart()
+  forgetProductDraft()
   forgetHelpDrafts()
   void closeShownNotifications()
   qc.clear()
