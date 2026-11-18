@@ -136,6 +136,9 @@ test('an unsaved registration draft isn’t shown to the next person on the phon
   await page.getByRole('button', { name: 'Send code' }).click()
   await page.getByLabel('Code').fill('123456')
   await page.goto('/register')
+  // Nor what the first person said they run: the question comes first
+  await expect(page).toHaveURL(/\/register\/kind$/)
+  await page.getByRole('button', { name: /Salon \/ barber shop/ }).click()
   await expect(page.getByLabel('Salon name')).toHaveValue('')
 })
 

@@ -79,7 +79,11 @@ there, and reviews walk the list against the code.
 | Contact, Terms, Privacy, Refund policy, Delivery | `/contact`, `/terms`, `/privacy`, `/refunds`, `/delivery` | Public (Razorpay's website check) |
 | Sign in, code, email, name | `/signin`, `/signin/code`, `/welcome/*` | Everyone (same as the customer app); links to the public pages at the bottom |
 | Start (no shop yet) | `/start` | New people |
-| Register: details, photos, submit | `/register`, `/register/photos`, `/register/review` | Owner of a draft |
+| What do you run? (Kirana or Salon; again from "Change" on any step until Submit) | `/register/kind` | New owners, owner of a draft |
+| Register: details, photos, submit (a salon also services and hours; a kirana its UPI ID) | `/register`, `/register/photos`, `/register/services`, `/register/hours`, `/register/upi`, `/register/review` | Owner of a draft |
+| Kirana: Counter, Bills, Products, Khata (the bottom bar) | `/kirana/counter`, `/kirana/bills`, `/kirana/products`, `/kirana/khata` | A kirana's owner and helpers |
+| Kirana: a bill, the day's totals, a product, a new product, a khata customer | `/kirana/bills/:id`, `/kirana/day?date=`, `/kirana/products/:id`, `/kirana/products/new?barcode=&name=&from=`, `/kirana/khata/:id` | A kirana's owner and helpers (owner-only changes hidden from helpers) |
+| Kirana: Team, UPI ID | `/kirana/team`, `/kirana/upi` | A kirana's owner |
 | Today (the day board) | `/salon/day?date=` | Everyone |
 | New walk-in | `/salon/walk-in` | Owner; others with walk-in access |
 | Add a break or leave | `/salon/time-off` | Breaks: everyone (a barber for himself); leave: owner |
@@ -102,8 +106,10 @@ there, and reviews walk the list against the code.
 ```mermaid
 flowchart TD
   A["Signed in, email and name done"] --> B{"GET /shops/me"}
-  B -- "404 NO_SHOP" --> C["Start: register, or ask the owner to add me"]
-  B -- "type KIRANA" --> K["Kirana partners: coming soon"]
+  B -- "404 NO_SHOP" --> C["Start: register (What do you run?), or ask the owner to add me"]
+  B -- "type KIRANA" --> K{"Status and role"}
+  K -- "DRAFT, owner" --> KR["Register: details, photos, UPI ID, submit"]
+  K -- "PENDING_VISIT (owner), APPROVED, SUSPENDED" --> KC["Counter · Bills · Products · Khata · More"]
   B -- "SALON" --> D{"Status and role"}
   D -- "DRAFT, owner" --> R["Register: details, photos, submit"]
   D -- "DRAFT or PENDING_VISIT, helper or barber" --> W["Your salon isn't live yet"]
@@ -140,6 +146,43 @@ sequenceDiagram
   B-->>A: PENDING_VISIT
   Note over A: Every tab shows "Waiting for approval" on top; Today also says what happens next, with the shop code
 ```
+
+### Registering a kirana, and changing the kind
+
+"What do you run?" comes first (`/register/kind`). Before the shop is saved, the answer is kept on this phone
+(`adp.registerKind`, tagged with the person, forgotten at sign-out). After that it is the shop's `type`.
+
+A kirana's steps are Details (with an optional GSTIN), Photos (two, no video or trade licence), UPI ID
+(`PUT /kirana/settings/upi-id`, checked on the phone as the backend's `UpiIds` does) and Submit. Every step shows
+"Registering a … · Change". Changing the kind asks first, says what goes (a salon's video and trade licence), then calls
+`PUT /shops/me/type` and goes home, which opens the first step the new kind still needs. "Change" is hidden once the
+shop was ever approved (`addressLocked`); after Submit the backend refuses it (409 `WRONG_STATUS`).
+
+### The kirana counter
+
+```mermaid
+sequenceDiagram
+  participant H as Owner or helper
+  participant A as Partner app
+  participant B as Backend
+  H->>A: Scan (BarcodeDetector, or ZXing on iPhone) / search / loose by ₹ / item not in list
+  A->>B: GET /kirana/products/barcode/{code}
+  B-->>A: product + pack (or 404: add, link or bill without a product)
+  Note over A: The bill being made lives on this phone (adp.kiranaCart) with its clientRef
+  H->>A: Cash / UPI / Khata (part paid now)
+  A->>B: POST /kirana/bills {clientRef, lines, payment, discountPaise?, …}
+  B-->>A: 201 bill + stock + khata + upi QR link (or the first bill again: repeated)
+  A-->>H: Bill N saved, the QR drawn on the phone, what is running out
+```
+
+- Quantities are kept in thousandths (grams of a kg) in `src/lib/kirana.ts`, and money in paise. A line's amount and a
+  loose amount's weight round as the backend's `Quantities` does, so the phone shows what the bill will say.
+- Save is safe to tap again: the clientRef bills once. If the answer never came, the bill is locked except for trying
+  again (the same clientRef). "Change this bill anyway" asks first and starts a new clientRef.
+- The owner's rules are shown, not only enforced: a helper's discount up to ₹10, his own bills and khata payments
+  within 10 minutes, and no product edits, limits, Team or UPI ID. The backend has the final say (403 `OWNER_ONLY`).
+- No kirana screen polls. Searches wait for a 300 ms pause, and a save marks the kirana queries stale.
+- The QR library (`qrcode`) and the barcode library (`@zxing/library`) are loaded only when first needed.
 
 ### A booking on the board
 
@@ -333,6 +376,70 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 (set `shops.status` to `APPROVED`).
 
 ## Changelog
+
+### 0.28.0 — 2026-11-18
+
+Needs the backend's `kirana` branch with `PUT /shops/me/type`, `PUT /kirana/settings/sells-food`, a kirana's video
+and licence, and V74–V75 (backend PR #71); deploy the backend first.
+
+- **"What do you run?"**: Start now says "I own a shop", and the first question is Kirana / general store or Salon /
+  barber shop. Every registration step shows the kind with **Change**, any time before Submit. Changing asks first and
+  says what stays (photos, video, a trade licence, checked again for the new kind) and what goes (a Shops and
+  Establishments certificate, a kirana's only, when changing to a salon). A UPI ID or food answer stays saved in case
+  they change back. Locked after Submit, and for good once the shop was approved.
+- **Kirana registration, five steps**: Details (a shop's words, optional GSTIN), **Photos and video** (the same
+  15–45 second video as a salon's, of the shelves and counter), **Licences**, **UPI ID** (checked on the phone, shown
+  as it will be saved), and Submit. Coming back opens the first step not done.
+- **Licences step** (also More → Licences after registering, owner only, behind the phone code once verified):
+  "Do you sell any food items (packed or loose)?". Yes needs the **FSSAI licence** (14-digit number and a photo or PDF
+  of the certificate, read automatically; one still being checked lets them go on, a refused one doesn't; the same
+  certificate again after a refusal asks a person to look at it). Without a licence yet, "Don't have an FSSAI licence
+  yet?" says where to apply (foscos.fssai.gov.in, Basic Registration ₹100 a year) and that everything stays saved. No
+  needs nothing. Optional: a **trade licence or
+  Shops and Establishments certificate**, checked automatically against the shop's name and address (customers will
+  see "Licensed").
+- **Kirana counter** (`/kirana/counter`): scan with the camera (or type the digits); a carton adds its pack; search by
+  name or barcode digits; loose items by weight or by ₹; items not in the list; − / + / Change / Remove; a discount
+  (a helper up to ₹10); **Cash**, **UPI** (the QR drawn on the phone with the amount) or **Khata** (search the book or
+  add a customer on the spot, the limit shown, part paid now). An unknown barcode can be added as a product (it comes
+  back onto the bill), linked to one already there (with its pack), or billed without a product. The bill being made
+  survives a reload; a Save whose answer never came offers only **Try again** with the same payment (billed once),
+  and nothing on the bill can change meanwhile. **Clear bill** after a question; at most 100 items a bill. A product
+  scanned again brings its current price. The receipt warns when the saved total differs from the one shown, works
+  out the **change** for the cash handed over, and a failed UPI can be marked **paid by cash instead** in one tap. A
+  khata over its limit gives the owner a link to change it.
+- **Bills** (today's totals on top, then every bill) with cancel (quick reasons), items brought back (refunded at the
+  bill's discounted share) and a payment change (not after items came back); **the day's totals** (the drawer and UPI
+  first, cancellations taken off) for any day. A helper's own bills are known by who made them, not by name.
+- **Products**: add with barcode, pack, stock and alert; came in, damaged and count; barcodes; running out; the owner
+  edits, removes and restores.
+- **Khata**: who owes (totals, only who owe, search); they paid (more than owed: the extra kept as advance, with the
+  advance after); undo a payment recorded by mistake; WhatsApp reminder ("Add mobile" when there is none); the owner's
+  limit (also when adding a customer), advance back and taking out.
+- **Money and stock sends whose answer never came** (a khata payment, an advance given back, stock came in / damaged /
+  count, items brought back) are kept in the tab: closing the sheet and opening it again retries the very same send
+  (recorded once), with the values locked, until it is saved or they say it wasn't. Someone else's change meanwhile
+  (BILL_CHANGED, KHATA_CHANGED…) reloads the screen.
+- **Add a product**: what was typed survives leaving the screen; a name already taken with a barcode typed offers to
+  put that barcode on the product they have.
+- A kirana's **helpers bill from the day it is submitted**, as the owner does (the counter works before approval).
+- **Second review round:** a retry refused for good (a product removed, a limit reached) unlocks the bill; an unsure
+  khata bill closes its sheet so only the safe "Try again" is offered; a full bill says so instead of "added"; a loose
+  product added from the counter opens its weight sheet there; **Show the UPI QR again** on a UPI bill; the "keep as
+  advance" questions show their errors; a product edit refused because it changed elsewhere keeps the sheet and the
+  typing; the bill being made is kept **per person and shop**, so an unsure one on a shared phone is never overwritten;
+  Add a product's typing is forgotten at sign-out.
+- **Licences:** the FSSAI picker waits for the 14-digit number; while a person checks it the backend's words are shown
+  and it is read every minute (not every 8 s); the shop paper's kind can be changed on the spot; Remove asks first.
+  "Got it, hide this" on "What happens next"; **Tell them on WhatsApp** on a helper invitation; "Use the customer who
+  has this number"; a helper is told only the owner edits a product; a full-size day picker; a kirana's video and edit
+  screens speak of the shop.
+- **Team** for a kirana (invite helpers, cancel invitations, remove), and **UPI ID** in More (owner; a verified shop
+  asks for the phone code first).
+- A kirana's people see only kirana screens and a salon's only salon screens. The "Kirana partners: coming soon"
+  screen is gone.
+- New libraries, both loaded only when first used: `qrcode` (the UPI QR) and `@zxing/library` (barcodes where the
+  browser can't read them itself).
 
 ### 0.27.0 — 2026-11-16
 
