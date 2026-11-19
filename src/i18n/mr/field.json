@@ -1,0 +1,16 @@
+{
+  "staffId": "बार्बर:",
+  "serviceIds": "सर्व्हिसेस:",
+  "name": "नाव",
+  "reason": "कारण",
+  "endAt": "संपण्याची वेळ",
+  "startAt": "सुरू होण्याची वेळ",
+  "until": "थांबवण्याची वेळ",
+  "date": "तारीख",
+  "durationMinutes": "लागणारी वेळ",
+  "pricePaise": "किंमत",
+  "phone": "तो नंबर",
+  "hours": "वेळा:",
+  "returnAfterDays": "परत येण्याची आठवण",
+  "fileId": "फाईल"
+}

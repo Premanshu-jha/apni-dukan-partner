@@ -1,0 +1,63 @@
+{
+  "spinnerLoading": "लोड होत आहे",
+
+  "errorTitle": "या स्क्रीनवर काहीतरी चुकले",
+  "errorBody": "तुमच्या सलूनची माहिती सुरक्षित आहे. पुढे जाण्यासाठी पुन्हा सुरुवात करा.",
+  "errorStartAgain": "पुन्हा सुरुवात करा",
+
+  "mapLoadFailed": "नकाशा लोड झाला नाही (इंटरनेट नाही का?). पुन्हा प्रयत्न करण्यासाठी पान रीलोड करा.",
+
+  "updateAvailable": "नवीन व्हर्जन आले आहे",
+  "updateReload": "रीलोड करा",
+
+  "copyCodeAria": "दुकान कोड {code} कॉपी करा",
+  "copyCopied": "कॉपी झाले",
+  "copyCopy": "कॉपी करा",
+
+  "photoFormat": "या फोटोचा फॉरमॅट चालत नाही (बहुतेक वेळा iPhone किंवा Samsung चा HEIC फोटो). \"फोटो काढा\" वापरून काढा, किंवा JPG फोटो निवडा.",
+  "photoNotImage": "फोटो निवडा.",
+  "photoSaved": "फोटो सेव्ह झाला",
+  "photoEmpty": "फोटो काढा किंवा निवडा",
+  "photoUploading": "अपलोड होत आहे…",
+  "photoTake": "फोटो काढा",
+  "photoRetake": "फोटो पुन्हा काढा",
+  "photoTakeAria": "{name} काढा",
+  "photoRetakeAria": "{name} पुन्हा काढा",
+  "photoGallery": "गॅलरीतून निवडा",
+  "photoGalleryAnother": "दुसरा निवडा",
+  "photoGalleryAria": "गॅलरीतून {name} निवडा",
+  "photoGalleryAnotherAria": "गॅलरीतून दुसरा {name} निवडा",
+  "photoCameraInputAdd": "{name} जोडा",
+  "photoCameraInputChange": "{name} बदला",
+  "photoGalleryInput": "गॅलरीतून {name} निवडा",
+  "photoRetryAria": "{name} पुन्हा पाठवून पहा",
+
+  "locationOffTitle": "लोकेशन बंद आहे",
+  "locationOffBody": "ग्राहक तुमचे सलून लोकेशनवरून शोधतात. ते चालू कसे करायचे ते पहा:",
+  "locationIosSettings": "तुमच्या iPhone वर Settings ॲप उघडा.",
+  "locationIosServices": "Privacy & Security वर टॅप करा, मग Location Services, आणि ते चालू असल्याची खात्री करा.",
+  "locationIosBrowser": "खाली स्क्रोल करून Safari Websites (किंवा तुमचा ब्राउझर) निवडा आणि \"While Using the App\" निवडा.",
+  "locationIosReturn": "इथे परत या, पान रीलोड करा, मग \"पुन्हा प्रयत्न करा\" वर टॅप करा.",
+  "locationAndroidIcon": "ॲड्रेस बारच्या डावीकडच्या आयकॉनवर टॅप करा (कुलूप किंवा दोन स्लायडर).",
+  "locationAndroidAllow": "Permissions वर टॅप करा, मग Location, आणि Allow निवडा.",
+  "locationAndroidQuickSettings": "फोनच्या क्विक सेटिंग्जमध्ये (वरून खाली स्वाइप करा) Location चालू आहे का ते पहा.",
+  "locationAndroidReturn": "इथे परत या आणि \"पुन्हा प्रयत्न करा\" वर टॅप करा.",
+  "locationDesktopIcon": "ॲड्रेस बारच्या डावीकडच्या आयकॉनवर क्लिक करा.",
+  "locationDesktopAllow": "Location शोधा आणि ते Allow करा.",
+  "locationDesktopReload": "पान रीलोड करा आणि \"पुन्हा प्रयत्न करा\" वर क्लिक करा.",
+  "locationDesktopUsePhone": "कॉम्प्युटरला आपली जागा फक्त अंदाजाने कळते: सलूनमध्ये उभे राहून तुमच्या फोनवरून नोंदणी करा.",
+
+  "mapAttribution": "© OpenStreetMap contributors",
+  "mapPinTitle": "सलूनचे लोकेशन",
+  "mapPinMovedNorth": "पिन उत्तरेकडे सरकली.",
+  "mapPinMovedSouth": "पिन दक्षिणेकडे सरकली.",
+  "mapPinMovedWest": "पिन पश्चिमेकडे सरकली.",
+  "mapPinMovedEast": "पिन पूर्वेकडे सरकली.",
+  "mapMovableAria": "नकाशा: पिन ओढून तुमच्या सलूनच्या दारावर ठेवा, किंवा Tab ने पिनवर जाऊन ॲरो की वापरा",
+  "mapFixedAria": "नकाशा: तुमच्या सलूनची पिन, इथे ग्राहक तुम्हाला शोधतात",
+
+  "moreOffline": "तुम्ही ऑफलाइन आहात. इंटरनेट चालू करा आणि पुन्हा {label} वर टॅप करा.",
+  "moreNetwork": "तुम्ही ऑफलाइन आहात किंवा सर्व्हरशी संपर्क होत नाही. इंटरनेट चालू करा आणि पुन्हा {label} वर टॅप करा.",
+  "moreFailed": "आणखी लोड झाले नाही. पुन्हा प्रयत्न करण्यासाठी {label} वर टॅप करा.",
+  "moreRefreshFailed": "यादी रिफ्रेश झाली नाही. ती थोडी जुनी असू शकते."
+}
