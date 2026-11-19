@@ -1,0 +1,63 @@
+{
+  "spinnerLoading": "ಲೋಡ್ ಆಗುತ್ತಿದೆ",
+
+  "errorTitle": "ಈ ಸ್ಕ್ರೀನ್‌ನಲ್ಲಿ ಏನೋ ತಪ್ಪಾಗಿದೆ",
+  "errorBody": "ನಿಮ್ಮ ಸಲೂನ್ ಮಾಹಿತಿ ಸುರಕ್ಷಿತವಾಗಿದೆ. ಮುಂದುವರಿಯಲು ಮತ್ತೆ ಶುರು ಮಾಡಿ.",
+  "errorStartAgain": "ಮತ್ತೆ ಶುರು ಮಾಡಿ",
+
+  "mapLoadFailed": "ಮ್ಯಾಪ್ ಲೋಡ್ ಆಗಲಿಲ್ಲ (ಇಂಟರ್ನೆಟ್ ಇಲ್ಲವೇ?). ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಲು ಪೇಜ್ ರೀಲೋಡ್ ಮಾಡಿ.",
+
+  "updateAvailable": "ಹೊಸ ವರ್ಷನ್ ಬಂದಿದೆ",
+  "updateReload": "ರೀಲೋಡ್ ಮಾಡಿ",
+
+  "copyCodeAria": "ಅಂಗಡಿ ಕೋಡ್ {code} ಕಾಪಿ ಮಾಡಿ",
+  "copyCopied": "ಕಾಪಿ ಆಯಿತು",
+  "copyCopy": "ಕಾಪಿ ಮಾಡಿ",
+
+  "photoFormat": "ಈ ಫೋಟೋದ ಫಾರ್ಮ್ಯಾಟ್ ಇಲ್ಲಿ ನಡೆಯುವುದಿಲ್ಲ (ಹೆಚ್ಚಾಗಿ iPhone ಅಥವಾ Samsung ನ HEIC ಫೋಟೋ). \"ಫೋಟೋ ತೆಗೆಯಿರಿ\" ಒತ್ತಿ ತೆಗೆಯಿರಿ, ಅಥವಾ JPG ಆರಿಸಿ.",
+  "photoNotImage": "ಒಂದು ಫೋಟೋ ಆರಿಸಿ.",
+  "photoSaved": "ಫೋಟೋ ಸೇವ್ ಆಯಿತು",
+  "photoEmpty": "ಫೋಟೋ ತೆಗೆಯಿರಿ ಅಥವಾ ಆರಿಸಿ",
+  "photoUploading": "ಅಪ್‌ಲೋಡ್ ಆಗುತ್ತಿದೆ…",
+  "photoTake": "ಫೋಟೋ ತೆಗೆಯಿರಿ",
+  "photoRetake": "ಫೋಟೋ ಮತ್ತೆ ತೆಗೆಯಿರಿ",
+  "photoTakeAria": "{name} ತೆಗೆಯಿರಿ",
+  "photoRetakeAria": "{name} ಮತ್ತೆ ತೆಗೆಯಿರಿ",
+  "photoGallery": "ಗ್ಯಾಲರಿಯಿಂದ ಆರಿಸಿ",
+  "photoGalleryAnother": "ಬೇರೆಯದನ್ನು ಆರಿಸಿ",
+  "photoGalleryAria": "ಗ್ಯಾಲರಿಯಿಂದ {name} ಆರಿಸಿ",
+  "photoGalleryAnotherAria": "ಗ್ಯಾಲರಿಯಿಂದ ಬೇರೆ {name} ಆರಿಸಿ",
+  "photoCameraInputAdd": "{name} ಸೇರಿಸಿ",
+  "photoCameraInputChange": "{name} ಬದಲಾಯಿಸಿ",
+  "photoGalleryInput": "ಗ್ಯಾಲರಿಯಿಂದ {name} ಆರಿಸಿ",
+  "photoRetryAria": "{name} ಮತ್ತೆ ಕಳುಹಿಸಲು ಪ್ರಯತ್ನಿಸಿ",
+
+  "locationOffTitle": "ಲೊಕೇಶನ್ ಆಫ್ ಆಗಿದೆ",
+  "locationOffBody": "ಗ್ರಾಹಕರು ನಿಮ್ಮ ಸಲೂನ್ ಅನ್ನು ಅದರ ಲೊಕೇಶನ್‌ನಿಂದ ಹುಡುಕುತ್ತಾರೆ. ಆನ್ ಮಾಡುವುದು ಹೀಗೆ:",
+  "locationIosSettings": "ನಿಮ್ಮ iPhone ನಲ್ಲಿ Settings ಆ್ಯಪ್ ತೆರೆಯಿರಿ.",
+  "locationIosServices": "Privacy & Security ಒತ್ತಿ, ನಂತರ Location Services ಒತ್ತಿ, ಅದು ಆನ್ ಇದೆಯೇ ನೋಡಿ.",
+  "locationIosBrowser": "ಕೆಳಗೆ Safari Websites (ಅಥವಾ ನಿಮ್ಮ ಬ್ರೌಸರ್) ವರೆಗೆ ಹೋಗಿ \"While Using the App\" ಆರಿಸಿ.",
+  "locationIosReturn": "ಇಲ್ಲಿಗೆ ವಾಪಸ್ ಬಂದು ಪೇಜ್ ರೀಲೋಡ್ ಮಾಡಿ, ನಂತರ \"ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ\" ಒತ್ತಿ.",
+  "locationAndroidIcon": "ಅಡ್ರೆಸ್ ಬಾರ್‌ನ ಎಡಗಡೆ ಇರುವ ಐಕಾನ್ ಒತ್ತಿ (ಬೀಗ ಅಥವಾ ಎರಡು ಸ್ಲೈಡರ್).",
+  "locationAndroidAllow": "Permissions ಒತ್ತಿ, ನಂತರ Location ಒತ್ತಿ, Allow ಆರಿಸಿ.",
+  "locationAndroidQuickSettings": "ನಿಮ್ಮ ಫೋನ್‌ನ ಕ್ವಿಕ್ ಸೆಟ್ಟಿಂಗ್ಸ್‌ನಲ್ಲಿ (ಮೇಲಿನಿಂದ ಕೆಳಗೆ ಎಳೆಯಿರಿ) Location ಆನ್ ಇದೆಯೇ ನೋಡಿ.",
+  "locationAndroidReturn": "ಇಲ್ಲಿಗೆ ವಾಪಸ್ ಬಂದು \"ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ\" ಒತ್ತಿ.",
+  "locationDesktopIcon": "ಅಡ್ರೆಸ್ ಬಾರ್‌ನ ಎಡಗಡೆ ಇರುವ ಐಕಾನ್ ಕ್ಲಿಕ್ ಮಾಡಿ.",
+  "locationDesktopAllow": "Location ಹುಡುಕಿ, ಅದನ್ನು Allow ಮಾಡಿ.",
+  "locationDesktopReload": "ಪೇಜ್ ರೀಲೋಡ್ ಮಾಡಿ, \"ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ\" ಕ್ಲಿಕ್ ಮಾಡಿ.",
+  "locationDesktopUsePhone": "ಕಂಪ್ಯೂಟರ್ ತಾನು ಎಲ್ಲಿದೆ ಎಂದು ಅಂದಾಜು ಮಾತ್ರ ಮಾಡಬಲ್ಲದು: ಸಲೂನ್‌ನಲ್ಲಿ ನಿಂತು ನಿಮ್ಮ ಫೋನ್‌ನಿಂದ ರಿಜಿಸ್ಟರ್ ಮಾಡಿ.",
+
+  "mapAttribution": "© OpenStreetMap contributors",
+  "mapPinTitle": "ಸಲೂನ್ ಲೊಕೇಶನ್",
+  "mapPinMovedNorth": "ಪಿನ್ ಉತ್ತರಕ್ಕೆ ಹೋಯಿತು.",
+  "mapPinMovedSouth": "ಪಿನ್ ದಕ್ಷಿಣಕ್ಕೆ ಹೋಯಿತು.",
+  "mapPinMovedWest": "ಪಿನ್ ಪಶ್ಚಿಮಕ್ಕೆ ಹೋಯಿತು.",
+  "mapPinMovedEast": "ಪಿನ್ ಪೂರ್ವಕ್ಕೆ ಹೋಯಿತು.",
+  "mapMovableAria": "ಮ್ಯಾಪ್: ಪಿನ್ ಅನ್ನು ನಿಮ್ಮ ಸಲೂನ್ ಬಾಗಿಲಿಗೆ ಎಳೆಯಿರಿ, ಅಥವಾ ಟ್ಯಾಬ್ ಒತ್ತಿ ಪಿನ್‌ಗೆ ಹೋಗಿ ಆ್ಯರೋ ಕೀಗಳನ್ನು ಬಳಸಿ",
+  "mapFixedAria": "ಮ್ಯಾಪ್: ನಿಮ್ಮ ಸಲೂನ್ ಪಿನ್, ಗ್ರಾಹಕರು ನಿಮ್ಮನ್ನು ಹುಡುಕುವ ಜಾಗ",
+
+  "moreOffline": "ನೀವು ಆಫ್‌ಲೈನ್ ಇದ್ದೀರಿ. ಇಂಟರ್ನೆಟ್ ಆನ್ ಮಾಡಿ, ಮತ್ತೆ {label} ಒತ್ತಿ.",
+  "moreNetwork": "ನೀವು ಆಫ್‌ಲೈನ್ ಇದ್ದೀರಿ ಅಥವಾ ಸರ್ವರ್ ಸಿಗುತ್ತಿಲ್ಲ. ಇಂಟರ್ನೆಟ್ ಆನ್ ಮಾಡಿ, ಮತ್ತೆ {label} ಒತ್ತಿ.",
+  "moreFailed": "ಇನ್ನಷ್ಟು ಲೋಡ್ ಆಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಲು {label} ಒತ್ತಿ.",
+  "moreRefreshFailed": "ಪಟ್ಟಿ ರಿಫ್ರೆಶ್ ಆಗಲಿಲ್ಲ. ಇದು ಸ್ವಲ್ಪ ಹಳೆಯದಾಗಿರಬಹುದು."
+}
