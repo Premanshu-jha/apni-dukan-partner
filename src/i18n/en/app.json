@@ -1,0 +1,11 @@
+{
+  "notFoundTitle": "Page not found",
+  "notFoundLink": "Go to today",
+  "navMain": "Main",
+  "tabToday": "Today",
+  "tabBookings": "Bookings",
+  "tabSalon": "Salon",
+  "tabMore": "More",
+  "approvalWaiting": "Waiting for approval",
+  "approvalBody": "Customers can't book {name} until our field team approves it."
+}

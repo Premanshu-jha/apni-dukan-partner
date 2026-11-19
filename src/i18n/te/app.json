@@ -1,0 +1,11 @@
+{
+  "notFoundTitle": "ఈ పేజీ దొరకలేదు",
+  "notFoundLink": "ఈరోజు పేజీకి వెళ్లండి",
+  "navMain": "మెయిన్",
+  "tabToday": "ఈరోజు",
+  "tabBookings": "బుకింగ్‌లు",
+  "tabSalon": "సెలూన్",
+  "tabMore": "మరిన్ని",
+  "approvalWaiting": "అప్రూవల్ కోసం ఆగాలి",
+  "approvalBody": "మా ఫీల్డ్ టీమ్ అప్రూవ్ చేసే వరకు కస్టమర్లు {name}లో బుకింగ్ చేయలేరు."
+}

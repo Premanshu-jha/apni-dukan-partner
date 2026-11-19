@@ -5,6 +5,7 @@ import { refreshSession } from '../../api/client'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
 import { shopApi, shopKeys, useShop } from '../../api/shop'
 import { Banner, Button, Page, TextArea } from '../../components/ui'
+import { useT } from '../../i18n'
 import { rememberClosed, rememberStartNote, shopChanged } from './ownership'
 
 /** The backend's limits for the reason (ShopOwnershipService.CLOSE_REASON): optional, 2 to 200 characters. */
@@ -16,6 +17,7 @@ const REASON_MAX = 200
  * register a new shop). Then the session is refreshed (no shop any more) and the start screen opens.
  */
 export function CloseShop() {
+  const t = useT()
   const shop = useShop()
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -25,7 +27,7 @@ export function CloseShop() {
   const [error, setError] = useState<unknown>(null)
   const sending = useRef(false)
   const trimmed = reason.trim()
-  const reasonProblem = trimmed.length === 1 ? 'Write at least 2 characters, or leave it empty' : trimmed.length > REASON_MAX ? `Keep it under ${REASON_MAX} characters` : undefined
+  const reasonProblem = trimmed.length === 1 ? t('shop.closeReasonTooShort') : trimmed.length > REASON_MAX ? t('shop.closeReasonTooLong', { max: REASON_MAX }) : undefined
 
   async function close() {
     if (sending.current || !sure || reasonProblem) return
@@ -42,7 +44,7 @@ export function CloseShop() {
     } catch (e) {
       setError(e)
       // Not the owner any more (a hand-over accepted, or closed on another phone): the gate moves to Start, which says so
-      if (isApiError(e, 'NO_SHOP')) rememberStartNote(`You're no longer the owner of ${shop.name}: it was handed over or closed already.`)
+      if (isApiError(e, 'NO_SHOP')) rememberStartNote(t('shop.noLongerOwnerOfNamed', { name: shop.name }))
       // The shop changed meanwhile (an edit, a hand-over accepted, closed from another phone): read it again; the
       // gate moves on if it is no longer this person's
       if (isApiError(e, 'SHOP_CHANGED') || isApiError(e, 'NO_SHOP') || isApiError(e, 'OWNER_ONLY')) {
@@ -55,50 +57,50 @@ export function CloseShop() {
   }
 
   const text = isApiError(error, 'SHOP_CHANGED')
-    ? 'Your shop changed a moment ago (on another phone, or by the field team). It has been read again: check and try again.'
+    ? t('shop.closeShopChanged')
     : isApiError(error, 'NO_SHOP')
-      ? "You're no longer the owner of this shop (it was handed over or closed already)."
+      ? t('shop.closeNoLongerOwner')
       : error && !isApiError(error, 'EDIT_LOCKED')   // the code sheet asks for it instead (EditGate)
         ? messageOf(error)
         : null
 
   return (
-    <Page back={shop.status === 'DRAFT' ? '/register' : '/more'} title={`Close ${shop.name}`}>
+    <Page back={shop.status === 'DRAFT' ? '/register' : '/more'} title={t('shop.closeTitle', { name: shop.name })}>
       <Banner tone="bad">
-        <p className="font-semibold">Closing is for good. It can't be undone.</p>
+        <p className="font-semibold">{t('shop.closeForGoodWarning')}</p>
         <ul className="mt-2 list-disc pl-5">
-          <li>Every upcoming online booking is cancelled, and each customer is told the salon has closed.</li>
-          <li>Your helpers and barbers lose access at once.</li>
-          <li>You leave the shop too. Customers can no longer find it.</li>
-          <li>To come back later, you register a new shop: a new field visit and a new shop code.</li>
+          <li>{t('shop.closeEffectBookings')}</li>
+          <li>{t('shop.closeEffectTeam')}</li>
+          <li>{t('shop.closeEffectYou')}</li>
+          <li>{t('shop.closeEffectComeBack')}</li>
         </ul>
       </Banner>
       <p className="text-sm text-muted">
-        Want someone else to run it instead?{' '}
+        {t('shop.closeHandOverBefore')}{' '}
         <Link to="/shop/handover" className="text-link underline">
-          Hand over the shop
+          {t('shop.closeHandOverLink')}
         </Link>{' '}
-        keeps its bookings, team and listing.
+        {t('shop.closeHandOverAfter')}
       </p>
       <TextArea
         id="close-reason"
-        label="Why are you closing? (optional)"
+        label={t('shop.closeReasonLabel')}
         value={reason}
         maxLength={REASON_MAX + 20}
         onChange={(e) => setReason(e.target.value)}
-        hint="Only our team sees this."
+        hint={t('shop.closeReasonHint')}
         error={reasonProblem ?? fieldError(error, 'reason')}
       />
       <label className="flex min-h-11 items-start gap-3">
         <input type="checkbox" className="mt-1 h-5 w-5 accent-brand" checked={sure} onChange={(e) => setSure(e.target.checked)} />
-        <span>I understand that {shop.name} closes for good and its upcoming bookings are cancelled.</span>
+        <span>{t('shop.closeUnderstand', { name: shop.name })}</span>
       </label>
       {text && <Banner tone="bad">{text}</Banner>}
       <Button variant="danger" busy={busy} disabled={!sure || Boolean(reasonProblem)} onClick={close}>
-        Close {shop.name} for good
+        {t('shop.closeForGoodButton', { name: shop.name })}
       </Button>
       <Button variant="secondary" onClick={() => navigate(shop.status === 'DRAFT' ? '/register' : '/more')}>
-        Keep my shop
+        {t('shop.closeKeepShop')}
       </Button>
     </Page>
   )

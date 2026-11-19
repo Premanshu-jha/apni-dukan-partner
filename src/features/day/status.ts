@@ -1,14 +1,26 @@
 import type { Appointment, AppointmentStatus } from '../../api/types'
+import { t } from '../../i18n'
 
-export const statusText: Record<AppointmentStatus, string> = {
-  CONFIRMED: 'Booked',
-  IN_SERVICE: 'In chair',
-  COMPLETED: 'Done',
-  CANCELLED_BY_CUSTOMER: 'Cancelled by customer',
-  CANCELLED_BY_SALON: 'Cancelled by salon',
-  NO_SHOW: 'No-show',
-  BLOCKED: 'Blocked',
-  REMOVED: 'Removed',
+/** Each status's words, as keys (translated when asked for, so they follow the language). */
+const STATUS_KEYS: Record<AppointmentStatus, string> = {
+  CONFIRMED: 'day.statusConfirmed',
+  IN_SERVICE: 'day.statusInService',
+  COMPLETED: 'day.statusCompleted',
+  CANCELLED_BY_CUSTOMER: 'day.statusCancelledByCustomer',
+  CANCELLED_BY_SALON: 'day.statusCancelledBySalon',
+  NO_SHOW: 'day.statusNoShow',
+  BLOCKED: 'day.statusBlocked',
+  REMOVED: 'day.statusRemoved',
+}
+
+export function statusText(status: AppointmentStatus): string {
+  return t(STATUS_KEYS[status])
+}
+
+/** The words for a status the backend names as text; a status the app doesn't know stays as sent. */
+export function statusTextOr(status: string): string {
+  const key = STATUS_KEYS[status as AppointmentStatus] as string | undefined
+  return key ? t(key) : status
 }
 
 export type Tone = 'brand' | 'good' | 'warn' | 'bad' | 'muted'
@@ -23,17 +35,17 @@ export function statusTone(a: Appointment): Tone {
 
 /** "Booking", "Walk-in", "Break", "Leave", "Closed". */
 export function kindText(a: Appointment): string {
-  if (a.kind === 'BOOKING') return 'Booking'
-  if (a.kind === 'WALK_IN') return 'Walk-in'
-  if (a.blockType === 'BREAK') return 'Break'
-  if (a.blockType === 'LEAVE') return 'Leave'
-  return 'Closed'
+  if (a.kind === 'BOOKING') return t('day.kindBooking')
+  if (a.kind === 'WALK_IN') return t('day.kindWalkIn')
+  if (a.blockType === 'BREAK') return t('day.kindBreak')
+  if (a.blockType === 'LEAVE') return t('day.kindLeave')
+  return t('day.kindClosed')
 }
 
 /** Who the appointment is for: the customer's name, the walk-in's name, or a plain word. */
 export function whoText(a: Appointment): string {
-  if (a.kind === 'BOOKING') return a.customerName || 'Customer'
-  if (a.kind === 'WALK_IN') return a.guestName || 'Walk-in customer'
+  if (a.kind === 'BOOKING') return a.customerName || t('day.customer')
+  if (a.kind === 'WALK_IN') return a.guestName || t('day.walkInCustomer')
   return kindText(a)
 }
 
@@ -47,7 +59,7 @@ export function servicesText(a: Appointment): string {
 }
 
 export function totalPaise(a: Appointment): { paise: number; from: boolean } {
-  return { paise: a.services.reduce((t, s) => t + s.pricePaise, 0), from: a.services.some((s) => s.priceIsFrom) }
+  return { paise: a.services.reduce((sum, s) => sum + s.pricePaise, 0), from: a.services.some((s) => s.priceIsFrom) }
 }
 
 /** New random key for one walk-in, so a retried tap never adds it twice. */

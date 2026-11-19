@@ -9,6 +9,7 @@ import { Banner, Button, Loading, Page } from '../../components/ui'
 import { formatPhone } from '../../lib/phone'
 import { useSession } from '../../store/session'
 import { signOutHere } from './signOut'
+import { useT } from '../../i18n'
 
 /**
  * Delete account, for helpers, barbers and anyone without a shop (e.g. after closing theirs): a code by SMS to their own phone, then delete. The backend refuses an
@@ -16,6 +17,7 @@ import { signOutHere } from './signOut'
  * progress (409 BOOKING_SOON), a booking pause from no-shows (409 BOOKING_BLOCKED); its message is shown as it is.
  */
 export function DeleteAccount() {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   // Outside the shop gate: someone without a shop deletes their account here too
@@ -66,42 +68,41 @@ export function DeleteAccount() {
 
   if (shop?.myRole === 'OWNER') {
     return (
-      <Page back={back} title="Delete account">
-        <Banner tone="warn">Close or hand over your shop first. Then you can delete your account.</Banner>
+      <Page back={back} title={t('profile.deleteAccountTitle')}>
+        <Banner tone="warn">{t('profile.deleteOwnerFirst')}</Banner>
         <Link to="/shop/handover" className="flex min-h-12 items-center justify-center rounded-xl border border-line text-link">
-          Hand over {shop.name}
+          {t('profile.handOverShop', { name: shop.name })}
         </Link>
         <Link to="/shop/close" className="flex min-h-12 items-center justify-center rounded-xl border border-line text-bad">
-          Close {shop.name}
+          {t('profile.closeShop', { name: shop.name })}
         </Link>
         <Button variant="secondary" onClick={() => navigate(back)}>
-          Back
+          {t('common.back')}
         </Button>
       </Page>
     )
   }
 
   return (
-    <Page back={back} title="Delete account">
+    <Page back={back} title={t('profile.deleteAccountTitle')}>
       <Banner tone="warn">
-        This can't be undone. {shop ? `You leave ${shop.name}, any` : 'Any'} salon bookings you made as a customer are cancelled, your name,
-        phone and email are removed, and you are signed out everywhere.{shop ? ' The salon keeps a record of your past work without your details.' : ''}
+        {shop ? t('profile.deleteWarningWithShop', { name: shop.name }) : t('profile.deleteWarningNoShop')}
       </Banner>
       {!sent ? (
         <Button variant="danger" busy={busy} onClick={send}>
-          Send code to +91 {formatPhone(phone)}
+          {t('profile.sendCodeToPhone', { phone: formatPhone(phone) })}
         </Button>
       ) : (
         <div className="flex flex-col gap-4">
-          <CodeInput id="delete-code" label="SMS code" value={code} onChange={setCode} />
+          <CodeInput id="delete-code" label={t('profile.smsCode')} value={code} onChange={setCode} />
           <Button variant="danger" busy={busy} disabled={code.length !== 6} onClick={remove}>
-            Delete my account
+            {t('profile.deleteMyAccount')}
           </Button>
         </div>
       )}
       {error && <Banner tone="bad">{error}</Banner>}
       <Button variant="secondary" onClick={() => navigate(back)}>
-        Keep my account
+        {t('profile.keepMyAccount')}
       </Button>
     </Page>
   )

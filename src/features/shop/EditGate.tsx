@@ -7,6 +7,7 @@ import { messageOf } from '../../api/errors'
 import { useShop } from '../../api/shop'
 import { CodeInput } from '../../components/CodeInput'
 import { Banner, Button, Sheet } from '../../components/ui'
+import { useT } from '../../i18n'
 import { timeIst } from '../../lib/ist'
 import { formatPhone } from '../../lib/phone'
 import { useSession } from '../../store/session'
@@ -39,6 +40,7 @@ function counted(u: EditUnlock, at = Date.now()): Unlock {
  * after the code. A salon still registering (a draft) asks for nothing.
  */
 export function EditGate({ children, ending = false }: { children: ReactNode; ending?: boolean }) {
+  const t = useT()
   const shop = useShop()
   const needed = Boolean(shop.addressLocked) && shop.status !== 'DRAFT'
   const qc = useQueryClient()
@@ -97,21 +99,21 @@ export function EditGate({ children, ending = false }: { children: ReactNode; en
         {on ? (
           <>
             <span>
-              {ending ? 'Confirmed' : 'Editing is on'} until {timeIst(new Date(end).toISOString())} ({minutes} min left)
+              {t(ending ? 'shop.editConfirmedUntil' : 'shop.editOnUntil', { time: timeIst(new Date(end).toISOString()), minutes })}
             </span>
             <button type="button" className="shrink-0 text-link underline" onClick={done}>
-              Done
+              {t('common.done')}
             </button>
           </>
         ) : (
           <>
             <span>
               {ending
-                ? 'Your salon is verified: this needs a code we send to your phone.'
-                : 'Your salon is verified: changes need a code we send to your phone.'}
+                ? t('shop.editNeedsCodeEnding')
+                : t('shop.editNeedsCode')}
             </span>
             <button type="button" className="shrink-0 text-link underline" onClick={() => setAsking(true)}>
-              {ending ? 'Get the code' : 'Start editing'}
+              {ending ? t('shop.editGetCode') : t('shop.editStart')}
             </button>
           </>
         )}
@@ -146,6 +148,7 @@ function UnlockSheet({
   onUnlocked: (u: EditUnlock) => void
   onClose: () => void
 }) {
+  const t = useT()
   const phone = useSession((s) => s.user?.phone)
   // Kept while the sheet is closed: a code already sent can still be typed when it opens again
   const [sentAt, setSentAt] = useState<number | null>(null)
@@ -191,23 +194,22 @@ function UnlockSheet({
 
   const wait = sentAt === null ? 0 : Math.max(0, Math.ceil((sentAt + RESEND_AFTER_MS - Date.now()) / 1000))
   return (
-    <Sheet open={open} title="Confirm it's you" onClose={onClose}>
+    <Sheet open={open} title={t('shop.editConfirmTitle')} onClose={onClose}>
       <div className="flex flex-col gap-3">
         <p className="text-muted">
-          Your salon is verified, so we check it's you first. One code to +91 {formatPhone(phone ?? null)}{' '}
-          {ending ? 'confirms it on this phone for 15 minutes.' : 'lets you change everything on this phone for 15 minutes.'}
+          {t(ending ? 'shop.editCodeExplainEnding' : 'shop.editCodeExplain', { phone: formatPhone(phone ?? null) })}
         </p>
         {loadError !== null && <Banner tone="warn">{messageOf(loadError)}</Banner>}
         <Button variant={sentAt === null ? 'primary' : 'secondary'} busy={busy && code.length !== 6} disabled={wait > 0} onClick={send}>
-          {sentAt === null ? 'Send code' : wait > 0 ? 'Sent. You can send again after 30 seconds' : 'Send the code again'}
+          {sentAt === null ? t('shop.editSendCode') : wait > 0 ? t('shop.editCodeSentWait') : t('shop.editSendCodeAgain')}
         </Button>
-        <CodeInput id="edit-code" label="SMS code" value={code} onChange={setCode} autoFocus={sentAt !== null} />
+        <CodeInput id="edit-code" label={t('shop.editSmsCode')} value={code} onChange={setCode} autoFocus={sentAt !== null} />
         <Button busy={busy && code.length === 6} disabled={code.length !== 6} onClick={check}>
-          {ending ? 'Confirm' : 'Start editing'}
+          {ending ? t('common.confirm') : t('shop.editStart')}
         </Button>
         {error && <Banner tone="bad">{error}</Banner>}
         <Button variant="ghost" onClick={onClose}>
-          Not now
+          {t('shop.notNow')}
         </Button>
       </div>
     </Sheet>

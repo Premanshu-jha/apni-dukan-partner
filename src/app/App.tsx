@@ -47,10 +47,12 @@ import { SubscriptionPage } from '../features/subscription/SubscriptionPage'
 import { NeedHelp } from '../features/help/NeedHelp'
 import { MyRequests, RequestDetail } from '../features/help/MyRequests'
 import { EmptyState, Page } from '../components/ui'
+import { useT } from '../i18n'
 import { FinishingProfile, PastRegistration, RoleOnly, SignedIn, SignedOutOnly } from './guards'
 import { Bare, Shell } from './Shell'
 
 export function App() {
+  const t = useT()
   return (
     <Routes>
       <Route element={<Bare />}>
@@ -155,10 +157,10 @@ export function App() {
           element={
             <Page back="/">
               <EmptyState
-                title="Page not found"
+                title={t('app.notFoundTitle')}
                 action={
                   <Link to="/" className="text-link underline">
-                    Go to today
+                    {t('app.notFoundLink')}
                   </Link>
                 }
               />

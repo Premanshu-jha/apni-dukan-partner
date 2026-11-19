@@ -3,6 +3,7 @@ import { currentSubscription, needsHomeScreen, pushSupported, turnOffPush, turnO
 import { messageOf } from '../../api/errors'
 import { Banner, Button, Card } from '../../components/ui'
 import { storage } from '../../lib/storage'
+import { t, useT } from '../../i18n'
 
 const DISMISSED = 'adp.pushPromptDismissed'
 
@@ -15,14 +16,15 @@ function useSubscribed() {
 }
 
 function resultText(r: PushResult): string | null {
-  if (r === 'denied') return 'Notifications are blocked for this site. Allow them in your browser settings, then try again.'
-  if (r === 'unsupported') return "This browser can't show notifications. On iPhone, add Clozest Partner to your Home Screen first."
-  if (r === 'not-configured') return "Notifications aren't set up on the server yet."
+  if (r === 'denied') return t('profile.pushDenied')
+  if (r === 'unsupported') return t('profile.pushUnsupported')
+  if (r === 'not-configured') return t('profile.pushNotConfigured')
   return null
 }
 
 /** On the day board until answered: one card offering a notification for each new booking. */
 export function NotificationsPrompt() {
+  const t = useT()
   const [on, setOn] = useSubscribed()
   const [dismissed, setDismissed] = useState(storage.get(DISMISSED) === '1')
   const [busy, setBusy] = useState(false)
@@ -30,8 +32,8 @@ export function NotificationsPrompt() {
   if (!pushSupported() || on !== false || dismissed) return null
   return (
     <Card className="flex flex-col gap-3">
-      <p className="font-semibold">Know the moment someone books?</p>
-      <p className="text-sm text-muted">We'll notify this phone about new bookings, changes and cancellations.</p>
+      <p className="font-semibold">{t('profile.pushPromptTitle')}</p>
+      <p className="text-sm text-muted">{t('profile.pushPromptBody')}</p>
       {error && <Banner tone="warn">{error}</Banner>}
       <div className="flex gap-2">
         <Button
@@ -51,7 +53,7 @@ export function NotificationsPrompt() {
             }
           }}
         >
-          Turn on
+          {t('profile.turnOn')}
         </Button>
         <Button
           variant="ghost"
@@ -60,7 +62,7 @@ export function NotificationsPrompt() {
             setDismissed(true)
           }}
         >
-          Not now
+          {t('profile.notNow')}
         </Button>
       </div>
     </Card>
@@ -69,6 +71,7 @@ export function NotificationsPrompt() {
 
 /** The switch on the profile screen. */
 export function NotificationsRow() {
+  const t = useT()
   const [on, setOn] = useSubscribed()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -76,8 +79,8 @@ export function NotificationsRow() {
     return (
       <p className="text-sm text-muted">
         {needsHomeScreen()
-          ? 'To get booking notifications on iPhone, tap Share, then "Add to Home Screen", and open Clozest Partner from there.'
-          : "This browser can't show notifications. You'll still see every message under the bell."}
+          ? t('profile.pushIphoneHint')
+          : t('profile.pushCantShow')}
       </p>
     )
   }
@@ -85,14 +88,14 @@ export function NotificationsRow() {
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="font-medium">Booking notifications</p>
-          <p className="text-sm text-muted">New bookings, changes and cancellations, on this device</p>
+          <p className="font-medium">{t('profile.bookingNotifications')}</p>
+          <p className="text-sm text-muted">{t('profile.bookingNotificationsBody')}</p>
         </div>
         <button
           type="button"
           role="switch"
           aria-checked={Boolean(on)}
-          aria-label="Booking notifications"
+          aria-label={t('profile.bookingNotifications')}
           disabled={busy || on === null}
           onClick={async () => {
             setBusy(true)

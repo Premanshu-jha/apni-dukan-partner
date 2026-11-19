@@ -6,6 +6,7 @@ import { CodeInput } from '../../components/CodeInput'
 import { Banner, Button, Field, Page } from '../../components/ui'
 import { formatPhone, looksLikeEmail } from '../../lib/phone'
 import { useSession } from '../../store/session'
+import { useT } from '../../i18n'
 
 /**
  * A verified email is how a lost phone is recovered, so replacing it needs proof of the phone first:
@@ -15,6 +16,7 @@ import { useSession } from '../../store/session'
 const PHONE_CODE_ERRORS = new Set(['WRONG_CODE', 'CODE_EXPIRED', 'TOO_MANY_ATTEMPTS', 'LOCKED_FOR_TODAY', 'PHONE_CODE_REQUIRED'])
 
 export function ChangeEmail() {
+  const t = useT()
   const navigate = useNavigate()
   const user = useSession((s) => s.user)!
   const setUser = useSession((s) => s.setUser)
@@ -40,22 +42,22 @@ export function ChangeEmail() {
   }
 
   return (
-    <Page back="/more" title="Change email">
+    <Page back="/more" title={t('profile.changeEmailTitle')}>
       <p className="text-muted">
-        Now: <span className="text-ink">{user.email}</span>
+        {t('profile.now')} <span className="text-ink">{user.email}</span>
       </p>
       {step === 'phone' && (
         <div className="flex flex-col gap-4">
-          <p className="text-muted">First, we'll send a code to +91 {formatPhone(user.phone)} to check it's you.</p>
-          {phoneSent && <CodeInput id="change-phone-code" label="SMS code" value={phoneCode} onChange={setPhoneCode} />}
+          <p className="text-muted">{t('profile.changeEmailPhoneFirst', { phone: formatPhone(user.phone) })}</p>
+          {phoneSent && <CodeInput id="change-phone-code" label={t('profile.smsCode')} value={phoneCode} onChange={setPhoneCode} />}
           {error && <Banner tone="bad">{error}</Banner>}
           {!phoneSent ? (
             <Button busy={busy} onClick={() => run(async () => { await authApi.sendChangeEmailPhoneCode(); setPhoneSent(true) })}>
-              Send SMS code
+              {t('profile.sendSmsCode')}
             </Button>
           ) : (
             <Button disabled={phoneCode.length !== 6} onClick={() => setStep('email')}>
-              Continue
+              {t('common.continue')}
             </Button>
           )}
         </div>
@@ -64,7 +66,7 @@ export function ChangeEmail() {
         <div className="flex flex-col gap-4">
           <Field
             id="new-email"
-            label="New email"
+            label={t('profile.newEmail')}
             type="email"
             inputMode="email"
             autoComplete="email"
@@ -92,16 +94,16 @@ export function ChangeEmail() {
               })
             }
           >
-            Send code to this email
+            {t('profile.sendCodeToEmail')}
           </Button>
         </div>
       )}
       {step === 'code' && (
         <div className="flex flex-col gap-4">
           <p className="text-muted">
-            We sent a code to <span className="text-ink">{email.trim()}</span>.
+            {t('profile.emailCodeSentBefore')} <span className="text-ink">{email.trim()}</span>{t('profile.emailCodeSentAfter')}
           </p>
-          <CodeInput id="new-email-code" label="Email code" value={code} onChange={setCode} />
+          <CodeInput id="new-email-code" label={t('profile.emailCode')} value={code} onChange={setCode} />
           {error && <Banner tone="bad">{error}</Banner>}
           <Button
             busy={busy}
@@ -113,7 +115,7 @@ export function ChangeEmail() {
               })
             }
           >
-            Verify
+            {t('profile.verify')}
           </Button>
         </div>
       )}

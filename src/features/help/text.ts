@@ -1,3 +1,6 @@
+import { serverText } from '../../api/errors'
+import { t } from '../../i18n'
+
 /**
  * The length the backend will count (MessageText.clean): look-alike letters made normal (NFKC), invisible characters
  * dropped, spaces before a line break dropped, at most two empty lines in a row, the ends trimmed. Counting the same way here means Send is never on for a message the backend refuses.
@@ -17,7 +20,7 @@ export function cleanedLength(text: string): number {
 export function sendError(details: Record<string, unknown> | undefined, fallback: string): string {
   const message = details?.message
   const subject = details?.subject
-  if (typeof subject === 'string') return `The subject: ${subject}.`
-  if (typeof message === 'string') return `Your message: ${message}.`
+  if (typeof subject === 'string') return t('help.subjectError', { reason: serverText(subject) })
+  if (typeof message === 'string') return t('help.messageError', { reason: serverText(message) })
   return fallback
 }

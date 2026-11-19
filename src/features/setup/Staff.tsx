@@ -5,6 +5,7 @@ import { fieldError, messageOf } from '../../api/errors'
 import { addOwnerAsBarber, ownProfile, setupApi, useStaff, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import { Banner, Button, EmptyState, ErrorState, Field, Loading, Page, Pill, Sheet } from '../../components/ui'
+import { t, useT } from '../../i18n'
 import { weekdayName } from '../../lib/ist'
 import { formatPhone } from '../../lib/phone'
 import { can } from '../../lib/roles'
@@ -13,6 +14,7 @@ import type { Shift } from '../../api/types'
 
 /** The owner who cuts hair too: one tap adds him (once he is one, nothing shows). */
 function AddMe() {
+  const t = useT()
   const qc = useQueryClient()
   const staff = useStaff()
   const phone = useSession((s) => s.user?.phone ?? null)
@@ -36,7 +38,7 @@ function AddMe() {
           }
         }}
       >
-        Add me as a barber
+        {t('setup.addMe')}
       </Button>
       {error && <Banner tone="bad">{error}</Banner>}
     </>
@@ -45,19 +47,20 @@ function AddMe() {
 
 /** "Mon–Sat 10:00 AM–8:00 PM" style summary of a week, or "No hours yet". */
 export function weekText(hours: Shift[]): string {
-  if (!hours.length) return 'No hours yet'
+  if (!hours.length) return t('setup.noHoursYet')
   const days = [...new Set(hours.map((h) => h.weekday))].sort()
-  return `${days.length} day${days.length === 1 ? '' : 's'} a week · ${days.map(weekdayName).join(', ')}`
+  return t('setup.daysAWeek', { count: days.length, days: days.map(weekdayName).join(', ') })
 }
 
 /** The salon's barbers. Tap one to set his services, hours, photo and sign-in. */
 export function StaffList() {
+  const t = useT()
   const shop = useShop()
   const edit = can(shop.myRole).editSetup
   const staff = useStaff()
   const [adding, setAdding] = useState(false)
   return (
-    <Page back="/setup" title="Barbers">
+    <Page back="/setup" title={t('setup.barbersTitle')}>
       {staff.isPending ? (
         <Loading />
       ) : staff.isError ? (
@@ -65,7 +68,7 @@ export function StaffList() {
       ) : (
         <>
           {staff.data.length === 0 ? (
-            <EmptyState title="No barbers yet" body={edit ? 'Add everyone who cuts hair, yourself too if you do.' : undefined} />
+            <EmptyState title={t('setup.noBarbers')} body={edit ? t('setup.noBarbersBody') : undefined} />
           ) : (
             <ul className="flex flex-col gap-2">
               {staff.data.map((s) => (
@@ -73,19 +76,19 @@ export function StaffList() {
                   <Link to={`/setup/staff/${s.id}`} className="flex flex-col gap-1 rounded-2xl border border-line bg-surface p-3 hover:bg-raised">
                     <span className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold">{s.name}</span>
-                      {!s.active && <Pill tone="muted">Off</Pill>}
-                      {s.loginPhone && <Pill tone="brand">Has sign-in</Pill>}
-                      {!s.loginPhone && s.invitedPhone && <Pill tone="warn">Invited: +91 {formatPhone(s.invitedPhone)}</Pill>}
+                      {!s.active && <Pill tone="muted">{t('setup.off')}</Pill>}
+                      {s.loginPhone && <Pill tone="brand">{t('setup.hasSignIn')}</Pill>}
+                      {!s.loginPhone && s.invitedPhone && <Pill tone="warn">{t('setup.invited', { phone: formatPhone(s.invitedPhone) })}</Pill>}
                     </span>
                     <span className="text-sm text-muted">
-                      {s.serviceIds.length} service{s.serviceIds.length === 1 ? '' : 's'} · {weekText(s.hours)}
+                      {t('setup.serviceCount', { count: s.serviceIds.length })} · {weekText(s.hours)}
                     </span>
                   </Link>
                 </li>
               ))}
             </ul>
           )}
-          {edit && <Button onClick={() => setAdding(true)}>+ Add a barber</Button>}
+          {edit && <Button onClick={() => setAdding(true)}>{t('setup.addBarber')}</Button>}
           {shop.myRole === 'OWNER' && <AddMe />}
         </>
       )}
@@ -95,6 +98,7 @@ export function StaffList() {
 }
 
 function AddStaff({ onClose }: { onClose: () => void }) {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const [name, setName] = useState('')
@@ -114,15 +118,15 @@ function AddStaff({ onClose }: { onClose: () => void }) {
     }
   }
   return (
-    <Sheet open title="New barber" onClose={onClose}>
+    <Sheet open title={t('setup.newBarber')} onClose={onClose}>
       <div className="flex flex-col gap-3">
-        <Field id="staff-name" label="Name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} error={fieldError(error, 'name')} />
+        <Field id="staff-name" label={t('setup.barberName')} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} error={fieldError(error, 'name')} />
         {error != null && !fieldError(error, 'name') && <Banner tone="bad">{messageOf(error)}</Banner>}
         <Button busy={busy} disabled={!ok} onClick={add}>
-          Add
+          {t('common.add')}
         </Button>
         <Button variant="ghost" onClick={onClose}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </Sheet>
@@ -131,5 +135,5 @@ function AddStaff({ onClose }: { onClose: () => void }) {
 
 /** Shown on a barber's page: "+91 98480 12345" or nothing. */
 export function loginText(phone: string | null): string {
-  return phone ? `+91 ${formatPhone(phone)}` : 'No sign-in'
+  return phone ? `+91 ${formatPhone(phone)}` : t('setup.noSignIn')
 }

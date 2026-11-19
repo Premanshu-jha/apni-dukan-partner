@@ -27,13 +27,14 @@ import {
   type Fix,
   type LocateError,
 } from '../../lib/locate'
+import { t, useT } from '../../i18n'
 import { forgetRegisterDraft, loadRegisterDraft, saveRegisterDraft } from '../../lib/registerDraft'
 import { useSession } from '../../store/session'
 import {
   ADDRESS_FIELDS,
   addressSearchOff,
   canSearchAddress,
-  FILLED_TEXT,
+  filledText,
   fillEmpty,
   markAddressSearchOff,
   precisionHint,
@@ -50,11 +51,12 @@ const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ defau
  * Anyone else (a shop already submitted, a helper) goes back to the start.
  */
 export function RegisterLayout({ needShop }: { needShop: boolean }) {
+  const t = useT()
   const shop = useMyShop()
   if (shop.isPending) return <Loading />
   if (shop.isError && shop.data === undefined) {
     return (
-      <Page back="/" title="Register your salon">
+      <Page back="/" title={t('register.registerTitle')}>
         <ErrorState message={messageOf(shop.error)} onRetry={() => shop.refetch()} />
       </Page>
     )
@@ -67,7 +69,7 @@ export function RegisterLayout({ needShop }: { needShop: boolean }) {
       <Outlet />
       {/* Stuck on a step, or sent back by the field team: help is one tap away on every step */}
       <Link to="/help" className="pb-6 text-center text-sm text-link underline">
-        Need help? Write to support
+        {t('register.needHelp')}
       </Link>
     </ShopContext.Provider>
   )
@@ -90,15 +92,16 @@ export function Steps({
   /** Asked before a pill leaves the page (unsaved typing, an upload under way). */
   leaveWarning?: string | null
 }) {
-  const names = ['Details', 'Photos', 'Services', 'Hours', 'Submit']
+  const t = useT()
+  const names = ['stepDetails', 'stepPhotos', 'stepServices', 'stepHours', 'stepSubmit']
   return (
-    <ol className="flex gap-2" aria-label="Registration steps">
+    <ol className="flex gap-2" aria-label={t('register.stepsLabel')}>
       {names.map((n, i) => {
         const look = `block flex-1 rounded-full py-1 text-center text-xs font-semibold ${i + 1 <= at ? 'bg-brand text-brand-ink' : 'bg-raised text-muted'}`
         const text = (
           <>
             <span className="sr-only">{i + 1}. </span>
-            {n}
+            {t(`register.${n}`)}
           </>
         )
         return (
@@ -158,12 +161,12 @@ interface Pin {
 export function checkDetails(f: Form): Partial<Record<keyof Form, string>> {
   const e: Partial<Record<keyof Form, string>> = {}
   const len = (v: string, min: number, max: number) => v.trim().length >= min && v.trim().length <= max
-  if (!len(f.name, 2, 100)) e.name = 'Enter the salon name (2 to 100 letters)'
-  if (!len(f.ownerName, 2, 100)) e.ownerName = 'Enter the owner’s name (2 to 100 letters)'
-  if (!len(f.addressLine, 5, 200)) e.addressLine = 'Enter the shop number, building and street'
-  if (!len(f.area, 2, 100)) e.area = 'Enter the area or locality'
-  if (!len(f.city, 2, 60)) e.city = 'Enter the city'
-  if (!/^[1-9]\d{5}$/.test(f.pincode.trim())) e.pincode = 'Enter the 6-digit pincode'
+  if (!len(f.name, 2, 100)) e.name = t('register.needSalonName')
+  if (!len(f.ownerName, 2, 100)) e.ownerName = t('register.needOwnerName')
+  if (!len(f.addressLine, 5, 200)) e.addressLine = t('register.needAddressLine')
+  if (!len(f.area, 2, 100)) e.area = t('register.needArea')
+  if (!len(f.city, 2, 60)) e.city = t('register.needCity')
+  if (!/^[1-9]\d{5}$/.test(f.pincode.trim())) e.pincode = t('register.needPincode')
   return e
 }
 
@@ -184,6 +187,8 @@ export function RegisterDetails({
    */
   request?: { start: AddressIn | null; waiting: boolean; onSent: (r: AddressRequest) => void; top: ReactNode } | null
 }) {
+  const t = useT()
+  const UNSAVED = t('register.unsaved')
   const qc = useQueryClient()
   const navigate = useNavigate()
   // Opened from the review's "Edit details" (or a step pill there): saving goes back to it, not on to Photos
@@ -510,7 +515,7 @@ export function RegisterDetails({
     }
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
-  }, [dirty])
+  }, [dirty, UNSAVED])
   // Field errors show under their fields; the banner is for everything else.
   // EDIT_LOCKED: the code sheet comes up instead (EditGate), and after the code Save works
   const generalError =
@@ -520,7 +525,7 @@ export function RegisterDetails({
     // A saved draft has no screen before this one ("/" comes back here), so no back arrow then
     <Page
       back={request ? cameFrom(location, '/setup/details') : edit ? cameFrom(location, '/setup') : shop ? undefined : '/start'}
-      title={request ? 'Request address change' : edit ? 'Salon details' : 'Register your salon'}
+      title={request ? t('register.requestAddressChange') : edit ? t('register.salonDetailsTitle') : t('register.registerTitle')}
       leaveWarning={dirty ? UNSAVED : null}
     >
       {!edit && !request && <Steps at={1} linked={shop !== null} leaveWarning={dirty ? UNSAVED : null} />}
@@ -530,16 +535,15 @@ export function RegisterDetails({
       <Card className="flex flex-col gap-4">
         {request ? (
           <p className="text-sm text-muted">
-            Type the new address and put the pin on the new door. Our field team checks it; until they approve it,
-            customers see your salon at the old address and can book as usual.
+            {t('register.requestAddressIntro')}
           </p>
         ) : (
           <>
-            <Field id="shop-name" label="Salon name" value={form.name} onChange={set('name')} maxLength={100} error={show('name')} />
+            <Field id="shop-name" label={t('register.salonName')} value={form.name} onChange={set('name')} maxLength={100} error={show('name')} />
             <Field
               id="owner-name"
-              label="Owner’s name"
-              hint="The salon owner’s name for our records. Your own sign-in name is changed in More."
+              label={t('register.ownerName')}
+              hint={t('register.ownerNameHint')}
               value={form.ownerName}
               onChange={set('ownerName')}
               maxLength={100}
@@ -548,17 +552,16 @@ export function RegisterDetails({
             />
           </>
         )}
-        <Field id="address" label="Shop number, building, street" value={form.addressLine} onChange={set('addressLine')} maxLength={200} readOnly={locked} error={show('addressLine')} />
-        <Field id="area" label="Area" value={form.area} onChange={set('area')} maxLength={100} readOnly={locked} error={show('area')} />
+        <Field id="address" label={t('register.addressLine')} value={form.addressLine} onChange={set('addressLine')} maxLength={200} readOnly={locked} error={show('addressLine')} />
+        <Field id="area" label={t('register.area')} value={form.area} onChange={set('area')} maxLength={100} readOnly={locked} error={show('area')} />
         <div className="grid grid-cols-2 gap-3">
-          <Field id="city" label="City" value={form.city} onChange={set('city')} maxLength={60} readOnly={locked} error={show('city')} />
-          <Field id="pincode" label="Pincode" inputMode="numeric" value={form.pincode} onChange={set('pincode')} maxLength={6} readOnly={locked} error={show('pincode')} />
+          <Field id="city" label={t('register.city')} value={form.city} onChange={set('city')} maxLength={60} readOnly={locked} error={show('city')} />
+          <Field id="pincode" label={t('register.pincode')} inputMode="numeric" value={form.pincode} onChange={set('pincode')} maxLength={6} readOnly={locked} error={show('pincode')} />
         </div>
         {locked && (
           <div id="address-locked" className="flex flex-col gap-1 text-sm">
             <p className="text-muted">
-              Your address and pin were verified by our field team, so only they can change them. Moved, or something
-              is wrong? Send them the new one.
+              {t('register.addressLocked')}
             </p>
             <Link
               to="/setup/address"
@@ -568,7 +571,7 @@ export function RegisterDetails({
                 if (dirty && !window.confirm(UNSAVED)) e.preventDefault()
               }}
             >
-              Request address change
+              {t('register.requestAddressChange')}
             </Link>
           </div>
         )}
@@ -576,9 +579,9 @@ export function RegisterDetails({
 
       {locked && shop ? (
         <Card className="flex flex-col gap-2">
-          <p className="font-semibold">Salon location</p>
+          <p className="font-semibold">{t('register.salonLocation')}</p>
           <MapBoundary>
-            <Suspense fallback={<Loading label="Loading the map…" />}>
+            <Suspense fallback={<Loading label={t('register.loadingMap')} />}>
               <PinMap lat={shop.latitude} lng={shop.longitude} />
             </Suspense>
           </MapBoundary>
@@ -587,13 +590,10 @@ export function RegisterDetails({
       <Card className="flex flex-col gap-3">
         <div>
           <p id="salon-location" tabIndex={-1} className="font-semibold outline-none">
-            Salon location
+            {t('register.salonLocation')}
           </p>
           <p className="text-sm text-muted">
-            {searchHidden
-              ? 'Stand inside your salon and tap the button.'
-              : 'Stand inside your salon and tap Use my location, or find it from the address and drag the pin onto your door.'}{' '}
-            Customers nearby find you by this pin; our field team checks it on their visit.
+            {searchHidden ? t('register.locationIntroGpsOnly') : t('register.locationIntro')}
           </p>
         </div>
         {!searchHidden && (
@@ -606,47 +606,47 @@ export function RegisterDetails({
             onClick={searchAddress}
             aria-describedby={needFields ? 'address-search-needs' : undefined}
           >
-            Find my salon on the map
+            {t('register.findOnMap')}
           </Button>
         )}
         {/* One live region for every location message, always there, so screen readers hear each change once */}
         <div aria-live="polite" className="flex flex-col gap-2 empty:hidden">
           {needFields && (
             <p id="address-search-needs" className="text-sm text-muted">
-              Fill in the address, area, city and pincode above to find it on the map.
+              {t('register.findNeedsFields')}
             </p>
           )}
-          {filled && <Banner tone="info" live={false}>{FILLED_TEXT}</Banner>}
+          {filled && <Banner tone="info" live={false}>{filledText()}</Banner>}
           {searchError && <Banner tone="warn" live={false}>{searchError}</Banner>}
           {found && <Banner tone={found === 'EXACT' ? 'info' : 'warn'} live={false}>{precisionHint(found)}</Banner>}
           {addressChanged && (
             <Banner tone="info" live={false}>
-              You changed the address — tap Find my salon on the map again or drag the pin.
+              {t('register.addressChanged')}
             </Banner>
           )}
-          {locError === 'timeout' && <Banner tone="warn" live={false}>That took too long. Turn on GPS and move near the door, then try again.</Banner>}
-          {locError === 'unavailable' && <Banner tone="warn" live={false}>Your phone couldn't find its location. Check that location is on.</Banner>}
-          {locError === 'unsupported' && <Banner tone="bad" live={false}>This browser can't share a location. Open the app in Chrome or Safari.</Banner>}
+          {locError === 'timeout' && <Banner tone="warn" live={false}>{t('register.locTimeout')}</Banner>}
+          {locError === 'unavailable' && <Banner tone="warn" live={false}>{t('register.locUnavailable')}</Banner>}
+          {locError === 'unsupported' && <Banner tone="bad" live={false}>{t('register.locUnsupported')}</Banner>}
         </div>
         {pin && (
           <>
             <MapBoundary>
-              <Suspense fallback={<Loading label="Loading the map…" />}>
+              <Suspense fallback={<Loading label={t('register.loadingMap')} />}>
                 <PinMap lat={pin.lat} lng={pin.lng} zoom={pin.zoom} placement={pin.placement} onMove={moveByHand} />
               </Suspense>
             </MapBoundary>
             <p className="text-sm text-muted">
-              Drag the pin to your door if it's off.
-              {pin.gps && ` GPS was accurate to about ${pin.gps.accuracy} m.`}
-              {moved > 0 && ` Moved ${moved} m from the GPS point.`}
+              {t('register.dragPin')}
+              {pin.gps && ` ${t('register.gpsAccuracy', { metres: String(pin.gps.accuracy) })}`}
+              {moved > 0 && ` ${t('register.pinMoved', { metres: String(moved) })}`}
             </p>
             {pin.gps && pin.gps.accuracy > ROUGH_METRES && (
-              <Banner tone="warn">The phone isn't sure where it is. Go near the door or a window, then take it again.</Banner>
+              <Banner tone="warn">{t('register.gpsRough')}</Banner>
             )}
-            {!insideIndia(pin.lat, pin.lng) && <Banner tone="bad">The pin must be in India.</Banner>}
+            {!insideIndia(pin.lat, pin.lng) && <Banner tone="bad">{t('register.pinInIndia')}</Banner>}
             {checkAddress && (
               <Banner tone="info">
-                The pin moved to where you are. Check that the address above still matches it, and change it if not.
+                {t('register.checkAddressMatches')}
               </Banner>
             )}
           </>
@@ -655,27 +655,26 @@ export function RegisterDetails({
           <LocationGuide onRetry={locate} />
         ) : (
           <Button id="use-my-location" variant={pin ? 'secondary' : 'primary'} busy={locating} disabled={searching} onClick={locate}>
-            {pin?.gps ? 'Take my location again' : 'Use my location'}
+            {pin?.gps ? t('register.takeLocationAgain') : t('register.useMyLocation')}
           </Button>
         )}
-        {touched && !pin && <p className="text-sm text-bad">Add the salon's location to continue.</p>}
+        {touched && !pin && <p className="text-sm text-bad">{t('register.needLocation')}</p>}
       </Card>
       )}
 
       {generalError && <Banner tone="bad">{generalError}</Banner>}
       {confirmRecheck && (
         <Banner tone="warn">
-          Your trade licence is checked again against the new details: customers see "Licensed" again once it
-          passes, usually within a minute. Your salon stays open for bookings. Tap Save again to go ahead.
+          {t('register.confirmRecheck')}
         </Banner>
       )}
-      {saved && <Banner tone="good">{request ? 'Sent to our field team. Your salon keeps its address until they approve it.' : 'Saved.'}</Banner>}
+      {saved && <Banner tone="good">{request ? t('register.sentToFieldTeam') : t('register.saved')}</Banner>}
       <Button busy={busy} onClick={save}>
-        {request ? (request.waiting ? 'Send the changed request' : 'Send to the field team') : edit ? (confirmRecheck ? 'Save and check the licence again' : 'Save') : 'Save and continue'}
+        {request ? (request.waiting ? t('register.sendChangedRequest') : t('register.sendToFieldTeam')) : edit ? (confirmRecheck ? t('register.saveAndRecheck') : t('common.save')) : t('register.saveAndContinue')}
       </Button>
       {!edit && !request && (
         <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
-          Sign out
+          {t('register.signOut')}
         </Button>
       )}
       {!edit && !request && shop && <DraftExits name={shop.name} />}
@@ -688,17 +687,18 @@ export function RegisterDetails({
  * account). An owner can't delete their account while they own a shop.
  */
 function DraftExits({ name }: { name: string }) {
+  const t = useT()
   return (
     <p className="text-center text-sm text-muted">
-      Not going ahead with {name}?{' '}
+      {t('register.draftExitsBefore', { name })}{' '}
       <Link to="/shop/handover" className="text-link underline">
-        Hand it over
+        {t('register.draftExitsHandover')}
       </Link>{' '}
-      or{' '}
+      {t('register.draftExitsOr')}{' '}
       <Link to="/shop/close" className="text-bad underline">
-        close it
+        {t('register.draftExitsClose')}
       </Link>
-      . To delete your account, close it first.
+      {t('register.draftExitsAfter')}
     </p>
   )
 }
@@ -709,6 +709,7 @@ function DraftExits({ name }: { name: string }) {
  * Photos and video, the owner only); the document has its own page there.
  */
 export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const shop = useShop()
@@ -812,36 +813,43 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
   const [videoBusy, setVideoBusy] = useState(false)
   const [docBusy, setDocBusy] = useState(false)
   const done = readyForVisit(shop)
+  const leaveWarning = videoBusy
+    ? t('register.leaveDuringVideo')
+    : docBusy
+      ? t('register.leaveDuringDocument')
+      : photosBusy
+        ? t('register.leaveDuringPhoto')
+        : null
   return (
     <Page
       back={edit ? cameFrom(location, '/setup') : fromReview ? '/register/review' : '/register'}
-      title={edit ? 'Photos and video' : 'Photos and papers'}
-      leaveWarning={videoBusy ? LEAVE_DURING_UPLOAD : docBusy ? LEAVE_DURING_DOCUMENT : photosBusy ? LEAVE_DURING_PHOTO : null}
+      title={edit ? t('register.photosVideoTitle') : t('register.photosPapersTitle')}
+      leaveWarning={leaveWarning}
     >
       {!edit && (
         <Steps
           at={2}
-          leaveWarning={videoBusy ? LEAVE_DURING_UPLOAD : docBusy ? LEAVE_DURING_DOCUMENT : photosBusy ? LEAVE_DURING_PHOTO : null}
+          leaveWarning={leaveWarning}
         />
       )}
       {!edit && shop.statusReason && <SentBack reason={shop.statusReason} />}
       {edit && shop.status === 'APPROVED' && (
         <Banner tone="info">
-          A new photo or video goes to our field team for a check. Your salon stays live and bookable meanwhile.
+          {t('register.newPhotoRecheck')}
         </Banner>
       )}
       {edit && <RecheckWaiting />}
       <PhotoPicker
-        label="Your photo"
-        hint="A clear photo of your face. Only our field team sees it, to know who to meet."
+        label={t('register.yourPhoto')}
+        hint={t('register.yourPhotoHint')}
         capture="user"
         fileId={shop.ownerPhotoFileId}
         upload={(p) => setPhoto('OWNER_PHOTO', p)}
         onBusy={photoBusy}
       />
       <PhotoPicker
-        label="Shop front"
-        hint="From outside, with the board visible. Customers see this photo."
+        label={t('register.shopFront')}
+        hint={t('register.shopFrontHint')}
         capture="environment"
         fileId={shop.shopPhotoFileId}
         upload={(p) => setPhoto('SHOP_PHOTO', p)}
@@ -861,16 +869,14 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
             disabled={!done || videoBusy || docBusy || photosBusy > 0}
             onClick={() => navigate(fromReview ? '/register/review' : '/register/services')}
           >
-            {fromReview ? 'Back to the review' : 'Continue'}
+            {fromReview ? t('register.backToReview') : t('common.continue')}
           </Button>
-          {!done && <p className="text-center text-sm text-muted">Both photos and the salon video are needed.</p>}
+          {!done && <p className="text-center text-sm text-muted">{t('register.photosVideoNeeded')}</p>}
         </>
       )}
     </Page>
   )
 }
-
-const UNSAVED = 'Your changes aren’t saved. Leave anyway?'
 
 /** Where Back goes on an edit page: the screen that opened it (More passes `from`), else `fallback` (the Salon tab). */
 export function cameFrom(location: { state: unknown }, fallback: string): string {
@@ -878,17 +884,14 @@ export function cameFrom(location: { state: unknown }, fallback: string): string
   return typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') ? from : fallback
 }
 
-const LEAVE_DURING_UPLOAD = 'The salon video is still uploading. Leave anyway? It will have to be sent again.'
-const LEAVE_DURING_DOCUMENT = 'The trade licence is still uploading. Leave anyway? It may not be saved.'
-const LEAVE_DURING_PHOTO = 'A photo is still uploading. Leave anyway? It may not be saved.'
-
 /** Step 4: the salon's opening hours and weekly off. */
 export function RegisterHours() {
+  const t = useT()
   const navigate = useNavigate()
   const shop = useShop()
   const hours = useSalonHours()
   return (
-    <Page back="/register/services" title="Opening hours">
+    <Page back="/register/services" title={t('register.openingHours')}>
       <Steps at={4} />
       {shop.statusReason && <SentBack reason={shop.statusReason} />}
       {hours.isPending ? (
@@ -898,13 +901,13 @@ export function RegisterHours() {
       ) : (
         <SalonHoursEditor
           hours={hours.data}
-          saveLabel="Save and continue"
+          saveLabel={t('register.saveAndContinue')}
           onSaved={() => navigate('/register/review')}
         />
       )}
       {hours.data && hours.data.days.length > 0 && (
         <Link to="/register/review" className="text-center text-sm text-link underline">
-          Keep these hours and continue
+          {t('register.keepHours')}
         </Link>
       )}
     </Page>
@@ -916,6 +919,7 @@ export function RegisterHours() {
  * hours), so customers can book his chair too. Once he is one, it says so.
  */
 export function OwnerAsBarber() {
+  const t = useT()
   const qc = useQueryClient()
   const staff = useStaff()
   const phone = useSession((s) => s.user?.phone ?? null)
@@ -931,8 +935,8 @@ export function OwnerAsBarber() {
   if (staff.isError && !staff.data) {
     return (
       <Card>
-        <p className="font-semibold">Do you cut hair here yourself?</p>
-        <ErrorState message={`Couldn't read your barbers. ${messageOf(staff.error)}`} onRetry={() => staff.refetch()} />
+        <p className="font-semibold">{t('register.cutHairQuestion')}</p>
+        <ErrorState message={t('register.barbersReadFailed', { reason: messageOf(staff.error) })} onRetry={() => staff.refetch()} />
       </Card>
     )
   }
@@ -944,8 +948,8 @@ export function OwnerAsBarber() {
         <div ref={answer} tabIndex={-1} role="status" className="outline-none">
           <p className="text-sm">
             {mine.active
-              ? "You're one of the barbers: customers can book your chair. Change your services and hours in the Salon tab → Barbers."
-              : "Your barber profile is switched off, so customers can't book your chair. Switch it on in the Salon tab → Barbers."}
+              ? t('register.youAreBarber')
+              : t('register.barberProfileOff')}
           </p>
         </div>
       </Card>
@@ -954,7 +958,7 @@ export function OwnerAsBarber() {
   if (no) {
     return (
       <div ref={answer} tabIndex={-1} role="status" className="text-sm text-muted outline-none">
-        Only your staff cut hair. If that changes, add yourself in the Salon tab → Barbers.
+        {t('register.onlyStaffCut')}
       </div>
     )
   }
@@ -973,15 +977,14 @@ export function OwnerAsBarber() {
   return (
     <Card className="flex flex-col gap-3">
       <div>
-        <p className="font-semibold">Do you cut hair here yourself?</p>
+        <p className="font-semibold">{t('register.cutHairQuestion')}</p>
         <p className="text-sm text-muted">
-          If yes, we'll add you as a barber, so customers can book your chair too. You'll do all your services in the
-          opening hours; change that any time in the Salon tab → Barbers.
+          {t('register.cutHairBody')}
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <Button busy={busy} onClick={addMe}>
-          Yes, add me
+          {t('register.yesAddMe')}
         </Button>
         <Button
           variant="secondary"
@@ -991,7 +994,7 @@ export function OwnerAsBarber() {
             setAnswered(true)
           }}
         >
-          No, only staff
+          {t('register.noOnlyStaff')}
         </Button>
       </div>
       {error && <Banner tone="bad">{error}</Banner>}
@@ -1001,6 +1004,7 @@ export function OwnerAsBarber() {
 
 /** Step 5: check everything and ask for the field team's visit. */
 export function RegisterReview() {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const shop = useShop()
@@ -1051,53 +1055,53 @@ export function RegisterReview() {
   }
 
   return (
-    <Page back="/register/hours" title="Check and submit">
+    <Page back="/register/hours" title={t('register.reviewTitle')}>
       <Steps at={5} />
       {shop.statusReason && <SentBack reason={shop.statusReason} />}
       <Card className="flex flex-col gap-3">
-        <Line label="Salon" value={shop.name} />
-        <Line label="Owner" value={shop.ownerName} />
-        <Line label="Address" value={`${shop.addressLine}, ${shop.area}, ${shop.city} ${shop.pincode}`} />
+        <Line label={t('register.reviewSalon')} value={shop.name} />
+        <Line label={t('register.reviewOwner')} value={shop.ownerName} />
+        <Line label={t('register.reviewAddress')} value={`${shop.addressLine}, ${shop.area}, ${shop.city} ${shop.pincode}`} />
         <div className="flex flex-col gap-1">
-          <p className="text-sm text-muted">Pin on the map (customers find you here)</p>
+          <p className="text-sm text-muted">{t('register.reviewPin')}</p>
           <MapBoundary>
-            <Suspense fallback={<Loading label="Loading the map…" />}>
+            <Suspense fallback={<Loading label={t('register.loadingMap')} />}>
               <PinMap lat={shop.latitude} lng={shop.longitude} />
             </Suspense>
           </MapBoundary>
         </div>
         <Link to="/register?from=review" className="text-sm text-link underline">
-          Edit details or move the pin
+          {t('register.reviewEditDetails')}
         </Link>
       </Card>
       <Card className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span>Photos: {photos ? 'both added' : 'missing'}</span>
+          <span>{photos ? t('register.reviewPhotosAdded') : t('register.reviewPhotosMissing')}</span>
           <Link to="/register/photos?from=review" className="text-sm text-link underline">
-            {photos ? 'Change' : 'Add'}
+            {photos ? t('common.change') : t('common.add')}
           </Link>
         </div>
         {/* Small, to check the right pictures went in without opening the step */}
         <div className="grid grid-cols-2 gap-2">
-          <Thumb fileId={shop.ownerPhotoFileId} label="Your photo" />
-          <Thumb fileId={shop.shopPhotoFileId} label="Shop front" />
+          <Thumb fileId={shop.ownerPhotoFileId} label={t('register.yourPhoto')} />
+          <Thumb fileId={shop.shopPhotoFileId} label={t('register.shopFront')} />
         </div>
       </Card>
       <Card className="flex items-center justify-between">
-        <span>Salon video: {video ? 'added' : 'missing'}</span>
+        <span>{video ? t('register.reviewVideoAdded') : t('register.reviewVideoMissing')}</span>
         <Link to="/register/photos?from=review" className="text-sm text-link underline">
-          {video ? 'Change' : 'Add'}
+          {video ? t('common.change') : t('common.add')}
         </Link>
       </Card>
       <Card className="flex items-center justify-between gap-2">
-        <span>Trade licence: {doc ? licenceSummary(shop) : 'not added (optional)'}</span>
+        <span>{doc ? t('register.reviewLicence', { summary: licenceSummary(shop) }) : t('register.reviewLicenceNone')}</span>
         <Link to="/register/photos?from=review" className="shrink-0 text-sm text-link underline">
-          {doc ? 'Change' : 'Add'}
+          {doc ? t('common.change') : t('common.add')}
         </Link>
       </Card>
       {(services.isError || hours.isError) && !(services.data && hours.data) && (
         <Banner tone="bad">
-          Couldn't read your services or hours. {messageOf(services.error ?? hours.error)}{' '}
+          {t('register.servicesHoursReadFailed', { reason: messageOf(services.error ?? hours.error) })}{' '}
           <button
             type="button"
             className="underline"
@@ -1106,21 +1110,21 @@ export function RegisterReview() {
               void hours.refetch()
             }}
           >
-            Try again
+            {t('common.retry')}
           </button>
         </Banner>
       )}
       <Card className="flex items-center justify-between">
-        <span>Services: {!services.data ? '…' : offered ? `${offered} added` : 'missing'}</span>
+        <span>{!services.data ? t('register.reviewServicesLoading') : offered ? t('register.reviewServicesAdded', { count: offered }) : t('register.reviewServicesMissing')}</span>
         <Link to="/register/services" className="text-sm text-link underline">
-          {offered ? 'Change' : 'Add'}
+          {offered ? t('common.change') : t('common.add')}
         </Link>
       </Card>
       <Card className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
-          <span>Opening hours{!hours.data ? ': …' : !open.length ? ': missing' : ''}</span>
+          <span>{!hours.data ? t('register.reviewHoursLoading') : !open.length ? t('register.reviewHoursMissing') : t('register.openingHours')}</span>
           <Link to="/register/hours" className="text-sm text-link underline">
-            {open.length ? 'Change' : 'Set'}
+            {open.length ? t('common.change') : t('register.reviewSet')}
           </Link>
         </div>
         {open.length > 0 && weekLines(open, clock12).map((l) => (
@@ -1131,41 +1135,40 @@ export function RegisterReview() {
       </Card>
       <section aria-labelledby="holidays" className="flex flex-col gap-2">
         <h2 id="holidays" className="font-semibold">
-          Festival holidays (optional)
+          {t('register.holidaysTitle')}
         </h2>
         <p className="text-sm text-muted">
-          Days the whole salon is closed, such as Diwali. You can add more later in the Salon tab → Closed days.
+          {t('register.holidaysBody')}
         </p>
         <ClosedDaysEditor optional />
       </section>
       <OwnerAsBarber />
       <p className="text-sm text-muted">
-        After you submit, our field team calls and visits to check the salon. Meanwhile you can add your barbers.
+        {t('register.afterSubmit')}
       </p>
       {error && <Banner tone="bad">{error}</Banner>}
       <Button disabled={!ready} onClick={() => setAsking(true)}>
-        Submit for the visit
+        {t('register.submitForVisit')}
       </Button>
-      <Sheet open={asking} title="Submit for the field visit?" onClose={() => !busy && setAsking(false)}>
+      <Sheet open={asking} title={t('register.submitSheetTitle')} onClose={() => !busy && setAsking(false)}>
         <div className="flex flex-col gap-3">
           <ul className="flex flex-col gap-1 rounded-xl border border-line bg-raised px-4 py-3 text-sm">
             <li className="font-semibold">{shop.name}</li>
             <li className="text-muted">{`${shop.addressLine}, ${shop.area}, ${shop.city} ${shop.pincode}`}</li>
             <li>
-              {offered} {offered === 1 ? 'service' : 'services'} · open {open.length} {open.length === 1 ? 'day' : 'days'} a week
+              {t('register.sheetServices', { count: offered })} · {t('register.sheetOpenDays', { count: open.length })}
             </li>
           </ul>
           <p className="text-muted">
-            After you submit, our field team calls you to fix a time and visits {shop.name}. Customers can book once
-            it's approved.
+            {t('register.sheetBody', { name: shop.name })}
           </p>
-          <p className="text-sm text-muted">Something to fix first? Tap Not yet. You can also change details later.</p>
+          <p className="text-sm text-muted">{t('register.sheetFixFirst')}</p>
           {/* Not yet first: the sheet focuses it, so a held Enter can't submit by itself */}
           <Button variant="secondary" disabled={busy} onClick={() => setAsking(false)}>
-            Not yet
+            {t('register.notYet')}
           </Button>
           <Button busy={busy} onClick={submit}>
-            Yes, submit
+            {t('register.yesSubmit')}
           </Button>
         </div>
       </Sheet>
@@ -1177,6 +1180,7 @@ export function RegisterReview() {
 
 /** A photo, small, on the review step (or a dash while there is none). */
 function Thumb({ fileId, label }: { fileId: string | null; label: string }) {
+  const t = useT()
   const link = usePhotoLink(fileId)
   return (
     <figure className="flex flex-col gap-1">
@@ -1184,7 +1188,7 @@ function Thumb({ fileId, label }: { fileId: string | null; label: string }) {
         {link.data?.url ? (
           <img src={link.data.url} alt={label} className="h-full w-full object-cover" />
         ) : (
-          <span className="text-xs text-muted">{fileId ? '…' : 'Not added'}</span>
+          <span className="text-xs text-muted">{fileId ? '…' : t('register.notAdded')}</span>
         )}
       </div>
       <figcaption className="text-xs text-muted">{label}</figcaption>
@@ -1203,9 +1207,10 @@ function Line({ label, value }: { label: string; value: string }) {
 
 /** The field team sent the registration back: what to fix before submitting again. */
 export function SentBack({ reason }: { reason: string }) {
+  const t = useT()
   return (
     <Banner tone="warn">
-      Our field team asked for a change: {reason} Fix it, then submit again.
+      {t('register.sentBack', { reason })}
     </Banner>
   )
 }

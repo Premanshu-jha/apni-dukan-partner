@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import { useT } from '../i18n'
 
 /**
  * Around a lazily loaded map: if its code can't be fetched (offline, or a tab opened before a deploy whose files are
@@ -12,13 +13,17 @@ export class MapBoundary extends Component<{ children: ReactNode }, { failed: bo
   }
 
   render() {
-    if (this.state.failed) {
-      return (
-        <p role="status" className="rounded-xl border border-line bg-surface p-3 text-sm text-muted">
-          The map couldn't load (no internet?). Reload the page to try again.
-        </p>
-      )
-    }
+    if (this.state.failed) return <Failed />
     return this.props.children
   }
+}
+
+/** What the boundary shows (a component of its own: a class can't use the language hook). */
+function Failed() {
+  const t = useT()
+  return (
+    <p role="status" className="rounded-xl border border-line bg-surface p-3 text-sm text-muted">
+      {t('ui.mapLoadFailed')}
+    </p>
+  )
 }

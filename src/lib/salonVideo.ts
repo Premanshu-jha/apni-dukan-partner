@@ -1,6 +1,7 @@
-import { ApiError } from '../api/errors'
+import { ApiError, messageOf } from '../api/errors'
 import { VideoSendError } from '../api/shop'
 import type { Shop, VideoUploadLink } from '../api/types'
+import { t } from '../i18n'
 
 /** The salon video's limits, as the backend checks them (VideoUploadService). */
 export const VIDEO_MIN_SECONDS = 15
@@ -18,9 +19,21 @@ const TYPES: Record<string, string> = {
 }
 const BY_EXTENSION: Record<string, string> = { mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm' }
 
-export const TOO_BIG = 'This video is too big. Set the camera to 1080p (HD) and record about 30 seconds.'
-export const LENGTH_UNKNOWN = `We couldn't read this video's length. Make sure it's ${VIDEO_MIN_SECONDS}–${VIDEO_MAX_SECONDS} seconds.`
-export const SHOP_CHANGED_AGAIN = 'Your salon was changed on another phone. Reload the page, then add the video again.'
+/** The words in the language shown now (asked for each time, so they follow a change of language). */
+export function tooBig(): string {
+  return t('shop.videoTooBig')
+}
+export function lengthUnknown(): string {
+  return t('shop.videoLengthUnknown', { min: VIDEO_MIN_SECONDS, max: VIDEO_MAX_SECONDS })
+}
+export function shopChangedAgain(): string {
+  return t('shop.videoShopChangedAgain')
+}
+/**
+ * The English of tooBig(), read once when the app loads: only for salonVideo.test.ts, which compares with it. It
+ * does not follow the language: screens use tooBig().
+ */
+export const TOO_BIG = tooBig()
 
 /**
  * The type to send for a picked file: its own type without extras ("video/webm;codecs=vp8"), or from its name when
@@ -46,16 +59,16 @@ export function sentSeconds(seconds: number): number {
  * down (never rounded up into the allowed range).
  */
 export function videoProblem(v: { type: string | null; size: number; seconds: number | null }): string | null {
-  if (!v.type) return 'Pick a video (MP4, MOV or WebM).'
-  if (v.size > VIDEO_MAX_BYTES) return TOO_BIG
+  if (!v.type) return t('shop.videoPickVideo')
+  if (v.size > VIDEO_MAX_BYTES) return tooBig()
   if (v.seconds === null) return null
   const sent = sentSeconds(v.seconds)
   const shown = Math.floor(v.seconds)
   if (sent < VIDEO_MIN_SECONDS - SLACK_SECONDS) {
-    return `This video is ${shown} seconds. Record at least ${VIDEO_MIN_SECONDS} seconds: start outside at the board, then walk in and turn slowly.`
+    return t('shop.videoTooShort', { seconds: String(shown), min: VIDEO_MIN_SECONDS })
   }
   if (sent > VIDEO_MAX_SECONDS + SLACK_SECONDS) {
-    return `This video is ${shown} seconds. Keep it under ${VIDEO_MAX_SECONDS} seconds — about 30 is ideal.`
+    return t('shop.videoTooLong', { seconds: String(shown), max: VIDEO_MAX_SECONDS })
   }
   return null
 }
@@ -125,30 +138,30 @@ export function refusedForGood(e: unknown): boolean {
 /** The words for a failed video step (asking for the link, the upload itself, or recording it). */
 export function videoErrorText(e: unknown): string {
   if (e instanceof VideoSendError) {
-    return e.linkExpired ? 'The upload took too long. Tap Try again.' : "The video didn't go through. Tap Try again."
+    return e.linkExpired ? t('shop.videoUploadTooLong') : t('shop.videoDidntGoThrough')
   }
-  if (!(e instanceof ApiError)) return 'Something went wrong. Tap Try again.'
+  if (!(e instanceof ApiError)) return t('shop.videoSomethingWrong')
   switch (e.code) {
     case 'NETWORK':
-      return "The upload stopped: you're offline or the network dropped. Tap Try again."
+      return t('shop.videoOffline')
     case 'FILE_TOO_LARGE':
-      return TOO_BIG
+      return tooBig()
     case 'VALIDATION_FAILED':
-      return `Keep the video between ${VIDEO_MIN_SECONDS} and ${VIDEO_MAX_SECONDS} seconds — about 30 is ideal.`
+      return t('shop.videoKeepBetween', { min: VIDEO_MIN_SECONDS, max: VIDEO_MAX_SECONDS })
     case 'UNSUPPORTED_FILE_TYPE':
-      return "That file isn't a video we can use. Record it again with the phone's camera."
+      return t('shop.videoNotUsable')
     case 'UPLOAD_SIZE_MISMATCH':
     case 'UPLOAD_NOT_FINISHED':
-      return "The video didn't arrive whole. Tap Try again."
+      return t('shop.videoNotWhole')
     case 'UPLOAD_EXPIRED':
     case 'UPLOAD_NOT_FOUND':
-      return 'The upload took too long. Tap Try again to send it again.'
+      return t('shop.videoUploadTooLongAgain')
     case 'UPLOAD_GONE':
-      return 'This video expired. Upload it again.'
+      return t('shop.videoExpired')
     case 'SHOP_CHANGED':
-      return SHOP_CHANGED_AGAIN
+      return shopChangedAgain()
     default:
-      return e.message
+      return messageOf(e)
   }
 }
 

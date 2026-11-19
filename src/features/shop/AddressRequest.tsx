@@ -5,6 +5,7 @@ import { messageOf } from '../../api/errors'
 import { shopApi, shopKeys, useAddressRequest, useShop } from '../../api/shop'
 import type { AddressRequest } from '../../api/types'
 import { Banner, Button, Card, ErrorState, Loading } from '../../components/ui'
+import { useT } from '../../i18n'
 import { dateTimeIst } from '../../lib/ist'
 import { RegisterDetails } from './Register'
 
@@ -15,6 +16,7 @@ import { RegisterDetails } from './Register'
  * address itself in Salon details.
  */
 export function AddressRequestPage() {
+  const t = useT()
   const shop = useShop()
   const qc = useQueryClient()
   const latest = useAddressRequest(Boolean(shop.addressLocked))
@@ -56,24 +58,22 @@ export function AddressRequestPage() {
     <>
       {waiting && (
         <Card className="flex flex-col gap-2 border-brand/40">
-          <p className="font-semibold">{justSent ? 'Sent to our field team' : 'Waiting for our field team'}</p>
+          <p className="font-semibold">{justSent ? t('shop.addressSentToTeam') : t('shop.addressWaitingForTeam')}</p>
           <p className="text-sm break-words">
-            New address: {waiting.addressLine}, {waiting.area}, {waiting.city} {waiting.pincode}
+            {t('shop.addressNew', { addressLine: waiting.addressLine, area: waiting.area, city: waiting.city, pincode: waiting.pincode })}
           </p>
           <p className="text-sm text-muted">
-            Asked {dateTimeIst(waiting.createdAt)}. Until they approve it, customers see your salon at{' '}
-            {shop.addressLine}, {shop.area} and can book as usual. Change it below, or:
+            {t('shop.addressAskedUntilApproved', { date: dateTimeIst(waiting.createdAt), addressLine: shop.addressLine, area: shop.area })}
           </p>
           {error && <Banner tone="bad">{error}</Banner>}
           <Button variant="secondary" busy={cancelling} onClick={cancel}>
-            Cancel the request
+            {t('shop.addressCancelRequest')}
           </Button>
         </Card>
       )}
       {request?.status === 'DECLINED' && (
         <Banner tone="warn" live={false}>
-          Your last request ({request.addressLine}) wasn't approved: “{request.reason}” Your address stays as it was; you
-          can send a new one below.
+          {t('shop.addressDeclined', { addressLine: request.addressLine, reason: request.reason ?? '' })}
         </Banner>
       )}
     </>

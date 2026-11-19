@@ -2,14 +2,15 @@ import { useNavigate } from 'react-router'
 import { INBOX_MAX_PAGES, useInbox, useMarkRead, type InboxItem } from '../../api/notifications'
 import { messageOf } from '../../api/errors'
 import { Button, EmptyState, ErrorState, Loading, Page } from '../../components/ui'
+import { t, useT } from '../../i18n'
 import { dateTimeIst, minutesUntil } from '../../lib/ist'
 
 /** "Just now", "12 min ago", "3 h ago", else the date and time. */
 function when(sentAt: string): string {
   const ago = -minutesUntil(sentAt)
-  if (ago < 1) return 'Just now'
-  if (ago < 60) return `${ago} min ago`
-  if (ago < 24 * 60) return `${Math.floor(ago / 60)} h ago`
+  if (ago < 1) return t('notifications.justNow')
+  if (ago < 60) return t('notifications.minAgo', { minutes: ago })
+  if (ago < 24 * 60) return t('notifications.hoursAgo', { hours: Math.floor(ago / 60) })
   return dateTimeIst(sentAt)
 }
 
@@ -76,6 +77,7 @@ export function safePath(url: string | null): string | null {
 }
 
 export function Inbox() {
+  const t = useT()
   const navigate = useNavigate()
   const inbox = useInbox()
   const markRead = useMarkRead()
@@ -89,10 +91,10 @@ export function Inbox() {
   }
 
   return (
-    <Page back="/salon/day" title="Messages">
+    <Page back="/salon/day" title={t('notifications.title')}>
       {unread > 0 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted">{unread > 99 ? '99+' : unread} unread</p>
+          <p className="text-sm text-muted">{t('notifications.unreadCount', { count: unread > 99 ? '99+' : unread })}</p>
           <button
             type="button"
             className="text-sm font-semibold text-link disabled:opacity-50"
@@ -105,7 +107,7 @@ export function Inbox() {
               else void inbox.refetch()
             }}
           >
-            Mark all read
+            {t('notifications.markAllRead')}
           </button>
         </div>
       )}
@@ -114,7 +116,7 @@ export function Inbox() {
       ) : inbox.isError ? (
         <ErrorState message={messageOf(inbox.error)} onRetry={() => inbox.refetch()} />
       ) : items.length === 0 ? (
-        <EmptyState title="No messages yet" body="New bookings, changes, cancellations and news about your salon show up here." />
+        <EmptyState title={t('notifications.noneTitle')} body={t('notifications.noneBody')} />
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((m) => (
@@ -135,7 +137,7 @@ export function Inbox() {
                     <span className={m.read ? 'font-medium' : 'font-semibold'}>{m.title}</span>
                     {!m.read && (
                       <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent">
-                        <span className="sr-only">Unread</span>
+                        <span className="sr-only">{t('notifications.unread')}</span>
                       </span>
                     )}
                   </span>
@@ -149,13 +151,13 @@ export function Inbox() {
       )}
       {inbox.hasNextPage && (
         <Button variant="secondary" busy={inbox.isFetchingNextPage} onClick={() => inbox.fetchNextPage()}>
-          Show older
+          {t('notifications.showOlder')}
         </Button>
       )}
       {inbox.data && inbox.data.pages.length >= INBOX_MAX_PAGES && inbox.data.pages[inbox.data.pages.length - 1].next && (
-        <p className="text-center text-sm text-muted">Showing the latest {items.length} messages.</p>
+        <p className="text-center text-sm text-muted">{t('notifications.showingLatest', { count: items.length })}</p>
       )}
-      <p className="text-center text-xs text-muted">Messages are kept for 90 days.</p>
+      <p className="text-center text-xs text-muted">{t('notifications.keptFor')}</p>
     </Page>
   )
 }

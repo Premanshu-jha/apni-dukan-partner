@@ -7,6 +7,7 @@ import { isApiError, messageOf } from '../../api/errors'
 import { shopApi, shopKeys, useIncomingHandovers, useMyShop } from '../../api/shop'
 import type { IncomingHandover, Shop } from '../../api/types'
 import { Banner, Button, Card, EmptyState, ErrorState, Loading, Page, Sheet } from '../../components/ui'
+import { useT } from '../../i18n'
 import { dateTimeIst } from '../../lib/ist'
 import { useSession } from '../../store/session'
 import { rememberReturn } from '../auth/flow'
@@ -18,6 +19,7 @@ import { goneText, shopChanged } from './ownership'
  * Nothing is drawn while there are none, unless `page` (then it says so).
  */
 export function HandoverOffers({ page = false }: { page?: boolean }) {
+  const t = useT()
   const incoming = useIncomingHandovers()
   const [note, setNote] = useState<string | null>(null)
   if (incoming.isPending) return page ? <Loading /> : null
@@ -29,13 +31,14 @@ export function HandoverOffers({ page = false }: { page?: boolean }) {
     <>
       {note && <Banner tone="info">{note}</Banner>}
       {list.length === 0
-        ? page && <EmptyState title="No requests waiting" body="When a shop owner asks you to take over their shop, it shows here." />
+        ? page && <EmptyState title={t('shop.offersNoneTitle')} body={t('shop.offersNoneBody')} />
         : list.map((h) => <Offer key={h.id} offer={h} onNote={setNote} />)}
     </>
   )
 }
 
 function Offer({ offer, onNote }: { offer: IncomingHandover; onNote: (text: string | null) => void }) {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const mine = useMyShop().data ?? null
@@ -56,7 +59,7 @@ function Offer({ offer, onNote }: { offer: IncomingHandover; onNote: (text: stri
         const { shop, renewed } = await shopApi.accept(offer.id)
         if (!renewed) {
           setUnrenewed(shop)
-          setError("You're the owner now, but this phone couldn't renew its sign-in. Check the connection and tap Try again.")
+          setError(t('shop.offerOwnerNotRenewed'))
           return
         }
         open(shop)
@@ -64,22 +67,22 @@ function Offer({ offer, onNote }: { offer: IncomingHandover; onNote: (text: stri
       }
       await shopApi.decline(offer.id)
       qc.setQueryData<IncomingHandover[]>(shopKeys.incoming, (l) => (l ?? []).filter((h) => h.id !== offer.id))
-      onNote(`You declined. ${offer.ownerName} has been told.`)
+      onNote(t('shop.offerDeclined', { ownerName: offer.ownerName }))
     } catch (e) {
       if (isApiError(e, 'HANDOVER_GONE') || isApiError(e, 'HANDOVER_NOT_FOUND')) {
         // Answered, cancelled, run out or the shop closed meanwhile: it leaves the list, and the reason stays
-        onNote(isApiError(e, 'HANDOVER_GONE') ? goneText(e.details.status) : "This request isn't open for your number any more.")
+        onNote(isApiError(e, 'HANDOVER_GONE') ? goneText(e.details.status) : t('shop.offerNotOpenForNumber'))
         setAsking(false)
         void qc.invalidateQueries({ queryKey: shopKeys.incoming })
       } else if (isApiError(e, 'PROFILE_INCOMPLETE')) {
         // The saved profile was out of date: read it again; the sign-in steps ask for what's missing, then come back
         // to the requests (on /handover first, so that is where the steps return to)
         rememberReturn('/handover')
-        setError('Finish your profile (a verified email and your name) first.')
+        setError(t('shop.offerFinishProfile'))
         navigate('/handover')
         void authApi.me().then(setUser).catch(() => {})
       } else if (isApiError(e, 'ALREADY_IN_A_SHOP')) {
-        setError(`${messageOf(e)}${mine ? ` You can leave ${mine.name} from More.` : ''}`)
+        setError(`${messageOf(e)}${mine ? ` ${t('shop.leaveShopFromMore', { name: mine.name })}` : ''}`)
       } else {
         setError(messageOf(e))
       }
@@ -103,10 +106,10 @@ function Offer({ offer, onNote }: { offer: IncomingHandover; onNote: (text: stri
   if (unrenewed) {
     return (
       <Card className="flex flex-col gap-3 border-brand/50">
-        <p className="text-lg font-semibold">{offer.shopName} is yours</p>
+        <p className="text-lg font-semibold">{t('shop.offerShopIsYours', { shopName: offer.shopName })}</p>
         <Banner tone="warn">{error}</Banner>
         <Button busy={busy === 'accept'} onClick={renewAgain}>
-          Try again
+          {t('common.retry')}
         </Button>
       </Card>
     )
@@ -114,34 +117,31 @@ function Offer({ offer, onNote }: { offer: IncomingHandover; onNote: (text: stri
 
   return (
     <Card className="flex flex-col gap-3 border-brand/50">
-      <p className="text-lg font-semibold">Take over {offer.shopName}?</p>
+      <p className="text-lg font-semibold">{t('shop.offerTakeOver', { shopName: offer.shopName })}</p>
       <p className="text-sm">
-        {offer.ownerName}, the owner of {offer.shopName} (shop code {offer.shopCode}, {offer.area}, {offer.city}), wants to
-        hand the shop over to you.
+        {t('shop.offerBody', { ownerName: offer.ownerName, shopName: offer.shopName, shopCode: String(offer.shopCode), area: offer.area, city: offer.city })}
       </p>
-      <p className="text-xs text-muted">Asked on {dateTimeIst(offer.createdAt)}; open until {dateTimeIst(offer.expiresAt)}.</p>
+      <p className="text-xs text-muted">{t('shop.offerAskedOpenUntil', { asked: dateTimeIst(offer.createdAt), until: dateTimeIst(offer.expiresAt) })}</p>
       {error && !asking && <Banner tone="bad">{error}</Banner>}
       <div className="flex gap-2">
         <Button className="flex-1" onClick={() => setAsking(true)} disabled={busy !== null}>
-          Accept
+          {t('shop.accept')}
         </Button>
         <Button variant="secondary" className="flex-1" busy={busy === 'decline'} disabled={busy === 'accept'} onClick={() => answer('decline')}>
-          Decline
+          {t('shop.decline')}
         </Button>
       </div>
-      <Sheet open={asking} title={`Become the owner of ${offer.shopName}?`} onClose={() => (busy ? undefined : setAsking(false))}>
+      <Sheet open={asking} title={t('shop.offerBecomeOwnerTitle', { shopName: offer.shopName })} onClose={() => (busy ? undefined : setAsking(false))}>
         <div className="flex flex-col gap-3">
           <p className="text-muted">
-            You become its owner: its details, photos, bookings and team are yours to run. {offer.ownerName} leaves the shop.
-            {sameShop ? ' You stay in it, as the owner now.' : ''} Check the owner's name and photo afterwards (a new photo
-            means our team checks the shop again).
+            {t(sameShop ? 'shop.offerBecomeOwnerBodySameShop' : 'shop.offerBecomeOwnerBody', { ownerName: offer.ownerName })}
           </p>
           {error && <Banner tone="bad">{error}</Banner>}
           <Button busy={busy === 'accept'} onClick={() => answer('accept')}>
-            Accept and become the owner
+            {t('shop.offerAcceptBecomeOwner')}
           </Button>
           <Button variant="secondary" disabled={busy !== null} onClick={() => setAsking(false)}>
-            Not now
+            {t('shop.notNow')}
           </Button>
         </div>
       </Sheet>
@@ -151,8 +151,9 @@ function Offer({ offer, onNote }: { offer: IncomingHandover; onNote: (text: stri
 
 /** /handover: where the "A shop for you" message opens, with or without a shop. */
 export function HandoverPage() {
+  const t = useT()
   return (
-    <Page back="/" title="Take over a shop">
+    <Page back="/" title={t('shop.offersPageTitle')}>
       <HandoverOffers page />
     </Page>
   )

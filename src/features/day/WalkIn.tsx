@@ -5,6 +5,7 @@ import { ApiError, explain, isApiError, messageOf } from '../../api/errors'
 import { dayApi, salonKeys, useServices, refreshSalonWork } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import { Banner, Button, Card, EmptyState, ErrorState, Field, Loading, Page } from '../../components/ui'
+import { useT } from '../../i18n'
 import { clock12 } from '../../lib/ist'
 import { duration, rupees } from '../../lib/money'
 import { ServiceIcon } from '../../components/ServiceIcon'
@@ -21,6 +22,7 @@ import { newIdempotencyKey } from './status'
 const MAX_SERVICES = 10
 
 export function WalkIn() {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const shop = useShop()
@@ -82,7 +84,7 @@ export function WalkIn() {
   async function add() {
     if (!staffId || busy) return
     if (name.trim().length === 1) {
-      setError('Write at least 2 letters of the name, or leave it empty.')
+      setError(t('day.walkInNameTooShort'))
       return
     }
     setBusy(true)
@@ -104,7 +106,7 @@ export function WalkIn() {
         setToldPrice(typeof now === 'number' ? now : null)
         setError(
           typeof now === 'number'
-            ? `The price changed just now (an offer started or ended): it's ${rupees(now, total.priceIsFrom)} now. Check it with the customer, then tap Start again.`
+            ? t('day.walkInPriceChanged', { price: rupees(now, total.priceIsFrom) })
             : explain(e),
         )
         void prices.refetch()
@@ -128,55 +130,57 @@ export function WalkIn() {
     }
   }
 
-  if (shop.status === 'SUSPENDED') return <Page back="/salon/day" title="New walk-in"><Banner tone="bad">The salon is off the app.</Banner></Page>
+  if (shop.status === 'SUSPENDED') return <Page back="/salon/day" title={t('day.walkInTitle')}><Banner tone="bad">{t('day.walkInSuspended')}</Banner></Page>
 
   return (
     <Page
       back="/salon/day"
-      title="New walk-in"
+      title={t('day.walkInTitle')}
       footer={
         active.length > 0 && !notAllowed ? (
           <div className="flex flex-col gap-2">
-            <div role="status" aria-label="Total" className="flex flex-col">
+            <div role="status" aria-label={t('day.walkInTotalLabel')} className="flex flex-col">
               {total.count ? (
                 <>
                   <p className="font-semibold">
-                    Total: {total.count} {total.count === 1 ? 'service' : 'services'} ·{' '}
+                    {t('day.walkInTotal', { count: total.count })} ·{' '}
                     {total.listPricePaise != null && (
                       <>
                         <s className="font-normal text-muted">
-                          <span className="sr-only">was </span>
+                          <span className="sr-only">{t('day.srWas')} </span>
                           {rupees(total.listPricePaise, total.priceIsFrom)}
                         </s>{' '}
-                        <span className="sr-only">now </span>
+                        <span className="sr-only">{t('day.srNow')} </span>
                       </>
                     )}
                     <span className={total.listPricePaise != null ? 'text-accent' : ''}>{rupees(total.pricePaise, total.priceIsFrom)}</span>
                   </p>
                   <p className="text-sm text-muted">
-                    About {duration(total.minutes)}
-                    {total.listPricePaise != null &&
-                      (total.offerUntil ? ` · the salon's offer price till ${clock12(total.offerUntil)}` : " · the salon's offer price today")}
+                    {total.listPricePaise == null
+                      ? t('day.walkInAbout', { duration: duration(total.minutes) })
+                      : total.offerUntil
+                        ? t('day.walkInAboutOfferTill', { duration: duration(total.minutes), time: clock12(total.offerUntil) })
+                        : t('day.walkInAboutOfferToday', { duration: duration(total.minutes) })}
                   </p>
                 </>
               ) : (
-                <p className="text-sm text-muted">Tick what they want: the total shows here.</p>
+                <p className="text-sm text-muted">{t('day.walkInTickHint')}</p>
               )}
               {pricesUnknown &&
                 (prices.isError ? (
                   <p className="text-sm text-warn">
-                    Couldn't check the salon's offer, so these are the usual prices.{' '}
+                    {t('day.walkInOfferUnchecked')}{' '}
                     <button type="button" className="font-medium text-link underline" onClick={() => void prices.refetch()}>
-                      Check again
+                      {t('day.walkInCheckAgain')}
                     </button>
                   </p>
                 ) : (
-                  <p className="text-sm text-muted">Checking the salon's offer…</p>
+                  <p className="text-sm text-muted">{t('day.walkInCheckingOffer')}</p>
                 ))}
             </div>
             {option && (
               <Button busy={busy} onClick={add}>
-                Start now with {option.name}
+                {t('day.walkInStartWith', { name: option.name })}
               </Button>
             )}
           </div>
@@ -188,14 +192,14 @@ export function WalkIn() {
       ) : services.isError ? (
         <ErrorState message={messageOf(services.error)} onRetry={() => services.refetch()} />
       ) : active.length === 0 ? (
-        <EmptyState title="No services yet" body="The owner adds services under Salon." />
+        <EmptyState title={t('day.walkInNoServicesTitle')} body={t('day.walkInNoServicesBody')} />
       ) : notAllowed ? (
-        <EmptyState title="Walk-ins need the owner's OK" body="Ask the owner to turn on walk-ins for you in Team." />
+        <EmptyState title={t('day.walkInNotAllowedTitle')} body={t('day.walkInNotAllowedBody')} />
       ) : (
         <>
-          <section className="flex flex-col gap-2" aria-label="Services">
-            <p className="text-sm font-medium text-muted">What do they want?</p>
-            {full && <p className="text-sm text-muted">At most {MAX_SERVICES} services in one walk-in: untick one to choose another.</p>}
+          <section className="flex flex-col gap-2" aria-label={t('day.services')}>
+            <p className="text-sm font-medium text-muted">{t('day.walkInWhat')}</p>
+            {full && <p className="text-sm text-muted">{t('day.walkInMaxServices', { max: MAX_SERVICES })}</p>}
             {active.map((s) => {
               const p = priceNow(s, pricesNow)
               return (
@@ -215,14 +219,14 @@ export function WalkIn() {
                   {p.listPricePaise != null ? (
                     <span className="text-right">
                       <s className="block text-sm text-muted">
-                        <span className="sr-only">was </span>
+                        <span className="sr-only">{t('day.srWas')} </span>
                         {rupees(p.listPricePaise, s.priceIsFrom)}
                       </s>
                       <span className="font-semibold text-accent">
-                        <span className="sr-only">now </span>
+                        <span className="sr-only">{t('day.srNow')} </span>
                         {rupees(p.pricePaise, s.priceIsFrom)}
                       </span>
-                      <span className="block text-xs text-muted">{p.offerUntil ? `offer till ${clock12(p.offerUntil)}` : 'offer today'}</span>
+                      <span className="block text-xs text-muted">{p.offerUntil ? t('day.offerTill', { time: clock12(p.offerUntil) }) : t('day.offerToday')}</span>
                     </span>
                   ) : (
                     <span className="font-semibold">{rupees(p.pricePaise, s.priceIsFrom)}</span>
@@ -233,16 +237,16 @@ export function WalkIn() {
           </section>
 
           {picked.length > 0 && (
-            <section className="flex flex-col gap-2" aria-label="Barber">
-              <p className="text-sm font-medium text-muted">Who?</p>
+            <section className="flex flex-col gap-2" aria-label={t('day.barber')}>
+              <p className="text-sm font-medium text-muted">{t('day.walkInWho')}</p>
               {options.isPending ? (
                 <Loading />
               ) : nobody ? (
-                <Banner tone="warn">No barber does all of these together. Add them as separate walk-ins.</Banner>
+                <Banner tone="warn">{t('day.walkInNoBarberTogether')}</Banner>
               ) : options.isError ? (
                 <ErrorState message={explain(options.error)} onRetry={() => options.refetch()} />
               ) : options.data.length === 0 ? (
-                <Banner tone="warn">No barber does all of these services.</Banner>
+                <Banner tone="warn">{t('day.walkInNoBarber')}</Banner>
               ) : (
                 options.data.map((o) => (
                   <button
@@ -258,7 +262,7 @@ export function WalkIn() {
                   >
                     <span className="font-medium">{o.name}</span>
                     <span className="text-sm text-muted">
-                      {o.freeNow ? 'Free now' : o.time ? `Busy · free at ${clock12(o.time)}` : 'No time left today'}
+                      {o.freeNow ? t('day.freeNow') : o.time ? t('day.busyFreeAt', { time: clock12(o.time) }) : t('day.noTimeLeftToday')}
                     </span>
                   </button>
                 ))
@@ -268,10 +272,10 @@ export function WalkIn() {
 
           {option && (
             <Card className="flex flex-col gap-3">
-              <Field id="guest-name" label="Customer's name (optional)" value={name} maxLength={60} disabled={held} onChange={(e) => setName(e.target.value)} />
-              {held && <Banner tone="warn">We couldn't tell if it was added. Try again: it won't be added twice.</Banner>}
+              <Field id="guest-name" label={t('day.walkInNameLabel')} value={name} maxLength={60} disabled={held} onChange={(e) => setName(e.target.value)} />
+              {held && <Banner tone="warn">{t('day.walkInHeld')}</Banner>}
               {error && <Banner tone="bad">{error}</Banner>}
-              <p className="text-sm text-muted">Check the total below, then tap Start.</p>
+              <p className="text-sm text-muted">{t('day.walkInCheckTotal')}</p>
             </Card>
           )}
           {error && !option && <Banner tone="bad">{error}</Banner>}

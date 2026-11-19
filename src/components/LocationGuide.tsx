@@ -1,35 +1,37 @@
 import { Button } from './ui'
+import { useT } from '../i18n'
 import { platform } from '../lib/device'
 
 /** Shown when the browser has blocked location for this site: how to turn it on, for the person's phone. */
 export function LocationGuide({ onRetry }: { onRetry: () => void }) {
+  const t = useT()
   const p = platform()
   const steps =
     p === 'ios'
       ? [
-          'Open the Settings app on your iPhone.',
-          'Tap Privacy & Security, then Location Services, and make sure it is on.',
-          'Scroll down to Safari Websites (or your browser) and choose "While Using the App".',
-          'Come back here and reload the page, then tap Try again.',
+          t('ui.locationIosSettings'),
+          t('ui.locationIosServices'),
+          t('ui.locationIosBrowser'),
+          t('ui.locationIosReturn'),
         ]
       : p === 'android'
         ? [
-            'Tap the icon at the left of the address bar (a lock or two sliders).',
-            'Tap Permissions, then Location, and choose Allow.',
-            'Check that Location is on in your phone’s quick settings (swipe down from the top).',
-            'Come back here and tap Try again.',
+            t('ui.locationAndroidIcon'),
+            t('ui.locationAndroidAllow'),
+            t('ui.locationAndroidQuickSettings'),
+            t('ui.locationAndroidReturn'),
           ]
         : [
-            'Click the icon at the left of the address bar.',
-            'Find Location and set it to Allow.',
-            'Reload the page and click Try again.',
-            'A computer can only guess where it is: register from your phone, standing in the salon.',
+            t('ui.locationDesktopIcon'),
+            t('ui.locationDesktopAllow'),
+            t('ui.locationDesktopReload'),
+            t('ui.locationDesktopUsePhone'),
           ]
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <p className="font-semibold">Location is turned off</p>
-        <p className="text-sm text-muted">Customers find your salon by its location. Here's how to turn it on:</p>
+        <p className="font-semibold">{t('ui.locationOffTitle')}</p>
+        <p className="text-sm text-muted">{t('ui.locationOffBody')}</p>
       </div>
       <ol className="flex flex-col gap-2">
         {steps.map((s, i) => (
@@ -42,7 +44,7 @@ export function LocationGuide({ onRetry }: { onRetry: () => void }) {
         ))}
       </ol>
       <Button variant="secondary" onClick={onRetry}>
-        Try again
+        {t('common.retry')}
       </Button>
     </div>
   )

@@ -5,6 +5,7 @@ import { salonKeys, setupApi, useServices, type ServiceIn, refreshSalonWork, SET
 import { useShop } from '../../api/shop'
 import type { ServiceItem } from '../../api/types'
 import { Banner, Button, EmptyState, ErrorState, Field, Loading, Page, Pill, Sheet, Switch } from '../../components/ui'
+import { t, useT } from '../../i18n'
 import { duration, rupees } from '../../lib/money'
 import { can } from '../../lib/roles'
 import { ServiceIcon } from '../../components/ServiceIcon'
@@ -35,15 +36,15 @@ export function toPaise(text: string): number | null {
 
 export function checkService(f: Form): { name?: string; minutes?: string; rupees?: string; returnDays?: string } {
   const e: { name?: string; minutes?: string; rupees?: string; returnDays?: string } = {}
-  if (f.name.trim().length < 2 || f.name.trim().length > 60) e.name = 'A name of 2 to 60 letters'
+  if (f.name.trim().length < 2 || f.name.trim().length > 60) e.name = t('setup.svcNameLength')
   // The backend's text rule (TextCleaner): at least 2 letters or digits ("--" or "A." isn't a name)
-  else if ((f.name.match(/[\p{L}\p{N}]/gu) ?? []).length < 2) e.name = 'A name with at least 2 letters or digits'
+  else if ((f.name.match(/[\p{L}\p{N}]/gu) ?? []).length < 2) e.name = t('setup.svcNameLetters')
   const m = Number(f.minutes)
-  if (!Number.isInteger(m) || m < 5 || m > 480 || m % 5 !== 0) e.minutes = 'From 5 to 480 minutes, in steps of 5'
+  if (!Number.isInteger(m) || m < 5 || m > 480 || m % 5 !== 0) e.minutes = t('setup.svcMinutesError')
   const p = toPaise(f.rupees)
-  if (p === null || p > 10_000_000) e.rupees = 'A price in rupees, up to ₹1,00,000'
+  if (p === null || p > 10_000_000) e.rupees = t('setup.svcPriceError')
   const r = Number(f.returnDays)
-  if (f.returnDays.trim() === '' || !Number.isInteger(r) || r < 0 || r > 180) e.returnDays = 'From 0 (never) to 180 days'
+  if (f.returnDays.trim() === '' || !Number.isInteger(r) || r < 0 || r > 180) e.returnDays = t('setup.svcReturnError')
   return e
 }
 
@@ -74,8 +75,8 @@ export function pickedIcon(f: Pick<Form, 'name' | 'icon' | 'savedName'>): Servic
 /** "Reminds after 3 weeks" for a list line; null when it never reminds. */
 export function comeBackText(days: number): string | null {
   if (days === 0) return null
-  if (days % 7 === 0) return `back in ${days / 7} week${days === 7 ? '' : 's'}`
-  return `back in ${days} day${days === 1 ? '' : 's'}`
+  if (days % 7 === 0) return t('setup.backInWeeks', { count: days / 7 })
+  return t('setup.backInDays', { count: days })
 }
 
 /** Remembers on this phone that the owner saw the note about the second set of service pictures (0.25.0). */
@@ -91,6 +92,7 @@ function picturesNoteSeen(): boolean {
 
 /** The salon's services: what customers can book, how long each takes and its price. */
 export function Services() {
+  const t = useT()
   const qc = useQueryClient()
   const shop = useShop()
   const edit = can(shop.myRole).editSetup
@@ -123,7 +125,7 @@ export function Services() {
   }
 
   return (
-    <Page back="/setup" title="Services and prices">
+    <Page back="/setup" title={t('setup.servicesTitle')}>
       {services.isPending ? (
         <Loading />
       ) : services.isError ? (
@@ -133,14 +135,14 @@ export function Services() {
           {error && <Banner tone="bad">{error}</Banner>}
           {edit && services.data.length > 0 && !picturesNoted && (
             <Banner live={false}>
-              <p>The service pictures are new: each service comes with the one that shows it. Tap a service to see or change it.</p>
+              <p>{t('setup.picturesNote')}</p>
               <button type="button" className="mt-1 font-medium text-link underline" onClick={hidePicturesNote}>
-                Got it
+                {t('setup.gotIt')}
               </button>
             </Banner>
           )}
           {services.data.length === 0 ? (
-            <EmptyState title="No services yet" body={edit ? 'Add what you offer, like Haircut ₹200 for 30 minutes.' : undefined} />
+            <EmptyState title={t('setup.noServices')} body={edit ? t('setup.noServicesBody') : undefined} />
           ) : (
             <ul className="flex flex-col gap-2">
               {services.data.map((s) => (
@@ -154,20 +156,20 @@ export function Services() {
                   >
                     <span className="flex items-center gap-2">
                       <span className="truncate font-semibold">{s.name}</span>
-                      {!s.active && <Pill tone="muted">Off</Pill>}
+                      {!s.active && <Pill tone="muted">{t('setup.off')}</Pill>}
                     </span>
                     <span className="text-sm text-muted">
                       {duration(s.durationMinutes)} · {rupees(s.pricePaise, s.priceIsFrom)}
                       {comeBackText(s.returnAfterDays ?? 14) && ` · ${comeBackText(s.returnAfterDays ?? 14)}`}
                     </span>
                   </button>
-                  {edit && <Switch label={`${s.name} on offer`} checked={s.active} disabled={busyId === s.id} onChange={(on) => toggle(s, on)} />}
+                  {edit && <Switch label={t('setup.serviceOnOffer', { name: s.name })} checked={s.active} disabled={busyId === s.id} onChange={(on) => toggle(s, on)} />}
                 </li>
               ))}
             </ul>
           )}
-          {edit && <Button onClick={() => setEditing('new')}>+ Add a service</Button>}
-          <p className="text-xs text-muted">Switched-off services can't be booked; old bookings keep their names.</p>
+          {edit && <Button onClick={() => setEditing('new')}>{t('setup.addService')}</Button>}
+          <p className="text-xs text-muted">{t('setup.offServicesNote')}</p>
         </>
       )}
       {editing && (
@@ -182,6 +184,7 @@ export function Services() {
 }
 
 export function ServiceSheet({ service, onClose }: { service: ServiceItem | null; onClose: () => void }) {
+  const t = useT()
   const qc = useQueryClient()
   const [form, setForm] = useState<Form>(
     service
@@ -221,33 +224,33 @@ export function ServiceSheet({ service, onClose }: { service: ServiceItem | null
   }
 
   return (
-    <Sheet open title={service ? 'Edit service' : 'New service'} onClose={onClose}>
+    <Sheet open title={service ? t('setup.editService') : t('setup.newService')} onClose={onClose}>
       <div className="flex flex-col gap-3">
-        <Field id="svc-name" label="Name" value={form.name} maxLength={60} onChange={(e) => setForm({ ...form, name: e.target.value })} error={problems.name ?? fieldError(error, 'name')} />
+        <Field id="svc-name" label={t('setup.serviceName')} value={form.name} maxLength={60} onChange={(e) => setForm({ ...form, name: e.target.value })} error={problems.name ?? fieldError(error, 'name')} />
         <IconPicker name={form.name} value={pickedIcon(form)} onChange={(icon) => setForm({ ...form, icon })} error={fieldError(error, 'icon')} />
         <div className="grid grid-cols-2 gap-3">
-          <Field id="svc-minutes" label="Minutes" inputMode="numeric" value={form.minutes} onChange={(e) => setForm({ ...form, minutes: e.target.value.replace(/\D/g, '') })} error={problems.minutes ?? fieldError(error, 'durationMinutes')} />
-          <Field id="svc-price" label="Price (₹)" inputMode="decimal" value={form.rupees} onChange={(e) => setForm({ ...form, rupees: e.target.value })} error={problems.rupees ?? fieldError(error, 'pricePaise')} />
+          <Field id="svc-minutes" label={t('setup.minutesLabel')} inputMode="numeric" value={form.minutes} onChange={(e) => setForm({ ...form, minutes: e.target.value.replace(/\D/g, '') })} error={problems.minutes ?? fieldError(error, 'durationMinutes')} />
+          <Field id="svc-price" label={t('setup.priceLabel')} inputMode="decimal" value={form.rupees} onChange={(e) => setForm({ ...form, rupees: e.target.value })} error={problems.rupees ?? fieldError(error, 'pricePaise')} />
         </div>
         <label className="flex items-center gap-3 text-sm">
           <input type="checkbox" className="h-5 w-5 accent-brand" checked={form.from} onChange={(e) => setForm({ ...form, from: e.target.checked })} />
-          Price can go up at the salon (shown as "from ₹…")
+          {t('setup.priceFrom')}
         </label>
         <Field
           id="svc-return"
-          label="Remind customers to come back after (days)"
+          label={t('setup.returnLabel')}
           inputMode="numeric"
           value={form.returnDays}
           onChange={(e) => setForm({ ...form, returnDays: e.target.value.replace(/\D/g, '') })}
           error={problems.returnDays ?? fieldError(error, 'returnAfterDays')}
         />
-        <p className="-mt-2 text-xs text-muted">0 = no reminder. Customers who booked it get one push message, e.g. 21 days after a haircut.</p>
+        <p className="-mt-2 text-xs text-muted">{t('setup.returnHint')}</p>
         {error != null && !['name', 'durationMinutes', 'pricePaise', 'returnAfterDays', 'icon'].some((k) => fieldError(error, k)) && <Banner tone="bad">{messageOf(error)}</Banner>}
         <Button busy={busy} onClick={save}>
-          Save
+          {t('common.save')}
         </Button>
         <Button variant="ghost" onClick={onClose}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </Sheet>
@@ -271,6 +274,7 @@ export function IconPicker({
   onChange: (icon: ServiceIconName) => void
   error?: string
 }) {
+  const t = useT()
   const id = useId()
   const [open, setOpen] = useState(false)
   const line = useRef<HTMLParagraphElement>(null)
@@ -279,7 +283,7 @@ export function IconPicker({
   // A real choice: two pictures fit besides the general one, or the one picked isn't the best fit (a service saved
   // with the general one or another); once opened it stays until Done, even if the pick makes it the best fit
   const choice = open || fits.length > 2 || value !== fits[0]
-  const label = name.trim() || 'this service'
+  const label = name.trim() || t('setup.thisService')
   const buttons = useRef<(HTMLButtonElement | null)[]>([])
   function move(from: number, by: number) {
     const to = (from + by + offered.length) % offered.length
@@ -291,13 +295,13 @@ export function IconPicker({
       <div className="flex items-center gap-2 text-sm">
         <ServiceIcon icon={value} size={22} className="text-link" />
         <p ref={line} tabIndex={-1} aria-live="polite">
-          Picture: <span className="font-medium">{ICON_LABELS[value]}</span>
+          {t('setup.picture')} <span className="font-medium">{t(ICON_LABELS[value])}</span>
         </p>
         {choice && (
           <button
             type="button"
             className="ml-auto font-medium text-link underline"
-            aria-label={open ? `Done choosing the picture for ${label}` : `Change the picture for ${label}`}
+            aria-label={open ? t('setup.doneChoosingPicture', { name: label }) : t('setup.changePicture', { name: label })}
             aria-expanded={open}
             aria-controls={id}
             onClick={() => {
@@ -306,12 +310,12 @@ export function IconPicker({
               setOpen(!open)
             }}
           >
-            {open ? 'Done' : 'Change'}
+            {open ? t('common.done') : t('common.change')}
           </button>
         )}
       </div>
       {open && (
-        <div id={id} className="flex flex-wrap gap-2" role="radiogroup" aria-label={`Pictures for ${label}`}>
+        <div id={id} className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('setup.picturesFor', { name: label })}>
           {offered.map((icon, i) => (
             <button
               key={icon}
@@ -335,13 +339,13 @@ export function IconPicker({
               className={`flex min-h-12 min-w-12 flex-col items-center justify-center gap-1 rounded-xl border px-3 py-2 text-xs ${icon === value ? 'border-brand bg-brand/10 text-link' : 'border-line bg-surface text-ink'}`}
             >
               <ServiceIcon icon={icon} size={24} />
-              {ICON_LABELS[icon]}
+              {t(ICON_LABELS[icon])}
             </button>
           ))}
         </div>
       )}
       {fits.length === 1 && name.trim().length >= 2 && (
-        <p className="text-xs text-muted">No picture matches this name, so it gets the general one (a salon chair).</p>
+        <p className="text-xs text-muted">{t('setup.noPictureMatch')}</p>
       )}
       {error && <p className="text-sm text-bad">{error}</p>}
     </div>
