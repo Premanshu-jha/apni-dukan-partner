@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { messageOf } from '../../api/errors'
 import { dayApi, salonKeys, usePause } from '../../api/salon'
 import { Banner, Button, Chip, Sheet } from '../../components/ui'
+import { useT } from '../../i18n'
 import { addDays, dateTimeIst, istInstant, todayIst } from '../../lib/ist'
 import { useNow } from '../../lib/useNow'
 
@@ -20,6 +21,7 @@ export function pauseEnd(choice: Choice, now = new Date()): string | null {
  * Owner or helper.
  */
 export function PauseControl() {
+  const t = useT()
   const qc = useQueryClient()
   const pause = usePause()
   const [open, setOpen] = useState(false)
@@ -50,38 +52,38 @@ export function PauseControl() {
       {paused ? (
         <Banner tone="warn">
           <span className="flex items-center justify-between gap-3">
-            <span>Online bookings paused until {dateTimeIst(until!)}.</span>
+            <span>{t('day.pausedUntil', { time: dateTimeIst(until!) })}</span>
             <Button variant="secondary" busy={busy} onClick={() => act(dayApi.resume)} className="min-h-10 px-3 text-sm">
-              Resume
+              {t('day.resume')}
             </Button>
           </span>
         </Banner>
       ) : (
         <button type="button" className="self-start text-sm text-muted underline" onClick={() => setOpen(true)}>
-          Too busy? Pause online bookings
+          {t('day.pauseLink')}
         </button>
       )}
       {error && !open && <Banner tone="bad">{error}</Banner>}
-      <Sheet open={open} title="Pause online bookings" onClose={() => setOpen(false)}>
+      <Sheet open={open} title={t('day.pauseTitle')} onClose={() => setOpen(false)}>
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-muted">Customers can't book until then. Bookings already made and walk-ins carry on.</p>
+          <p className="text-sm text-muted">{t('day.pauseExplain')}</p>
           <div className="flex flex-wrap gap-2">
             <Chip selected={choice === 'hour'} onClick={() => setChoice('hour')}>
-              For 1 hour
+              {t('day.pauseHour')}
             </Chip>
             <Chip selected={choice === 'today'} onClick={() => setChoice('today')}>
-              Rest of today
+              {t('day.pauseToday')}
             </Chip>
             <Chip selected={choice === 'tomorrow'} onClick={() => setChoice('tomorrow')}>
-              Till end of tomorrow
+              {t('day.pauseTomorrow')}
             </Chip>
           </div>
           {error && <Banner tone="bad">{error}</Banner>}
           <Button busy={busy} onClick={() => act(() => dayApi.pauseUntil(pauseEnd(choice)))}>
-            Pause
+            {t('day.pause')}
           </Button>
           <Button variant="ghost" onClick={() => setOpen(false)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
         </div>
       </Sheet>

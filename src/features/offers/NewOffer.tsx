@@ -5,6 +5,7 @@ import { offerKeys, offersApi, refreshOffers, type NewOffer as NewOfferBody, typ
 import { useSalonHours, useServices, useSettings } from '../../api/salon'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
 import { Banner, Button, Card, Chip, ErrorState, Field, Loading, Page, Switch } from '../../components/ui'
+import { useT } from '../../i18n'
 import { addDays, todayIst, weekdayName } from '../../lib/ist'
 import { rupees } from '../../lib/money'
 import { checkOffer, endTime, MAX_DAYS_AHEAD, offerPrice, offerWhen } from './offerText'
@@ -32,6 +33,7 @@ const FIELDS = ['percentOff', 'serviceIds', 'startsOn', 'endsOn', 'from', 'until
  * publishes it and the message goes at once. Changing anything after the preview asks for a new one.
  */
 export function NewOffer() {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const services = useServices()
@@ -103,10 +105,10 @@ export function NewOffer() {
     }
   }
 
-  if (services.isPending || hours.isPending) return <Page back="/salon/offers" title="New offer"><Loading /></Page>
+  if (services.isPending || hours.isPending) return <Page back="/salon/offers" title={t('offers.newOffer')}><Loading /></Page>
   if (services.isError || hours.isError) {
     return (
-      <Page back="/salon/offers" title="New offer">
+      <Page back="/salon/offers" title={t('offers.newOffer')}>
         <ErrorState message={messageOf(services.error ?? hours.error)} onRetry={() => { void services.refetch(); void hours.refetch() }} />
       </Page>
     )
@@ -114,9 +116,9 @@ export function NewOffer() {
 
   const toggle = (id: string) => change(setServiceIds)(serviceIds.includes(id) ? serviceIds.filter((x) => x !== id) : [...serviceIds, id])
   return (
-    <Page back="/salon/offers" title="New offer">
+    <Page back="/salon/offers" title={t('offers.newOffer')}>
       <Card className="flex flex-col gap-3">
-        <p className="font-medium" id="percent-label">Discount</p>
+        <p className="font-medium" id="percent-label">{t('offers.discount')}</p>
         <div className="flex flex-wrap gap-2" role="group" aria-labelledby="percent-label">
           {PERCENTS.map((p) => (
             <Chip key={p} selected={percentOff === p} onClick={() => change(setPercentText)(String(p))}>
@@ -126,7 +128,7 @@ export function NewOffer() {
         </div>
         <Field
           id="offer-percent"
-          label="Or another discount (5 to 50%)"
+          label={t('offers.otherDiscount')}
           type="number"
           inputMode="numeric"
           min={5}
@@ -139,11 +141,11 @@ export function NewOffer() {
 
       <Card className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="font-medium">All services</p>
-          <Switch label="All services" checked={allServices} onChange={change(setAll)} />
+          <p className="font-medium">{t('offers.allServices')}</p>
+          <Switch label={t('offers.allServices')} checked={allServices} onChange={change(setAll)} />
         </div>
         {!allServices && (
-          <ul className="flex flex-col gap-2" aria-label="Services in the offer">
+          <ul className="flex flex-col gap-2" aria-label={t('offers.servicesInOffer')}>
             {active.map((s) => (
               <li key={s.id}>
                 <label className="flex min-h-12 items-center gap-3 rounded-xl border border-line px-3">
@@ -162,27 +164,26 @@ export function NewOffer() {
 
       <Card className="flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-2">
-          <Field id="offer-starts" label="First day" type="date" min={today} max={lastStart} value={startsOn} onChange={(e) => change(setStartsOn)(e.target.value)} error={fieldError(error, 'startsOn')} />
-          <Field id="offer-ends" label="Last day" type="date" min={startsOn || today} max={lastEnd} value={endsOn} onChange={(e) => change(setEndsOn)(e.target.value)} error={fieldError(error, 'endsOn')} />
+          <Field id="offer-starts" label={t('offers.firstDay')} type="date" min={today} max={lastStart} value={startsOn} onChange={(e) => change(setStartsOn)(e.target.value)} error={fieldError(error, 'startsOn')} />
+          <Field id="offer-ends" label={t('offers.lastDay')} type="date" min={startsOn || today} max={lastEnd} value={endsOn} onChange={(e) => change(setEndsOn)(e.target.value)} error={fieldError(error, 'endsOn')} />
         </div>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="font-medium">Only some hours</p>
-            <p className="text-sm text-muted">For your quiet hours, e.g. 12:00 to 16:00. Off: all day.</p>
+            <p className="font-medium">{t('offers.someHours')}</p>
+            <p className="text-sm text-muted">{t('offers.someHoursHint')}</p>
           </div>
-          <Switch label="Only some hours" checked={someHours} onChange={change(setSomeHours)} />
+          <Switch label={t('offers.someHours')} checked={someHours} onChange={change(setSomeHours)} />
         </div>
         {someHours && (
           <>
             <div className="grid grid-cols-2 gap-2">
-              <Field id="offer-from" label="From" type="time" step={900} value={from} onChange={(e) => change(setFrom)(e.target.value)} error={fieldError(error, 'from')} />
-              <Field id="offer-until" label="Until" type="time" step={900} value={until} onChange={(e) => change(setUntil)(e.target.value)} error={fieldError(error, 'until')} hint="00:00 means midnight" />
+              <Field id="offer-from" label={t('offers.from')} type="time" step={900} value={from} onChange={(e) => change(setFrom)(e.target.value)} error={fieldError(error, 'from')} />
+              <Field id="offer-until" label={t('offers.until')} type="time" step={900} value={until} onChange={(e) => change(setUntil)(e.target.value)} error={fieldError(error, 'until')} hint={t('offers.untilHint')} />
             </div>
             <p className="text-sm text-muted">
-              Inside your opening hours:{' '}
               {hours.data.days.length
-                ? hours.data.days.map((d) => `${weekdayName(d.weekday)} ${d.open}–${d.close}`).join(', ')
-                : 'not set yet'}
+                ? t('offers.insideHours', { hours: hours.data.days.map((d) => `${weekdayName(d.weekday)} ${d.open}–${d.close}`).join(', ') })
+                : t('offers.insideHoursNotSet')}
             </p>
           </>
         )}
@@ -195,7 +196,7 @@ export function NewOffer() {
             <>
               {' '}
               <Link to="/setup/hours" className="underline">
-                Set opening hours
+                {t('offers.setOpeningHours')}
               </Link>
             </>
           )}
@@ -205,9 +206,9 @@ export function NewOffer() {
       {preview ? (
         <Card className="flex flex-col gap-3">
           <p className="font-semibold">
-            <span className="text-accent">{percentOff}% off</span> · {offerWhen({ startsOn, endsOn, from: someHours ? from : null, until: someHours ? endTime(until) : null })}
+            <span className="text-accent">{t('offers.percentOff', { percent: percentOff })}</span> · {offerWhen({ startsOn, endsOn, from: someHours ? from : null, until: someHours ? endTime(until) : null })}
           </p>
-          <ul className="flex flex-col gap-1" aria-label="Prices in the offer">
+          <ul className="flex flex-col gap-1" aria-label={t('offers.pricesInOffer')}>
             {preview.services.map((s) => (
               <li key={s.serviceId} className="flex justify-between gap-2 text-sm">
                 <span>{s.name}</span>
@@ -219,18 +220,18 @@ export function NewOffer() {
           </ul>
           <p className="text-sm" role="status">
             {preview.customers === 0
-              ? 'No past customer will get a message yet (none, or they turned offers off). Everyone nearby sees it on your card.'
-              : `The message goes now to ${preview.customers} past customer${preview.customers === 1 ? '' : 's'}.`}
+              ? t('offers.previewNoCustomers')
+              : t('offers.previewCustomers', { count: preview.customers })}
           </p>
           <Button busy={busy} onClick={() => run(true)}>
-            Publish and send
+            {t('offers.publishAndSend')}
           </Button>
         </Card>
       ) : (
         <>
           {problem && <p className="text-sm text-muted">{problem}</p>}
           <Button busy={busy} disabled={problem !== null} onClick={() => run(false)}>
-            See preview
+            {t('offers.seePreview')}
           </Button>
         </>
       )}

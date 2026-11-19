@@ -7,12 +7,14 @@ import { useShop } from '../../api/shop'
 import { messageOf } from '../../api/errors'
 import { Banner, Button, Card, EmptyState, ErrorState, Loading, Page, Pill } from '../../components/ui'
 import { can } from '../../lib/roles'
+import { useT } from '../../i18n'
 import { offerWhat, offerWhen } from './offerText'
 
+/** Each state's words as a key (translated where shown, so they follow the language) and its colour. */
 const STATE: Record<OwnerOffer['state'], { text: string; tone: 'good' | 'brand' | 'muted' }> = {
-  RUNNING: { text: 'Running', tone: 'good' },
-  UPCOMING: { text: 'Coming up', tone: 'brand' },
-  ENDED: { text: 'Ended', tone: 'muted' },
+  RUNNING: { text: 'offers.stateRunning', tone: 'good' },
+  UPCOMING: { text: 'offers.stateUpcoming', tone: 'brand' },
+  ENDED: { text: 'offers.stateEnded', tone: 'muted' },
 }
 
 /**
@@ -20,25 +22,25 @@ const STATE: Record<OwnerOffer['state'], { text: string; tone: 'good' | 'brand' 
  * the message went to and the bookings it brought.
  */
 export function Offers() {
+  const t = useT()
   const offers = useOffers()
   const services = useServices()
   const owner = can(useShop().myRole).editSetup
   const published = (useLocation().state as { published?: number } | null)?.published
   const names = useMemo(() => new Map((services.data ?? []).map((s) => [s.id, s.name])), [services.data])
   return (
-    <Page back="/more" title="Offers">
+    <Page back="/more" title={t('offers.title')}>
       <p className="text-sm text-muted">
-        A discount for the days and hours you choose. When you publish it, your past customers get a message straight
-        away. Bookings made inside it keep the offer price.
+        {t('offers.intro')}
       </p>
       {published !== undefined && (
         <Banner tone="good">
-          Published. {published === 1 ? '1 past customer was' : `${published} past customers were`} sent the offer.
+          {t('offers.published', { count: published })}
         </Banner>
       )}
       {owner && (
         <Link to="/salon/offers/new" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-brand px-5 font-semibold text-brand-ink">
-          New offer
+          {t('offers.newOffer')}
         </Link>
       )}
       {offers.isPending ? (
@@ -46,9 +48,9 @@ export function Offers() {
       ) : offers.isError && !offers.data ? (
         <ErrorState message={messageOf(offers.error)} onRetry={() => offers.refetch()} />
       ) : offers.data.length === 0 ? (
-        <EmptyState title="No offers yet" body={owner ? 'Make one when you have quiet days or hours to fill.' : undefined} />
+        <EmptyState title={t('offers.noOffers')} body={owner ? t('offers.noOffersOwner') : undefined} />
       ) : (
-        <ul className="flex flex-col gap-2" aria-label="Offers">
+        <ul className="flex flex-col gap-2" aria-label={t('offers.title')}>
           {offers.data.map((o) => (
             <OfferItem key={o.offer.id} o={o} names={names} owner={owner} />
           ))}
@@ -59,6 +61,7 @@ export function Offers() {
 }
 
 function OfferItem({ o, names, owner }: { o: OwnerOffer; names: Map<string, string>; owner: boolean }) {
+  const t = useT()
   const qc = useQueryClient()
   const [asking, setAsking] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -94,13 +97,13 @@ function OfferItem({ o, names, owner }: { o: OwnerOffer; names: Map<string, stri
     <li>
       <Card className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
-          <p className={`text-lg font-semibold ${o.state === 'ENDED' || o.endedAt || ended ? '' : 'text-accent'}`}>{o.offer.percentOff}% off</p>
-          <Pill tone={state.tone}>{o.endedAt ? 'Ended early' : state.text}</Pill>
+          <p className={`text-lg font-semibold ${o.state === 'ENDED' || o.endedAt || ended ? '' : 'text-accent'}`}>{t('offers.percentOff', { percent: o.offer.percentOff })}</p>
+          <Pill tone={state.tone}>{o.endedAt ? t('offers.endedEarly') : t(state.text)}</Pill>
         </div>
         <p className="text-sm">{offerWhat(o.offer, names)}</p>
         <p className="text-sm text-muted">{offerWhen(o.offer)}</p>
         <p className="text-sm text-muted">
-          Sent to {o.notified} customer{o.notified === 1 ? '' : 's'} · {o.bookings} booking{o.bookings === 1 ? '' : 's'}
+          {t('offers.sentTo', { count: o.notified })} · {t('offers.bookings', { count: o.bookings })}
         </p>
         {owner && o.state !== 'ENDED' && !asking && (
           <Button
@@ -111,20 +114,20 @@ function OfferItem({ o, names, owner }: { o: OwnerOffer; names: Map<string, stri
               setFocus('question')
             }}
           >
-            End offer now
+            {t('offers.endNow')}
           </Button>
         )}
         {ended && (
           <p ref={done} tabIndex={-1} role="status" className="text-sm outline-none">
-            Offer ended. New bookings are at the normal price.
+            {t('offers.ended')}
           </p>
         )}
         {asking && (
-          <div ref={question} tabIndex={-1} className="flex flex-col gap-2 outline-none" role="group" aria-label="End this offer?">
-            <p className="text-sm">New bookings will be at the normal price. Bookings already made keep the offer price.</p>
+          <div ref={question} tabIndex={-1} className="flex flex-col gap-2 outline-none" role="group" aria-label={t('offers.endQuestion')}>
+            <p className="text-sm">{t('offers.endExplain')}</p>
             <div className="grid grid-cols-2 gap-2">
               <Button variant="danger" busy={busy} onClick={end}>
-                Yes, end it
+                {t('offers.endYes')}
               </Button>
               <Button
                 variant="secondary"
@@ -134,7 +137,7 @@ function OfferItem({ o, names, owner }: { o: OwnerOffer; names: Map<string, stri
                   setFocus('end')
                 }}
               >
-                Keep it
+                {t('offers.endKeep')}
               </Button>
             </div>
           </div>

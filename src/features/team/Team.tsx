@@ -5,10 +5,12 @@ import { dayApi, forgetBarberInvite, salonKeys } from '../../api/salon'
 import { shopApi, shopKeys, useShopInvites } from '../../api/shop'
 import type { Member } from '../../api/types'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page, Sheet, Switch } from '../../components/ui'
+import { useT } from '../../i18n'
 import { dateTimeIst } from '../../lib/ist'
 import { formatPhone, normalizePhone } from '../../lib/phone'
 
-const roleText = { OWNER: 'Owner', HELPER: 'Helper', BARBER: 'Barber' } as const
+/** The words for each role: keys in the language files. */
+const roleText = { OWNER: 'team.roleOwner', HELPER: 'team.roleHelper', BARBER: 'team.roleBarber' } as const
 
 /**
  * Everyone who signs in to this salon. The owner invites helpers by phone (barbers are invited on their own page);
@@ -16,6 +18,7 @@ const roleText = { OWNER: 'Owner', HELPER: 'Helper', BARBER: 'Barber' } as const
  * may add walk-ins. Owner only.
  */
 export function Team() {
+  const t = useT()
   const qc = useQueryClient()
   const members = useQuery({ queryKey: salonKeys.members, queryFn: dayApi.members })
   const invites = useShopInvites()
@@ -36,7 +39,7 @@ export function Team() {
     } catch (e) {
       // 400 VALIDATION_FAILED names the phone (the owner's own number); the rest are the backend's own words
       const phoneProblem = fieldError(e, 'phone')
-      setError(phoneProblem ? `That number ${phoneProblem}.` : messageOf(e))
+      setError(phoneProblem ? t('team.phoneProblem', { problem: phoneProblem }) : messageOf(e))
     } finally {
       setBusy(null)
       await Promise.all([qc.invalidateQueries({ queryKey: salonKeys.members }), qc.invalidateQueries({ queryKey: shopKeys.invites })])
@@ -44,7 +47,7 @@ export function Team() {
   }
 
   return (
-    <Page back="/more" title="Team">
+    <Page back="/more" title={t('team.title')}>
       {members.isPending ? (
         <Loading />
       ) : members.isError ? (
@@ -56,22 +59,22 @@ export function Team() {
               <Card className="flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate font-semibold">{m.name || 'No name yet'}</p>
+                    <p className="truncate font-semibold">{m.name || t('team.noName')}</p>
                     <p className="text-sm text-muted">
-                      {roleText[m.role]} · +91 {formatPhone(m.phone)}
+                      {t(roleText[m.role])} · +91 {formatPhone(m.phone)}
                     </p>
                   </div>
                   {m.role === 'HELPER' && (
                     <Button variant="ghost" className="text-bad" onClick={() => setRemoving(m)}>
-                      Remove
+                      {t('common.remove')}
                     </Button>
                   )}
                 </div>
                 {m.role !== 'OWNER' && (
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm">Can add walk-ins</span>
+                    <span className="text-sm">{t('team.canAddWalkIns')}</span>
                     <Switch
-                      label={`${m.name || 'Member'} can add walk-ins`}
+                      label={m.name ? t('team.memberCanAddWalkIns', { name: m.name }) : t('team.unnamedCanAddWalkIns')}
                       checked={m.walkInAccess}
                       disabled={busy === m.userId}
                       onChange={(on) => act(m.userId, () => dayApi.setWalkInAccess(m.userId, on))}
@@ -84,8 +87,8 @@ export function Team() {
         </ul>
       )}
       {(invites.data?.length ?? 0) > 0 && (
-        <section aria-label="Invitations waiting" className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold text-muted">Waiting for an answer</h2>
+        <section aria-label={t('team.invitesWaitingLabel')} className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-muted">{t('team.waitingHeading')}</h2>
           <ul className="flex flex-col gap-2">
             {invites.data!.map((v) => (
               <li key={v.id}>
@@ -93,12 +96,12 @@ export function Team() {
                   <div className="min-w-0">
                     <p className="font-semibold">+91 {formatPhone(v.phone)}</p>
                     <p className="text-sm text-muted">
-                      {v.role === 'HELPER' ? 'Helper' : 'Barber'} · open until {dateTimeIst(v.expiresAt)}
+                      {v.role === 'HELPER' ? t('team.roleHelper') : t('team.roleBarber')} · {t('team.openUntil', { when: dateTimeIst(v.expiresAt) })}
                     </p>
                   </div>
                   {/* A barber's invitation shows on his page ("Invited: …"): refresh the barbers so it goes there too */}
                   <Button variant="secondary" busy={busy === v.id} onClick={() => act(v.id, () => shopApi.cancelInvite(v.id), v.staffId ? () => forgetBarberInvite(qc, v.staffId!) : undefined)}>
-                    Cancel
+                    {t('team.cancelInvite')}
                   </Button>
                 </Card>
               </li>
@@ -106,44 +109,42 @@ export function Team() {
           </ul>
         </section>
       )}
-      {invites.isError && <Banner tone="warn">Couldn't load the invitations waiting: {messageOf(invites.error)}</Banner>}
+      {invites.isError && <Banner tone="warn">{t('team.invitesFailed', { reason: messageOf(invites.error) })}</Banner>}
       {error && <Banner tone="bad">{error}</Banner>}
       <Card className="flex flex-col gap-3">
-        <p className="font-semibold">Invite a helper</p>
+        <p className="font-semibold">{t('team.inviteHelper')}</p>
         <p className="text-sm text-muted">
-          A helper runs the day with you: walk-ins, starting bookings, breaks. They join when they accept your
-          invitation in Clozest, signed in with this number. For a barber, invite him on his page under Salon ›
-          Barbers instead.
+          {t('team.inviteHelperHint')}
         </p>
-        <Field id="helper-phone" label="Helper's mobile number" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <Field id="helper-phone" label={t('team.helperMobile')} type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
         <Button
           busy={busy === 'add'}
           disabled={!normalized}
           onClick={() =>
             act('add', async () => {
-              const r = await shopApi.addHelper(normalized!)
+              await shopApi.addHelper(normalized!)
               setPhone('')
-              setSent(r.message)
+              setSent('team.invitationSent')
             })
           }
         >
-          Send invitation
+          {t('team.sendInvitation')}
         </Button>
-        {sent && <Banner tone="good">{sent}</Banner>}
+        {sent && <Banner tone="good">{t(sent)}</Banner>}
       </Card>
-      <Sheet open={removing !== null} title="Remove helper?" onClose={() => setRemoving(null)}>
+      <Sheet open={removing !== null} title={t('team.removeHelperTitle')} onClose={() => setRemoving(null)}>
         <div className="flex flex-col gap-3">
-          <p className="text-muted">{removing?.name || 'They'} will be signed out at once and can't open your salon any more.</p>
+          <p className="text-muted">{removing?.name ? t('team.removedNamed', { name: removing.name }) : t('team.removedUnnamed')}</p>
           {error && <Banner tone="bad">{error}</Banner>}
           <Button
             variant="danger"
             busy={busy === removing?.userId}
             onClick={() => removing && act(removing.userId, () => shopApi.removeHelper(removing.userId), () => setRemoving(null))}
           >
-            Remove
+            {t('common.remove')}
           </Button>
           <Button variant="ghost" onClick={() => setRemoving(null)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
         </div>
       </Sheet>

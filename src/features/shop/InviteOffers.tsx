@@ -6,6 +6,7 @@ import { isApiError, messageOf } from '../../api/errors'
 import { shopApi, shopKeys, useIncomingInvites, useMyShop } from '../../api/shop'
 import type { IncomingInvite, Shop } from '../../api/types'
 import { Banner, Button, Card, EmptyState, ErrorState, Loading, Page } from '../../components/ui'
+import { t, useT } from '../../i18n'
 import { dateTimeIst } from '../../lib/ist'
 import { shopChanged } from './ownership'
 
@@ -13,23 +14,21 @@ import { shopChanged } from './ownership'
 export function inviteGoneText(status: unknown): string {
   switch (status) {
     case 'ACCEPTED':
-      return 'You already accepted this invitation.'
+      return t('shop.inviteGoneAccepted')
     case 'DECLINED':
-      return 'You already declined this invitation.'
+      return t('shop.inviteGoneDeclined')
     case 'CANCELLED':
-      return 'The owner cancelled this invitation.'
+      return t('shop.inviteGoneCancelled')
     case 'EXPIRED':
-      return 'This invitation ran out (invitations last 7 days). Ask the owner to invite you again.'
+      return t('shop.inviteGoneExpired')
     case 'CLOSED':
-      return 'That shop has been closed.'
+      return t('shop.inviteGoneClosed')
     case 'STAFF_CHANGED':
-      return 'The owner changed that barber profile meanwhile. Ask them to invite you again.'
+      return t('shop.inviteGoneStaffChanged')
     default:
-      return "This invitation isn't open any more."
+      return t('shop.inviteGoneOther')
   }
 }
-
-const roleWord = { HELPER: 'a helper', BARBER: 'a barber' } as const
 
 /**
  * Invitations to join a shop made to this person's phone (GET /me/invites), each with Accept and Decline. Shown at
@@ -38,6 +37,7 @@ const roleWord = { HELPER: 'a helper', BARBER: 'a barber' } as const
  * unless `page` (then it says so).
  */
 export function InviteOffers({ page = false }: { page?: boolean }) {
+  const t = useT()
   const incoming = useIncomingInvites()
   const [note, setNote] = useState<string | null>(null)
   if (incoming.isPending) return page ? <Loading /> : null
@@ -49,13 +49,14 @@ export function InviteOffers({ page = false }: { page?: boolean }) {
     <>
       {note && <Banner tone="info">{note}</Banner>}
       {list.length === 0
-        ? page && <EmptyState title="No invitations waiting" body="When a shop owner invites your number, it shows here." />
+        ? page && <EmptyState title={t('shop.invitesNoneTitle')} body={t('shop.invitesNoneBody')} />
         : list.map((v) => <Invite key={v.id} invite={v} onNote={setNote} />)}
     </>
   )
 }
 
 function Invite({ invite, onNote }: { invite: IncomingInvite; onNote: (text: string | null) => void }) {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const mine = useMyShop().data ?? null
@@ -82,7 +83,7 @@ function Invite({ invite, onNote }: { invite: IncomingInvite; onNote: (text: str
         const { shop, renewed } = await shopApi.acceptInvite(invite.id)
         if (!renewed) {
           setUnrenewed(shop)
-          setError("You've joined, but this phone couldn't renew its sign-in. Check the connection and tap Try again.")
+          setError(t('shop.inviteJoinedNotRenewed'))
           return
         }
         open(shop)
@@ -90,14 +91,14 @@ function Invite({ invite, onNote }: { invite: IncomingInvite; onNote: (text: str
       }
       await shopApi.declineInvite(invite.id)
       drop()
-      onNote(`You declined the invitation from ${invite.shopName}. The owner has been told.`)
+      onNote(t('shop.inviteDeclined', { shopName: invite.shopName }))
     } catch (e) {
       if (isApiError(e, 'INVITE_GONE') || isApiError(e, 'INVITE_NOT_FOUND')) {
         // Answered, cancelled, run out or the shop closed meanwhile: it leaves the list, and the reason stays
-        onNote(isApiError(e, 'INVITE_GONE') ? inviteGoneText(e.details.status) : "This invitation isn't open for your number any more.")
+        onNote(isApiError(e, 'INVITE_GONE') ? inviteGoneText(e.details.status) : t('shop.inviteNotOpenForNumber'))
         void qc.invalidateQueries({ queryKey: shopKeys.incomingInvites })
       } else if (isApiError(e, 'ALREADY_IN_A_SHOP')) {
-        setError(`${messageOf(e)}${mine ? ` You can leave ${mine.name} from More.` : ''}`)
+        setError(`${messageOf(e)}${mine ? ` ${t('shop.leaveShopFromMore', { name: mine.name })}` : ''}`)
       } else {
         setError(messageOf(e))
       }
@@ -115,10 +116,10 @@ function Invite({ invite, onNote }: { invite: IncomingInvite; onNote: (text: str
   if (unrenewed) {
     return (
       <Card className="flex flex-col gap-3 border-brand/50">
-        <p className="text-lg font-semibold">You've joined {invite.shopName}</p>
+        <p className="text-lg font-semibold">{t('shop.inviteJoined', { shopName: invite.shopName })}</p>
         <Banner tone="warn">{error}</Banner>
         <Button busy={busy === 'accept'} onClick={renewAgain}>
-          Try again
+          {t('common.retry')}
         </Button>
       </Card>
     )
@@ -126,19 +127,18 @@ function Invite({ invite, onNote }: { invite: IncomingInvite; onNote: (text: str
 
   return (
     <Card className="flex flex-col gap-3 border-brand/50">
-      <p className="text-lg font-semibold">Join {invite.shopName}?</p>
+      <p className="text-lg font-semibold">{t('shop.inviteJoin', { shopName: invite.shopName })}</p>
       <p className="text-sm">
-        {invite.shopName} (shop code {invite.shopCode}, {invite.area}, {invite.city}) invited you to join as {roleWord[invite.role]}.
-        {invite.role === 'BARBER' ? ' You will see your own bookings and add your breaks.' : ' You will help run the day: walk-ins, starting bookings, breaks.'}
+        {t(invite.role === 'BARBER' ? 'shop.inviteBodyBarber' : 'shop.inviteBodyHelper', { shopName: invite.shopName, shopCode: String(invite.shopCode), area: invite.area, city: invite.city })}
       </p>
-      <p className="text-xs text-muted">Sent on {dateTimeIst(invite.createdAt)}; open until {dateTimeIst(invite.expiresAt)}.</p>
+      <p className="text-xs text-muted">{t('shop.inviteSentOpenUntil', { sent: dateTimeIst(invite.createdAt), until: dateTimeIst(invite.expiresAt) })}</p>
       {error && <Banner tone="bad">{error}</Banner>}
       <div className="flex gap-2">
         <Button className="flex-1" busy={busy === 'accept'} disabled={busy === 'decline'} onClick={() => answer('accept')}>
-          Accept
+          {t('shop.accept')}
         </Button>
         <Button variant="secondary" className="flex-1" busy={busy === 'decline'} disabled={busy === 'accept'} onClick={() => answer('decline')}>
-          Decline
+          {t('shop.decline')}
         </Button>
       </div>
     </Card>
@@ -147,8 +147,9 @@ function Invite({ invite, onNote }: { invite: IncomingInvite; onNote: (text: str
 
 /** /invites: where the "An invitation to join …" message opens, with or without a shop. */
 export function InvitesPage() {
+  const t = useT()
   return (
-    <Page back="/" title="Invitations">
+    <Page back="/" title={t('shop.invitesPageTitle')}>
       <InviteOffers page />
     </Page>
   )

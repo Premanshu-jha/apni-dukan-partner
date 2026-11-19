@@ -6,6 +6,7 @@ import { CodeInput } from '../../components/CodeInput'
 import { Turnstile } from '../../components/Turnstile'
 import { TURNSTILE_SITE_KEY } from '../../lib/config'
 import { Banner, Button, Page } from '../../components/ui'
+import { useT } from '../../i18n'
 import { formatPhone } from '../../lib/phone'
 import { useSession } from '../../store/session'
 import { nextAfterSignIn } from './flow'
@@ -13,6 +14,7 @@ import { nextAfterSignIn } from './flow'
 const RESEND_AFTER = 30
 
 export function CodeStep() {
+  const t = useT()
   const navigate = useNavigate()
   const phone = (useLocation().state as { phone?: string } | null)?.phone
   const signIn = useSession((s) => s.signIn)
@@ -27,8 +29,8 @@ export function CodeStep() {
 
   useEffect(() => {
     if (wait <= 0) return
-    const t = setTimeout(() => setWait((w) => w - 1), 1000)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setWait((w) => w - 1), 1000)
+    return () => clearTimeout(timer)
   }, [wait])
 
   if (!phone) return <Navigate to="/signin" replace />
@@ -56,7 +58,7 @@ export function CodeStep() {
     setNotice(null)
     try {
       await authApi.sendCode(phone!, captcha)
-      setNotice('A new code is on its way.')
+      setNotice(t('auth.codeNewOnItsWay'))
       setWait(RESEND_AFTER)
     } catch (err) {
       setError(messageOf(err))
@@ -67,13 +69,13 @@ export function CodeStep() {
   }
 
   return (
-    <Page title="Enter the code" back="/signin">
+    <Page title={t('auth.codeTitle')} back="/signin">
       <p className="text-muted">
-        We sent a 6-digit code to <span className="text-ink">+91 {formatPhone(phone)}</span>.
+        {t('auth.codeSentBefore')}<span className="text-ink">+91 {formatPhone(phone)}</span>{t('auth.codeSentAfter')}
       </p>
       <CodeInput
         id="code"
-        label="Code"
+        label={t('auth.codeLabel')}
         value={code}
         onChange={(v) => {
           setCode(v)
@@ -83,21 +85,21 @@ export function CodeStep() {
       {error && <Banner tone="bad">{error}</Banner>}
       {notice && <Banner tone="good">{notice}</Banner>}
       <Button busy={busy} disabled={code.length !== 6} onClick={() => verify(code)}>
-        Verify
+        {t('auth.verify')}
       </Button>
       <div className="flex flex-col items-center gap-3">
         {wait > 0 ? (
-          <p className="text-sm text-muted">You can ask for a new code in {wait} s</p>
+          <p className="text-sm text-muted">{t('auth.codeNewIn', { seconds: wait })}</p>
         ) : (
           <>
             <Turnstile onToken={setCaptcha} resetKey={resetKey} />
             <Button variant="ghost" onClick={resend} busy={sending} disabled={busy || (Boolean(TURNSTILE_SITE_KEY) && !captcha)}>
-              Send a new code
+              {t('auth.codeSendNew')}
             </Button>
           </>
         )}
         <button type="button" className="text-sm text-link underline" onClick={() => navigate('/signin')}>
-          Wrong number? Change it
+          {t('auth.codeWrongNumber')}
         </button>
       </div>
     </Page>

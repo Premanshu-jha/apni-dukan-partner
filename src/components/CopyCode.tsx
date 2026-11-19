@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useT } from '../i18n'
 
 /** A small "Copy" next to a code (the shop code, to quote to support), saying "Copied" for a moment. */
 export function CopyCode({ code }: { code: string }) {
+  const t = useT()
   const [copied, setCopied] = useState(false)
   async function copy() {
     try {
@@ -13,8 +15,8 @@ export function CopyCode({ code }: { code: string }) {
     }
   }
   return (
-    <button type="button" className="text-link underline" aria-label={`Copy shop code ${code}`} onClick={() => void copy()}>
-      <span aria-live="polite">{copied ? 'Copied' : 'Copy'}</span>
+    <button type="button" className="text-link underline" aria-label={t('ui.copyCodeAria', { code })} onClick={() => void copy()}>
+      <span aria-live="polite">{copied ? t('ui.copyCopied') : t('ui.copyCopy')}</span>
     </button>
   )
 }

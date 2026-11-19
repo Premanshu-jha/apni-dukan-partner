@@ -4,6 +4,7 @@ import { authApi } from '../../api/auth'
 import { isApiError, messageOf } from '../../api/errors'
 import { CodeInput } from '../../components/CodeInput'
 import { Turnstile } from '../../components/Turnstile'
+import { useT } from '../../i18n'
 import { TURNSTILE_SITE_KEY } from '../../lib/config'
 import { Banner, Button, Field, Page } from '../../components/ui'
 import { formatPhone, looksLikeEmail, normalizePhone } from '../../lib/phone'
@@ -15,6 +16,7 @@ import { nextAfterSignIn } from './flow'
  * The backend sends one code to the email and one by SMS to the new number.
  */
 export function RecoverStep() {
+  const t = useT()
   const navigate = useNavigate()
   const signIn = useSession((s) => s.signIn)
   const [email, setEmail] = useState('')
@@ -62,15 +64,15 @@ export function RecoverStep() {
   }
 
   return (
-    <Page title="Recover your account" back="/signin">
+    <Page title={t('auth.recoverTitle')} back="/signin">
       {!started ? (
         <form onSubmit={start} className="flex flex-col gap-4" noValidate>
           <p className="text-muted">
-            Use the email on your account and your new mobile number. We'll send a code to each.
+            {t('auth.recoverIntro')}
           </p>
           <Field
             id="recover-email"
-            label="Email on your account"
+            label={t('auth.recoverEmailLabel')}
             type="email"
             inputMode="email"
             autoComplete="email"
@@ -79,7 +81,7 @@ export function RecoverStep() {
           />
           <Field
             id="recover-phone"
-            label="New mobile number"
+            label={t('auth.recoverPhoneLabel')}
             type="tel"
             inputMode="tel"
             autoComplete="tel-national"
@@ -89,23 +91,23 @@ export function RecoverStep() {
           <Turnstile onToken={setCaptcha} resetKey={resetKey} />
           {error && <Banner tone="bad">{error}</Banner>}
           <Button type="submit" busy={busy} disabled={!canStart}>
-            Send codes
+            {t('auth.recoverSendCodes')}
           </Button>
         </form>
       ) : (
         <div className="flex flex-col gap-4">
           <p className="text-muted">
-            Enter the code sent to <span className="text-ink">{started.email}</span> and the one sent by SMS to{' '}
-            <span className="text-ink">+91 {formatPhone(started.phone)}</span>.
+            {t('auth.recoverSentBefore')}<span className="text-ink">{started.email}</span>{t('auth.recoverSentMiddle')}
+            <span className="text-ink">+91 {formatPhone(started.phone)}</span>{t('auth.recoverSentAfter')}
           </p>
-          <CodeInput id="recover-email-code" label="Email code" value={emailCode} onChange={setEmailCode} />
-          <CodeInput id="recover-phone-code" label="SMS code" value={phoneCode} onChange={setPhoneCode} autoFocus={false} />
+          <CodeInput id="recover-email-code" label={t('auth.recoverEmailCode')} value={emailCode} onChange={setEmailCode} />
+          <CodeInput id="recover-phone-code" label={t('auth.recoverSmsCode')} value={phoneCode} onChange={setPhoneCode} autoFocus={false} />
           {error && <Banner tone="bad">{error}</Banner>}
           <Button busy={busy} disabled={emailCode.length !== 6 || phoneCode.length !== 6} onClick={complete}>
-            Recover account
+            {t('auth.recoverSubmit')}
           </Button>
           <Button variant="ghost" onClick={() => setStarted(null)}>
-            Start again
+            {t('auth.recoverStartAgain')}
           </Button>
         </div>
       )}

@@ -11,8 +11,9 @@ import { dateOfIst, dateTimeIst, timeIst } from '../../lib/ist'
 import { rupees } from '../../lib/money'
 import { formatPhone } from '../../lib/phone'
 import { can } from '../../lib/roles'
+import { t, useT } from '../../i18n'
 import { useNow } from '../../lib/useNow'
-import { kindText, servicesText, statusText, totalPaise, whoText } from './status'
+import { kindText, servicesText, statusText, statusTextOr, totalPaise, whoText } from './status'
 
 type Mode = 'menu' | 'start' | 'finish' | 'noShow' | 'reassign' | 'cancel' | 'removeBlock'
 
@@ -43,6 +44,7 @@ export function AppointmentSheet({
   gone?: boolean
   onClose: () => void
 }) {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const shop = useShop()
@@ -137,34 +139,34 @@ export function AppointmentSheet({
             <>
               <p className="text-muted">
                 {kindText(a)}
-                {a.bookingNo && ` · ${a.bookingNo}`} · {statusText[a.status]}
+                {a.bookingNo && ` · ${a.bookingNo}`} · {statusText(a.status)}
               </p>
               <p>{servicesText(a)}</p>
               <p className="font-semibold">{rupees(total.paise, total.from)}</p>
             </>
           )}
-          {a.cancelReason && <p className="text-muted">Reason: {a.cancelReason}</p>}
-          {a.status === 'IN_SERVICE' && a.startedWithCode === false && <p className="text-muted">Started without the customer's code.</p>}
-          {a.notStarted && confirmed && <Banner tone="warn">Its time has started. Press Start when the customer is here.</Banner>}
+          {a.cancelReason && <p className="text-muted">{t('day.cancelReasonShown', { reason: a.cancelReason })}</p>}
+          {a.status === 'IN_SERVICE' && a.startedWithCode === false && <p className="text-muted">{t('day.startedWithoutCode')}</p>}
+          {a.notStarted && confirmed && <Banner tone="warn">{t('day.timeHasStarted')}</Banner>}
         </div>
 
-        {gone && <Banner tone="warn">This isn't on this day's board any more: the customer may have moved it, or it went to another barber.</Banner>}
+        {gone && <Banner tone="warn">{t('day.sheetGone')}</Banner>}
         {done && <Banner tone="good">{done}</Banner>}
         {error && <Banner tone="bad">{error}</Banner>}
 
         {readOnly ? null : mode === 'menu' ? (
           <div className="flex flex-col gap-2">
             {confirmed && !block && mine && startOpen && (
-              <Button onClick={() => (booking ? setMode('start') : run(() => dayApi.start(a.id, {}), 'Started.'))} busy={busy && !booking}>
-                Start
+              <Button onClick={() => (booking ? setMode('start') : run(() => dayApi.start(a.id, {}), t('day.doneStarted')))} busy={busy && !booking}>
+                {t('day.start')}
               </Button>
             )}
             {confirmed && !block && mine && now < startFrom && (
-              <p className="text-sm text-muted">Start opens at {timeIst(new Date(startFrom).toISOString())}, 15 minutes before.</p>
+              <p className="text-sm text-muted">{t('day.startOpensAt', { time: timeIst(new Date(startFrom).toISOString()) })}</p>
             )}
             {inChair && mayFinish && beforeEnd && (
               <Button variant="secondary" onClick={() => setMode('finish')}>
-                Done early
+                {t('day.doneEarly')}
               </Button>
             )}
             {confirmed && !block && rights.callCustomer && a.customerPhone && (
@@ -172,89 +174,89 @@ export function AppointmentSheet({
                 href={`tel:+91${a.customerPhone}`}
                 className="inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-raised px-5"
               >
-                Call {formatPhone(a.customerPhone)}
+                {t('day.callPhone', { phone: formatPhone(a.customerPhone) })}
               </a>
             )}
             {confirmed && !block && mine && (
               <Button variant="secondary" disabled={!noShowOpen} onClick={() => setMode('noShow')}>
-                {noShowOpen ? 'Mark no-show' : `No-show from ${timeIst(a.noShowFrom ?? a.startsAt)}`}
+                {noShowOpen ? t('day.markNoShow') : t('day.noShowFrom', { time: timeIst(a.noShowFrom ?? a.startsAt) })}
               </Button>
             )}
             {canReassign && (
               <Button variant="secondary" onClick={() => setMode('reassign')}>
-                Give to another barber
+                {t('day.giveToAnother')}
               </Button>
             )}
             {walkInInChair && mayFix && !canCancel && (
-              <p className="text-sm text-muted">In the chair for over {MISTAKE_MINUTES} minutes: use Done early instead of cancelling.</p>
+              <p className="text-sm text-muted">{t('day.inChairTooLong', { minutes: MISTAKE_MINUTES })}</p>
             )}
             {canCancel && (
               <Button variant="danger" onClick={() => setMode('cancel')}>
-                Cancel {booking ? 'booking' : 'walk-in'}
+                {booking ? t('day.cancelBooking') : t('day.cancelWalkIn')}
               </Button>
             )}
             {a.status === 'NO_SHOW' && rights.undoNoShow && undoOpen && (
-              <Button variant="secondary" busy={busy} onClick={() => run(() => dayApi.undoNoShow(a.id), 'No-show undone.')}>
-                Undo no-show
+              <Button variant="secondary" busy={busy} onClick={() => run(() => dayApi.undoNoShow(a.id), t('day.doneNoShowUndone'))}>
+                {t('day.undoNoShow')}
               </Button>
             )}
             {canRemoveBlock && (
               <Button variant="secondary" onClick={() => setMode('removeBlock')}>
-                Remove {a.blockType === 'LEAVE' ? 'leave' : 'break'}
+                {a.blockType === 'LEAVE' ? t('day.removeLeave') : t('day.removeBreak')}
               </Button>
             )}
             {block && a.blockType === 'CLOSED' && rights.closures && (
               <Button variant="secondary" onClick={() => navigate('/salon/closures')}>
-                Closed days
+                {t('day.closedDays')}
               </Button>
             )}
             <Button variant="ghost" onClick={onClose}>
-              Close
+              {t('common.close')}
             </Button>
           </div>
         ) : mode === 'start' ? (
           <div className="flex flex-col gap-3">
-            <CodeInput id="start-code" label="The customer's 4-digit code" length={4} value={code} onChange={setCode} />
-            <p className="text-sm text-muted">It is on the customer's booking screen. The code shows they are here.</p>
-            {!startOpen && <Banner tone="warn">Start is closed now: {now < startFrom ? `it opens at ${timeIst(new Date(startFrom).toISOString())}` : `the hold until ${timeIst(new Date(heldUntil).toISOString())} is over`}.</Banner>}
-            <Button busy={busy} disabled={code.length !== 4 || !startOpen} onClick={() => run(() => dayApi.start(a.id, { code }), 'Started.')}>
-              Start
+            <CodeInput id="start-code" label={t('day.startCodeLabel')} length={4} value={code} onChange={setCode} />
+            <p className="text-sm text-muted">{t('day.startCodeHint')}</p>
+            {!startOpen && <Banner tone="warn">{now < startFrom ? t('day.startClosedOpensAt', { time: timeIst(new Date(startFrom).toISOString()) }) : t('day.startClosedHoldOver', { time: timeIst(new Date(heldUntil).toISOString()) })}</Banner>}
+            <Button busy={busy} disabled={code.length !== 4 || !startOpen} onClick={() => run(() => dayApi.start(a.id, { code }), t('day.doneStarted'))}>
+              {t('day.start')}
             </Button>
             {rights.startWithoutCode && (
-              <Button variant="ghost" disabled={busy || !startOpen} onClick={() => run(() => dayApi.start(a.id, { withoutCode: true }), 'Started without a code.')}>
-                Customer can't show the code: start anyway
+              <Button variant="ghost" disabled={busy || !startOpen} onClick={() => run(() => dayApi.start(a.id, { withoutCode: true }), t('day.doneStartedNoCode'))}>
+                {t('day.startAnyway')}
               </Button>
             )}
             <Button variant="ghost" onClick={() => setMode('menu')}>
-              Back
+              {t('common.back')}
             </Button>
           </div>
         ) : mode === 'finish' ? (
           <Confirm
-            text="The customer is done: the rest of this time becomes free for others. This can't be undone."
-            action="Done early"
+            text={t('day.confirmFinish')}
+            action={t('day.doneEarly')}
             busy={busy}
-            onYes={() => run(() => dayApi.finish(a.id), 'Done. The rest of the time is free.')}
+            onYes={() => run(() => dayApi.finish(a.id), t('day.doneFinished'))}
             onNo={() => setMode('menu')}
           />
         ) : mode === 'noShow' ? (
           <Confirm
             text={
               booking
-                ? 'The customer didn’t come. Their time is freed and they get a missed-booking strike.'
-                : 'The walk-in left. Their time is freed.'
+                ? t('day.confirmNoShowBooking')
+                : t('day.confirmNoShowWalkIn')
             }
-            action="Mark no-show"
+            action={t('day.markNoShow')}
             busy={busy}
-            onYes={() => run(() => dayApi.noShow(a.id), 'Marked as no-show.')}
+            onYes={() => run(() => dayApi.noShow(a.id), t('day.doneNoShow'))}
             onNo={() => setMode('menu')}
           />
         ) : mode === 'reassign' ? (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-muted">
               {walkInInChair
-                ? 'The rest of the visit moves to him from now. He must do these services and be free now.'
-                : 'Same time, another barber. He must do these services and be free then.'}
+                ? t('day.reassignInChair')
+                : t('day.reassignBooked')}
             </p>
             <div className="flex flex-wrap gap-2">
               {others.map((b) => (
@@ -263,46 +265,46 @@ export function AppointmentSheet({
                 </Chip>
               ))}
             </div>
-            <Button busy={busy} disabled={!target} onClick={() => run(() => dayApi.reassign(a.id, target!), 'Given to another barber.')}>
-              Give to {others.find((b) => b.staffId === target)?.name ?? '…'}
+            <Button busy={busy} disabled={!target} onClick={() => run(() => dayApi.reassign(a.id, target!), t('day.doneReassigned'))}>
+              {t('day.giveTo', { name: others.find((b) => b.staffId === target)?.name ?? '…' })}
             </Button>
             <Button variant="ghost" onClick={() => setMode('menu')}>
-              Back
+              {t('common.back')}
             </Button>
           </div>
         ) : mode === 'cancel' ? (
           <div className="flex flex-col gap-3">
             <TextArea
               id="cancel-reason"
-              label={booking ? 'Reason (sent to the customer)' : 'Reason'}
+              label={booking ? t('day.cancelReasonSent') : t('day.cancelReason')}
               value={reason}
               maxLength={200}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Barber is unwell today"
+              placeholder={t('day.cancelReasonExample')}
               hint={`${reason.trim().length}/200`}
             />
             <Button
               variant="danger"
               busy={busy}
               disabled={reason.trim().length < 2}
-              onClick={() => run(() => dayApi.cancel(a.id, reason.trim()), booking ? 'Cancelled. The customer has been told.' : 'Cancelled.')}
+              onClick={() => run(() => dayApi.cancel(a.id, reason.trim()), booking ? t('day.doneCancelledBooking') : t('day.doneCancelled'))}
             >
-              Cancel {booking ? 'booking' : 'walk-in'}
+              {booking ? t('day.cancelBooking') : t('day.cancelWalkIn')}
             </Button>
             <Button variant="ghost" onClick={() => setMode('menu')}>
-              Back
+              {t('common.back')}
             </Button>
           </div>
         ) : (
           <Confirm
-            text="This time becomes free for bookings again."
-            action={`Remove ${a.blockType === 'LEAVE' ? 'leave' : 'break'}`}
+            text={t('day.confirmRemoveBlock')}
+            action={a.blockType === 'LEAVE' ? t('day.removeLeave') : t('day.removeBreak')}
             busy={busy}
             onYes={() =>
               run(async () => {
                 await dayApi.removeBlock(a.staffId, a.id)
                 onClose()
-              }, 'Removed.')
+              }, t('day.doneRemoved'))
             }
             onNo={() => setMode('menu')}
           />
@@ -316,16 +318,16 @@ export function AppointmentSheet({
 export function sheetError(e: unknown): string {
   if (isApiError(e, 'WRONG_START_CODE') && typeof e.details.triesLeft === 'number') {
     const left = e.details.triesLeft
-    return `${explain(e)} ${left} ${left === 1 ? 'try' : 'tries'} left.`
+    return t('day.triesLeft', { message: explain(e), count: left })
   }
   if (isApiError(e, 'WRONG_STATUS') && e.details.reason === 'CHANGED' && typeof e.details.status === 'string') {
-    const now = statusText[e.details.status as keyof typeof statusText] ?? e.details.status
-    return `Someone changed it meanwhile: it is now "${now}".`
+    return t('day.statusChanged', { status: statusTextOr(e.details.status) })
   }
   return explain(e)
 }
 
 function Confirm({ text, action, busy, onYes, onNo }: { text: string; action: string; busy: boolean; onYes: () => void; onNo: () => void }) {
+  const t = useT()
   return (
     <div className="flex flex-col gap-3">
       <p className="text-muted">{text}</p>
@@ -333,7 +335,7 @@ function Confirm({ text, action, busy, onYes, onNo }: { text: string; action: st
         {action}
       </Button>
       <Button variant="ghost" onClick={onNo}>
-        Back
+        {t('common.back')}
       </Button>
     </div>
   )

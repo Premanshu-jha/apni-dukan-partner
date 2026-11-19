@@ -9,6 +9,7 @@ import type { Appointment, InTheWay } from '../../api/types'
 import { Banner, Button, Card, Chip, ErrorState, Field, Loading, Page } from '../../components/ui'
 import { addDays, dateOfIst, dateTimeIst, isDate, istInstant, timeIst, todayIst } from '../../lib/ist'
 import { can } from '../../lib/roles'
+import { t, useT } from '../../i18n'
 
 type Kind = 'BREAK' | 'LEAVE'
 
@@ -25,21 +26,21 @@ export function blockRange(
   f: { date: string; from: string; to: string; firstDay: string; lastDay: string; own?: boolean },
 ): { startAt: string; endAt: string } | { error: string } {
   if (kind === 'BREAK') {
-    if (!isDate(f.date)) return { error: 'Pick the day.' }
-    if (!f.from || !f.to) return { error: 'Pick a start and an end time.' }
-    if (f.to <= f.from) return { error: 'The end must be after the start.' }
-    if (f.own && f.date > addDays(todayIst(), 1)) return { error: 'Your own breaks can be for today or tomorrow. Ask the owner for time off further ahead.' }
-    if (f.own && minutesBetween(f.from, f.to) > OWN_BREAK_MINUTES) return { error: 'Your own breaks can be at most 4 hours a day. Ask the owner for longer.' }
+    if (!isDate(f.date)) return { error: t('day.pickTheDay') }
+    if (!f.from || !f.to) return { error: t('day.pickStartEnd') }
+    if (f.to <= f.from) return { error: t('day.endAfterStart') }
+    if (f.own && f.date > addDays(todayIst(), 1)) return { error: t('day.ownBreakDays') }
+    if (f.own && minutesBetween(f.from, f.to) > OWN_BREAK_MINUTES) return { error: t('day.ownBreakHours') }
     return { startAt: istInstant(f.date, f.from), endAt: istInstant(f.date, f.to) }
   }
-  if (!isDate(f.firstDay) || !isDate(f.lastDay)) return { error: 'Pick the first and last day.' }
-  if (f.lastDay < f.firstDay) return { error: 'The last day must be on or after the first day.' }
-  if (f.lastDay > addDays(f.firstDay, MAX_LEAVE_DAYS - 1)) return { error: `Leave can be at most ${MAX_LEAVE_DAYS} days at a time.` }
+  if (!isDate(f.firstDay) || !isDate(f.lastDay)) return { error: t('day.pickFirstLast') }
+  if (f.lastDay < f.firstDay) return { error: t('day.lastAfterFirst') }
+  if (f.lastDay > addDays(f.firstDay, MAX_LEAVE_DAYS - 1)) return { error: t('day.leaveTooLong', { days: MAX_LEAVE_DAYS }) }
   return { startAt: istInstant(f.firstDay, '00:00'), endAt: istInstant(addDays(f.lastDay, 1), '00:00') }
 }
 
 function minutesBetween(from: string, to: string): number {
-  const m = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
+  const m = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5))
   return m(to) - m(from)
 }
 
@@ -48,6 +49,7 @@ function minutesBetween(from: string, to: string): number {
  * cancelled first: the backend refuses with BLOCK_CONFLICTS, so we check first and list them.
  */
 export function TimeOff() {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const shop = useShop()
@@ -107,26 +109,26 @@ export function TimeOff() {
   }
 
   return (
-    <Page back="/salon/day" title={kind === 'BREAK' ? 'Add a break' : 'Add leave'}>
+    <Page back="/salon/day" title={kind === 'BREAK' ? t('day.addBreakTitle') : t('day.addLeaveTitle')}>
       {rights.leave && (
-        <div className="flex gap-2" role="group" aria-label="Kind">
+        <div className="flex gap-2" role="group" aria-label={t('day.kind')}>
           <Chip selected={kind === 'BREAK'} onClick={() => setKind('BREAK')}>
-            Break
+            {t('day.break')}
           </Chip>
           <Chip selected={kind === 'LEAVE'} onClick={() => setKind('LEAVE')}>
-            Leave (whole days)
+            {t('day.leaveWholeDays')}
           </Chip>
         </div>
       )}
 
       {ownOnly ? (
         chosen ? (
-          <p className="text-sm text-muted">For {chosen.name}</p>
+          <p className="text-sm text-muted">{t('day.forBarber', { name: chosen.name })}</p>
         ) : (
-          <Banner tone="warn">Open this from your column on Today.</Banner>
+          <Banner tone="warn">{t('day.openFromColumn')}</Banner>
         )
       ) : (
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Barber">
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t('day.barber')}>
           {barbers.map((b) => (
             <Chip key={b.id} selected={staffId === b.id} onClick={() => setStaffId(b.id)}>
               {b.name}
@@ -138,28 +140,28 @@ export function TimeOff() {
       <Card className="flex flex-col gap-4">
         {kind === 'BREAK' ? (
           <>
-            <Field id="break-date" label="Day" type="date" min={today} max={addDays(today, ownOnly ? 1 : AHEAD_DAYS)} value={date} onChange={(e) => setDate(e.target.value)} />
+            <Field id="break-date" label={t('day.breakDay')} type="date" min={today} max={addDays(today, ownOnly ? 1 : AHEAD_DAYS)} value={date} onChange={(e) => setDate(e.target.value)} />
             <div className="grid grid-cols-2 gap-3">
-              <Field id="break-from" label="From" type="time" step={300} value={from} onChange={(e) => setFrom(e.target.value)} />
-              <Field id="break-to" label="To" type="time" step={300} value={to} onChange={(e) => setTo(e.target.value)} />
+              <Field id="break-from" label={t('day.breakFrom')} type="time" step={300} value={from} onChange={(e) => setFrom(e.target.value)} />
+              <Field id="break-to" label={t('day.breakTo')} type="time" step={300} value={to} onChange={(e) => setTo(e.target.value)} />
             </div>
           </>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            <Field id="leave-from" label="First day" type="date" min={today} max={addDays(today, AHEAD_DAYS)} value={firstDay} onChange={(e) => setFirstDay(e.target.value)} />
-            <Field id="leave-to" label="Last day" type="date" min={firstDay} value={lastDay} onChange={(e) => setLastDay(e.target.value)} />
+            <Field id="leave-from" label={t('day.firstDay')} type="date" min={today} max={addDays(today, AHEAD_DAYS)} value={firstDay} onChange={(e) => setFirstDay(e.target.value)} />
+            <Field id="leave-to" label={t('day.lastDay')} type="date" min={firstDay} value={lastDay} onChange={(e) => setLastDay(e.target.value)} />
           </div>
         )}
-        <p className="text-sm text-muted">Customers can't book {chosen?.name ?? 'the barber'} in this time. India time.</p>
-        {ownOnly && <p className="text-sm text-muted">Your own breaks: today or tomorrow, up to 4 hours a day. The owner gives longer time off.</p>}
+        <p className="text-sm text-muted">{chosen ? t('day.cantBookName', { name: chosen.name }) : t('day.cantBookBarber')}</p>
+        {ownOnly && <p className="text-sm text-muted">{t('day.ownBreaksNote')}</p>}
       </Card>
 
       {inTheWay && (
         <Card className="flex flex-col gap-2 border-warn/50">
           <p className="font-semibold">
-            {inTheWay.length ? `${inTheWay.length} already booked in this time` : 'Something is already booked in this time'}
+            {inTheWay.length ? t('day.alreadyBooked', { count: inTheWay.length }) : t('day.somethingBooked')}
           </p>
-          <p className="text-sm text-muted">Give these to another barber or cancel them on the day board, then save again.</p>
+          <p className="text-sm text-muted">{t('day.moveThenSave')}</p>
           <ul className="flex flex-col gap-1 text-sm">
             {inTheWay.map((a) => (
               <li key={a.id}>
@@ -174,7 +176,7 @@ export function TimeOff() {
       )}
       {error && <Banner tone="bad">{error}</Banner>}
       <Button busy={busy} disabled={!chosen} onClick={save}>
-        Save {kind === 'BREAK' ? 'break' : 'leave'}
+        {kind === 'BREAK' ? t('day.saveBreak') : t('day.saveLeave')}
       </Button>
     </Page>
   )

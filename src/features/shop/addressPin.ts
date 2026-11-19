@@ -1,5 +1,6 @@
 import { ApiError } from '../../api/errors'
 import type { Described, GeocodeIn, GeocodePrecision } from '../../api/types'
+import { t } from '../../i18n'
 
 /**
  * "Find my salon on the map" (registration step 1): the typed address becomes a pin through POST /shops/geocode,
@@ -22,7 +23,7 @@ export function canSearchAddress(f: GeocodeIn): boolean {
 
 /** What to tell the owner about a pin from the address. */
 export function precisionHint(p: GeocodePrecision): string {
-  return p === 'EXACT' ? 'Check the pin is on your door.' : "This is only close by. Drag the pin onto your salon's door."
+  return p === 'EXACT' ? t('register.pinExactHint') : t('register.pinCloseHint')
 }
 
 /**
@@ -53,7 +54,7 @@ export function waitEndsText(seconds: number, now: Date = new Date()): string {
   const end = new Date(now.getTime() + seconds * 1000)
   const day = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
   const time = end.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit' })
-  return day(end) === day(now) ? time : `tomorrow, ${time}`
+  return day(end) === day(now) ? time : t('register.waitTomorrow', { time })
 }
 
 /** What a failed search means for the screen: hide the button, or the words to show. */
@@ -64,7 +65,7 @@ export function searchFailure(e: unknown): { hide: true } | { hide: false; text:
     return { hide: true }
   }
   if (code === 'ADDRESS_NOT_FOUND') {
-    return { hide: false, text: "Couldn't find that address. Check the pincode and area, or use your location." }
+    return { hide: false, text: t('register.searchNotFound') }
   }
   if (code === 'TRY_LATER' && e instanceof ApiError) {
     const minutes = Math.max(1, Math.ceil((e.retryAfterSeconds ?? 60) / 60))
@@ -72,19 +73,19 @@ export function searchFailure(e: unknown): { hide: true } | { hide: false; text:
     if (minutes > 60) {
       return {
         hide: false,
-        text: `You've used your searches for new addresses for now. Try again after ${waitEndsText(e.retryAfterSeconds ?? 0)}, or use your location.`,
+        text: t('register.searchUsedUp', { when: waitEndsText(e.retryAfterSeconds ?? 0) }),
       }
     }
     return {
       hide: false,
-      text: `Many address searches in a short time. Try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}, or use your location.`,
+      text: t('register.searchTooMany', { count: minutes }),
     }
   }
   if (code === 'VALIDATION_FAILED') {
-    return { hide: false, text: 'Check the address, area, city and pincode above, then try again.' }
+    return { hide: false, text: t('register.searchCheckFields') }
   }
   // GEOCODING_UNAVAILABLE, SERVICE_BUSY, offline, anything else
-  return { hide: false, text: "Address search isn't working right now. Use your location, or try again later." }
+  return { hide: false, text: t('register.searchDown') }
 }
 
 /**
@@ -101,4 +102,7 @@ export function fillEmpty<F extends GeocodeIn>(form: F, at: Described): F {
   return next
 }
 
-export const FILLED_TEXT = "We filled the address from your location. Check it and correct anything that's wrong."
+/** Said after the address fields were filled from the GPS point. */
+export function filledText(): string {
+  return t('register.addressFilled')
+}

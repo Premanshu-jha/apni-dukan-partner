@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router'
 import { authApi } from '../../api/auth'
 import { fieldError, messageOf } from '../../api/errors'
 import { Banner, Button, Field, Page } from '../../components/ui'
+import { useT } from '../../i18n'
 import { useSession } from '../../store/session'
 import { nextAfterSignIn } from './flow'
 
 /** Sign-up step 3, asked last: the name the salon's owner and our field team see. */
 export function NameStep() {
+  const t = useT()
   const navigate = useNavigate()
   const setUser = useSession((s) => s.setUser)
   const [name, setName] = useState(useSession.getState().user?.name ?? '')
@@ -33,22 +35,22 @@ export function NameStep() {
   }
 
   return (
-    <Page title="What should we call you?">
-      <p className="text-muted">Step 3 of 3. Your owner and our field team see this name.</p>
+    <Page title={t('auth.nameTitle')}>
+      <p className="text-muted">{t('auth.nameIntro')}</p>
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         <Field
           id="name"
-          label="Your name"
+          label={t('auth.nameLabel')}
           autoComplete="name"
-          placeholder="Riya"
+          placeholder={t('auth.namePlaceholder')}
           maxLength={60}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          hint="2 to 60 letters"
+          hint={t('auth.nameHint')}
         />
         {error && <Banner tone="bad">{error}</Banner>}
         <Button type="submit" busy={busy} disabled={!valid}>
-          Done
+          {t('common.done')}
         </Button>
       </form>
     </Page>

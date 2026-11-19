@@ -1,4 +1,5 @@
 import { formatInTimeZone } from 'date-fns-tz'
+import { language, t } from '../i18n'
 
 /** Salons work in India time, whatever zone the phone is set to. */
 export const IST = 'Asia/Kolkata'
@@ -24,20 +25,40 @@ export function nextDates(count: number, now: Date = new Date()): string[] {
 /** "Today", "Tomorrow" or "Fri 7 Nov" for a yyyy-MM-dd date. */
 export function dayLabel(date: string, now: Date = new Date()): string {
   const today = todayIst(now)
-  if (date === today) return 'Today'
-  if (date === addDays(today, 1)) return 'Tomorrow'
+  if (date === today) return t('day.dayToday')
+  if (date === addDays(today, 1)) return t('day.dayTomorrow')
   const [y, m, d] = date.split('-').map(Number)
-  return formatInTimeZone(new Date(Date.UTC(y, m - 1, d, 6)), 'UTC', 'EEE d MMM')
+  const at = new Date(Date.UTC(y, m - 1, d, 6))
+  return local(at, 'UTC', DAY) ?? formatInTimeZone(at, 'UTC', 'EEE d MMM')
+}
+
+const DAY: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'short' }
+
+/**
+ * A date or time in the app's language (its own day and month names, digits 0-9); null in English, which keeps the
+ * wording it always had.
+ */
+function local(at: Date, timeZone: string, options: Intl.DateTimeFormatOptions): string | null {
+  const lang = language()
+  if (lang === 'en') return null
+  try {
+    return new Intl.DateTimeFormat(`${lang}-IN-u-nu-latn`, { ...options, timeZone }).format(at)
+  } catch {
+    return null // a phone without this language's formats: as in English
+  }
 }
 
 /** "4:30 PM" for an instant, in India time. */
 export function timeIst(instant: string): string {
-  return formatInTimeZone(new Date(instant), IST, 'h:mm a')
+  // In another language: the same "4:30 PM" words as opening hours use (clock12), so one screen never mixes styles
+  return language() === 'en' ? formatInTimeZone(new Date(instant), IST, 'h:mm a')
+    : clock12(formatInTimeZone(new Date(instant), IST, 'HH:mm'))
 }
 
 /** "Fri 7 Nov, 4:30 PM" for an instant, in India time. */
 export function dateTimeIst(instant: string): string {
-  return formatInTimeZone(new Date(instant), IST, 'EEE d MMM, h:mm a')
+  const day = local(new Date(instant), IST, DAY)
+  return day === null ? formatInTimeZone(new Date(instant), IST, 'EEE d MMM, h:mm a') : `${day}, ${timeIst(instant)}`
 }
 
 /** The yyyy-MM-dd date of an instant, in India time. */
@@ -50,20 +71,22 @@ export function minutesUntil(instant: string, now: Date = new Date()): number {
   return Math.round((new Date(instant).getTime() - now.getTime()) / 60000)
 }
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+/** The keys of the weekdays' short names (translated when asked for, so they follow the language). */
+const WEEKDAYS = ['day.weekdayMon', 'day.weekdayTue', 'day.weekdayWed', 'day.weekdayThu', 'day.weekdayFri', 'day.weekdaySat', 'day.weekdaySun']
 
 /** "Mon" for the backend's weekday number (1 = Monday … 7 = Sunday). */
 export function weekdayName(weekday: number): string {
-  return WEEKDAYS.at(weekday - 1) ?? ''
+  const key = WEEKDAYS.at(weekday - 1)
+  return key ? t(key) : ''
 }
 
 /** "10:00" (24-hour, as the backend sends it) as "10:00 AM". */
 export function clock12(hhmm: string): string {
-  if (hhmm === '24:00') return 'midnight'   // the end of the day: "12:00 AM" would read as its start
+  if (hhmm === '24:00') return t('day.midnight')   // the end of the day: "12:00 AM" would read as its start
   const [h, m] = hhmm.split(':').map(Number)
-  const suffix = h >= 12 && h < 24 ? 'PM' : 'AM'
   const h12 = h % 12 === 0 ? 12 : h % 12
-  return `${h12}:${String(m).padStart(2, '0')} ${suffix}`
+  const time = `${h12}:${String(m).padStart(2, '0')}`
+  return h >= 12 && h < 24 ? t('day.clockPm', { time }) : t('day.clockAm', { time })
 }
 
 /** A yyyy-MM-dd date and "HH:mm" in India time, as an ISO instant (India has no daylight saving: always +05:30). */

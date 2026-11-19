@@ -6,6 +6,7 @@ import { isApiError, messageOf } from '../../api/errors'
 import type { SubscriptionView } from '../../api/types'
 import { useShop } from '../../api/shop'
 import { Banner, Button, Card, ErrorState, Loading, Page } from '../../components/ui'
+import { t, useT } from '../../i18n'
 import { CheckoutStopped, payWithRazorpay } from '../../lib/razorpay'
 import { screensBehind } from '../../lib/nav'
 import { dayIst, payByDay, whatEnded } from './text'
@@ -18,6 +19,7 @@ const WATCH_MS = 90_000
  * checkout: approve AutoPay once with the UPI PIN (or pay by card or netbanking).
  */
 export function SubscriptionPage() {
+  const t = useT()
   const shop = useShop()
   const [watchUntil, setWatchUntil] = useState(0)
   const watching = watchUntil > 0
@@ -33,7 +35,7 @@ export function SubscriptionPage() {
     return () => clearTimeout(t)
   }, [watching, watchUntil, sub.data?.state])
   return (
-    <Page title="Subscription" back={screensBehind() > 0 ? true : '/more'} backReplace>
+    <Page title={t('subscription.title')} back={screensBehind() > 0 ? true : '/more'} backReplace>
       {sub.isPending ? (
         <Loading />
       ) : sub.isError ? (
@@ -67,6 +69,9 @@ function Details({
   suspended: boolean
   onWatch: () => void
 }) {
+  const t = useT()
+  // Printed as it is ("₹1500"), not grouped
+  const price = String(s.pricePerMonth)
   const qc = useQueryClient()
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
@@ -122,9 +127,9 @@ function Details({
     } catch (e) {
       if (e instanceof CheckoutStopped) {
         if (e.reason === 'FAILED') {
-          setProblem(`${e.message} If money was taken anyway, it shows here within a few minutes.`)
+          setProblem(t('subscription.failedMoneyTaken', { reason: e.message }))
         } else if (e.reason === 'LOAD') {
-          setProblem("Couldn't open the payment screen. Check your internet and try again.")
+          setProblem(t('subscription.couldntOpenPayment'))
         }
         // CLOSED: the owner closed it; nothing to say (a payment approved in the UPI app still shows up)
       } else if (!isApiError(e, 'ALREADY_SUBSCRIBED')) {
@@ -151,58 +156,56 @@ function Details({
       {outcome?.kind === 'autopay' && autoPayNow && (
         <Banner tone="good">
           {outcome.firstOn
-            ? `AutoPay is on. Nothing is taken today; the first ₹${s.pricePerMonth} on ${dayIst(outcome.firstOn)}, then each month.`
-            : `AutoPay is on: ₹${s.pricePerMonth} is being paid now, then each month. Customers can find your salon as soon as it's through (usually a minute).`}
+            ? t('subscription.autoPayOnFirst', { price, day: dayIst(outcome.firstOn) })
+            : t('subscription.autoPayOnNow', { price })}
         </Banner>
       )}
       {outcome?.kind === 'checking' && !autoPayNow && (
         <Banner tone="info">
-          <p>You approved the payment. We're checking it with Razorpay: please don't pay again.</p>
+          <p>{t('subscription.checking')}</p>
           <Button variant="secondary" busy={busy} onClick={() => void checkAgain(outcome.answer)}>
-            Check again
+            {t('subscription.checkAgain')}
           </Button>
         </Banner>
       )}
       {suspended && (
         <Banner tone="warn" live={false}>
-          Our team has suspended your salon; paying doesn't change that. <Link to="/help" className="underline">Ask us</Link>{' '}
-          what to fix.
+          {t('subscription.suspendedBefore')} <Link to="/help" className="underline">{t('subscription.suspendedLink')}</Link>{' '}
+          {t('subscription.suspendedAfter')}
         </Banner>
       )}
       {s.state === 'HIDDEN' && s.enforced && (
         <Banner tone="bad" live={false}>
-          Customers can't find your salon on Clozest and it takes no new online bookings until it's paid. Bookings
-          already made stay.
+          {t('subscription.hiddenUntilPaid')}
         </Banner>
       )}
       {s.state === 'GRACE' && (
         <Banner tone={s.enforced ? 'warn' : 'info'} live={false}>
           {s.enforced
-            ? `${whatEnded(s)}. Pay by ${payByDay(s)}, or customers won't find your salon from the next day.`
-            : `${whatEnded(s)}. Please pay to keep your salon on Clozest.`}
+            ? t('subscription.gracePayBy', { what: whatEnded(s), day: payByDay(s) })
+            : t('subscription.gracePlease', { what: whatEnded(s) })}
         </Banner>
       )}
       {s.autoPayFailed && (s.state === 'TRIAL' || s.state === 'PAID') && (
         <Banner tone="warn" live={false}>
-          Your AutoPay payment didn't go through. Check your bank or UPI app has money and AutoPay is on, or pay
-          another way below.
+          {t('subscription.autoPayFailedLong')}
         </Banner>
       )}
 
       <Card className="flex flex-col gap-2">
-        <p className="text-sm text-muted">Clozest for your salon</p>
-        <p className="text-2xl font-bold">₹{s.pricePerMonth} a month</p>
+        <p className="text-sm text-muted">{t('subscription.forYourSalon')}</p>
+        <p className="text-2xl font-bold">{t('subscription.priceAMonth', { price })}</p>
         {s.state === 'NONE' ? (
-          <p className="text-sm text-muted">Free for 30 days once our field team approves your salon.</p>
+          <p className="text-sm text-muted">{t('subscription.freeOnceApproved')}</p>
         ) : (
           <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-            <dt className="text-muted">Now</dt>
+            <dt className="text-muted">{t('subscription.now')}</dt>
             <dd className="font-medium">{stateWords(s)}</dd>
-            <dt className="text-muted">Free trial</dt>
-            <dd>until {dayIst(s.trialEndsAt!)}</dd>
+            <dt className="text-muted">{t('subscription.freeTrialLabel')}</dt>
+            <dd>{t('subscription.untilDay', { day: dayIst(s.trialEndsAt!) })}</dd>
             {s.paidUntil && (
               <>
-                <dt className="text-muted">Paid until</dt>
+                <dt className="text-muted">{t('subscription.paidUntilLabel')}</dt>
                 <dd>{dayIst(s.paidUntil)}</dd>
               </>
             )}
@@ -217,26 +220,23 @@ function Details({
       ) : (
         <Card>
           <p className="text-sm text-muted">
-            Only the owner pays{ownerName ? ` (${ownerName})` : ''}. Helpers and barbers pay nothing.
+            {ownerName ? t('subscription.onlyOwnerPaysNamed', { name: ownerName }) : t('subscription.onlyOwnerPays')}
           </p>
         </Card>
       )}
 
       <Card className="flex flex-col gap-1 text-sm">
-        <p className="font-medium">Good to know</p>
+        <p className="font-medium">{t('subscription.goodToKnow')}</p>
         <ul className="ml-5 list-disc text-muted">
-          <li>Customers book on Clozest for free and pay you at the salon.</li>
-          <li>Your UPI app or bank tells you before each AutoPay payment.</li>
-          <li>
-            To stop AutoPay: in your UPI app (PhonePe, Google Pay, Paytm…) open AutoPay and cancel Clozest. Paid by card
-            or netbanking? Ask us and we'll stop it. You keep the month already paid; nothing more is taken.
-          </li>
-          <li>Payments aren't refunded.</li>
+          <li>{t('subscription.goodFree')}</li>
+          <li>{t('subscription.goodTold')}</li>
+          <li>{t('subscription.goodStop')}</li>
+          <li>{t('subscription.goodNoRefund')}</li>
         </ul>
         <div className="mt-1 flex flex-wrap gap-x-4">
-          <Link to="/refunds" className="text-link underline">Refund policy</Link>
-          <Link to="/terms" className="text-link underline">Terms</Link>
-          <Link to="/help" className="text-link underline">Ask us</Link>
+          <Link to="/refunds" className="text-link underline">{t('subscription.refundPolicy')}</Link>
+          <Link to="/terms" className="text-link underline">{t('subscription.terms')}</Link>
+          <Link to="/help" className="text-link underline">{t('subscription.askUs')}</Link>
         </div>
       </Card>
     </div>
@@ -247,25 +247,28 @@ function Details({
 function stateWords(s: SubscriptionView): string {
   switch (s.state) {
     case 'AUTOPAY':
-      return 'AutoPay on'
+      return t('subscription.stateAutoPay')
     case 'TRIAL':
-      return 'Free trial'
+      return t('subscription.stateTrial')
     case 'PAID':
-      return 'Paid'
+      return t('subscription.statePaid')
     case 'GRACE':
-      return s.enforced ? `Not paid yet: pay by ${payByDay(s)}` : 'Not paid yet'
+      return s.enforced ? t('subscription.stateNotPaidPayBy', { day: payByDay(s) }) : t('subscription.stateNotPaid')
     case 'HIDDEN':
-      return s.enforced ? "Not paid: customers can't find your salon" : 'Not paid yet'
+      return s.enforced ? t('subscription.stateHidden') : t('subscription.stateNotPaid')
     default:
       return ''
   }
 }
 
 function OwnerActions({ s, busy, problem, onPay }: { s: SubscriptionView; busy: boolean; problem: string | null; onPay: () => void }) {
+  const t = useT()
+  // Printed as it is ("₹1500"), not grouped
+  const price = String(s.pricePerMonth)
   if (s.state === 'NONE') {
     return (
       <Card>
-        <p className="text-sm text-muted">Nothing to pay yet: your free trial starts when our field team approves your salon.</p>
+        <p className="text-sm text-muted">{t('subscription.nothingToPayYet')}</p>
       </Card>
     )
   }
@@ -273,27 +276,27 @@ function OwnerActions({ s, busy, problem, onPay }: { s: SubscriptionView; busy: 
     return (
       <Card>
         <p className="text-sm text-muted">
-          AutoPay is on: nothing to do.{s.accessUntil ? ` The next ₹${s.pricePerMonth} is taken on ${dayIst(s.accessUntil)}.` : ''}
+          {s.accessUntil ? t('subscription.autoPayNothingToDoNext', { price, day: dayIst(s.accessUntil) }) : t('subscription.autoPayNothingToDo')}
         </p>
       </Card>
     )
   }
   if (!s.paymentsReady) {
-    return <Banner tone="info">Paying in the app isn't available yet. We'll tell you before anything is due.</Banner>
+    return <Banner tone="info">{t('subscription.payingNotReady')}</Banner>
   }
   const later = (s.state === 'TRIAL' || s.state === 'PAID') && Date.parse(s.accessUntil!) > Date.now() + 15 * 60_000
   return (
     <div className="flex flex-col gap-2">
       {problem && <Banner tone="bad">{problem}</Banner>}
       <Button busy={busy} onClick={onPay}>
-        {later ? 'Set up AutoPay' : `Pay ₹${s.pricePerMonth}`}
+        {later ? t('subscription.setUpAutoPay') : t('subscription.payPrice', { price })}
       </Button>
       <p className="text-center text-sm text-muted">
         {later
-          ? `Approve once with your UPI PIN. Nothing is taken today: the first ₹${s.pricePerMonth} on ${dayIst(s.accessUntil!)}, then every month.`
-          : `₹${s.pricePerMonth} now for the next month, then ₹${s.pricePerMonth} each month by AutoPay (stop any time). UPI, card or netbanking.`}
+          ? t('subscription.approveOnce', { price, day: dayIst(s.accessUntil!) })
+          : t('subscription.payNowThenMonthly', { price })}
       </p>
-      {s.testMode && <p className="text-center text-xs text-muted">Test mode: nothing real is charged.</p>}
+      {s.testMode && <p className="text-center text-xs text-muted">{t('subscription.testMode')}</p>}
     </div>
   )
 }
