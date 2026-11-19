@@ -1,0 +1,16 @@
+{
+  "staffId": "బార్బర్:",
+  "serviceIds": "సర్వీస్‌లు:",
+  "name": "పేరు",
+  "reason": "కారణం",
+  "endAt": "ముగిసే టైమ్",
+  "startAt": "మొదలయ్యే టైమ్",
+  "until": "పాజ్ టైమ్",
+  "date": "తేదీ",
+  "durationMinutes": "పట్టే టైమ్",
+  "pricePaise": "ధర",
+  "phone": "ఆ నంబర్",
+  "hours": "టైమింగ్స్:",
+  "returnAfterDays": "మళ్లీ రమ్మనే రిమైండర్",
+  "fileId": "ఫైల్"
+}
