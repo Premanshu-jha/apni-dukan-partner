@@ -1,0 +1,9 @@
+{
+  "title": "Language",
+  "choose": "Choose your language",
+  "hint": "You can change it any time in More → Language.",
+  "offline": "Couldn't download this language. Check your internet and try again.",
+  "offerTitle": "Use the app in your language",
+  "keepEnglish": "Keep English",
+  "profileHint": "Only on this phone: someone else on another phone can use their own language."
+}
