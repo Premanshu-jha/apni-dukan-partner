@@ -7,7 +7,7 @@ test('the owner invites a helper, gives walk-in access and removes the helper', 
   await page.getByRole('link', { name: 'Team and walk-in access' }).click()
   await page.getByLabel("Helper's mobile number").fill('+91 99999 00001')
   await page.getByRole('button', { name: 'Send invitation' }).click()
-  await expect(page.getByText("Invitation sent. They'll see it in Apni Dukan")).toBeVisible()
+  await expect(page.getByText("Invitation sent. They'll see it in Clozest")).toBeVisible()
   expect(api.calls.find((c) => c.path === '/api/v1/shops/me/helpers')!.body).toEqual({ phone: '9999900001' })
   // They accept on their phone: the helper is in the team
   api.shopInvites = []
