@@ -1,0 +1,63 @@
+{
+  "spinnerLoading": "लोड हो रहा है",
+
+  "errorTitle": "इस स्क्रीन पर कुछ गड़बड़ हो गई",
+  "errorBody": "आपके सैलून का डेटा सुरक्षित है। आगे बढ़ने के लिए फिर से शुरू करें।",
+  "errorStartAgain": "फिर से शुरू करें",
+
+  "mapLoadFailed": "मैप लोड नहीं हो पाया (इंटरनेट नहीं है?)। फिर कोशिश करने के लिए पेज रीलोड करें।",
+
+  "updateAvailable": "नया वर्ज़न आ गया है",
+  "updateReload": "रीलोड करें",
+
+  "copyCodeAria": "दुकान कोड {code} कॉपी करें",
+  "copyCopied": "कॉपी हो गया",
+  "copyCopy": "कॉपी करें",
+
+  "photoFormat": "इस फ़ोटो का फ़ॉर्मेट यहाँ नहीं चलता (अक्सर iPhone या Samsung की HEIC फ़ोटो)। \"फ़ोटो खींचें\" से नई फ़ोटो लें, या कोई JPG चुनें।",
+  "photoNotImage": "कोई फ़ोटो चुनें।",
+  "photoSaved": "फ़ोटो सेव हो गई",
+  "photoEmpty": "फ़ोटो खींचें या चुनें",
+  "photoUploading": "अपलोड हो रहा है…",
+  "photoTake": "फ़ोटो खींचें",
+  "photoRetake": "फ़ोटो दोबारा खींचें",
+  "photoTakeAria": "{name} खींचें",
+  "photoRetakeAria": "{name} दोबारा खींचें",
+  "photoGallery": "गैलरी से चुनें",
+  "photoGalleryAnother": "दूसरी चुनें",
+  "photoGalleryAria": "गैलरी से {name} चुनें",
+  "photoGalleryAnotherAria": "गैलरी से दूसरी {name} चुनें",
+  "photoCameraInputAdd": "{name} जोड़ें",
+  "photoCameraInputChange": "{name} बदलें",
+  "photoGalleryInput": "गैलरी से {name} चुनें",
+  "photoRetryAria": "{name} फिर से भेजने की कोशिश करें",
+
+  "locationOffTitle": "लोकेशन बंद है",
+  "locationOffBody": "ग्राहक आपका सैलून उसकी लोकेशन से ढूँढते हैं। इसे चालू करने का तरीक़ा:",
+  "locationIosSettings": "अपने iPhone में Settings ऐप खोलें।",
+  "locationIosServices": "Privacy & Security दबाएँ, फिर Location Services, और देखें कि वह चालू है।",
+  "locationIosBrowser": "नीचे जाकर Safari Websites (या अपना ब्राउज़र) खोलें और \"While Using the App\" चुनें।",
+  "locationIosReturn": "यहाँ वापस आकर पेज रीलोड करें, फिर \"फिर कोशिश करें\" दबाएँ।",
+  "locationAndroidIcon": "एड्रेस बार के बाईं ओर वाला आइकन दबाएँ (ताला या दो स्लाइडर)।",
+  "locationAndroidAllow": "Permissions दबाएँ, फिर Location, और Allow चुनें।",
+  "locationAndroidQuickSettings": "देखें कि फ़ोन की क्विक सेटिंग्स में लोकेशन चालू है (ऊपर से नीचे स्वाइप करें)।",
+  "locationAndroidReturn": "यहाँ वापस आकर \"फिर कोशिश करें\" दबाएँ।",
+  "locationDesktopIcon": "एड्रेस बार के बाईं ओर वाले आइकन पर क्लिक करें।",
+  "locationDesktopAllow": "Location ढूँढें और उसे Allow पर करें।",
+  "locationDesktopReload": "पेज रीलोड करें और \"फिर कोशिश करें\" पर क्लिक करें।",
+  "locationDesktopUsePhone": "कंप्यूटर अपनी जगह का सिर्फ़ अंदाज़ा लगा सकता है: सैलून में खड़े होकर अपने फ़ोन से रजिस्टर करें।",
+
+  "mapAttribution": "© OpenStreetMap contributors",
+  "mapPinTitle": "सैलून की लोकेशन",
+  "mapPinMovedNorth": "पिन उत्तर की ओर खिसका।",
+  "mapPinMovedSouth": "पिन दक्षिण की ओर खिसका।",
+  "mapPinMovedWest": "पिन पश्चिम की ओर खिसका।",
+  "mapPinMovedEast": "पिन पूरब की ओर खिसका।",
+  "mapMovableAria": "मैप: पिन को खींचकर अपने सैलून के दरवाज़े पर रखें, या टैब से पिन पर जाकर ऐरो बटन इस्तेमाल करें",
+  "mapFixedAria": "मैप: आपके सैलून का पिन, जहाँ ग्राहक आपको ढूँढते हैं",
+
+  "moreOffline": "आप ऑफ़लाइन हैं। इंटरनेट चालू करें और {label} फिर दबाएँ।",
+  "moreNetwork": "आप ऑफ़लाइन हैं या सर्वर से संपर्क नहीं हो पा रहा। इंटरनेट चालू करके {label} फिर दबाएँ।",
+  "moreFailed": "और लोड नहीं हो पाया। फिर कोशिश करने के लिए {label} दबाएँ।",
+  "moreRefreshFailed": "लिस्ट ताज़ा नहीं हो पाई। यह थोड़ी पुरानी हो सकती है।"
+}
