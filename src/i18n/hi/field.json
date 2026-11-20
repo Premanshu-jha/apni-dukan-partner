@@ -1,0 +1,16 @@
+{
+  "staffId": "बार्बर:",
+  "serviceIds": "सर्विस:",
+  "name": "नाम",
+  "reason": "कारण",
+  "endAt": "ख़त्म होने का समय",
+  "startAt": "शुरू होने का समय",
+  "until": "रोक का समय",
+  "date": "दिन",
+  "durationMinutes": "लगने वाला समय",
+  "pricePaise": "दाम",
+  "phone": "वह नंबर",
+  "hours": "समय:",
+  "returnAfterDays": "वापस बुलाने का रिमाइंडर",
+  "fileId": "फ़ाइल"
+}

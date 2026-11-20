@@ -1,4 +1,5 @@
 import type { SubscriptionCheckout } from '../api/types'
+import { t } from '../i18n'
 
 /** Razorpay's checkout script (Standard Checkout). Allowed by the CSP (security-headers.ts). */
 export const CHECKOUT_SCRIPT = 'https://checkout.razorpay.com/v1/checkout.js'
@@ -83,7 +84,7 @@ export async function payWithRazorpay(c: SubscriptionCheckout, stillWanted: () =
       },
     })
     checkout.on('payment.failed', (e) => {
-      failure = e.error?.description || 'The payment failed.'
+      failure = e.error?.description || t('subscription.paymentFailed')
     })
     checkout.open()
   })

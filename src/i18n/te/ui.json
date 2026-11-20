@@ -1,0 +1,63 @@
+{
+  "spinnerLoading": "లోడ్ అవుతోంది",
+
+  "errorTitle": "ఈ స్క్రీన్‌లో ఏదో పొరపాటు జరిగింది",
+  "errorBody": "మీ సెలూన్ డేటా భద్రంగా ఉంది. కొనసాగించడానికి మళ్లీ మొదలుపెట్టండి.",
+  "errorStartAgain": "మళ్లీ మొదలుపెట్టండి",
+
+  "mapLoadFailed": "మ్యాప్ లోడ్ కాలేదు (ఇంటర్నెట్ లేదా?). మళ్లీ ప్రయత్నించడానికి పేజీని రీలోడ్ చేయండి.",
+
+  "updateAvailable": "కొత్త వెర్షన్ వచ్చింది",
+  "updateReload": "రీలోడ్ చేయండి",
+
+  "copyCodeAria": "షాప్ కోడ్ {code} కాపీ చేయండి",
+  "copyCopied": "కాపీ అయింది",
+  "copyCopy": "కాపీ చేయండి",
+
+  "photoFormat": "ఈ ఫోటో ఫార్మాట్ పనిచేయదు (ఎక్కువగా iPhone లేదా Samsung HEIC ఫోటోలతో ఇలా అవుతుంది). \"ఫోటో తీయండి\"తో తీయండి, లేదా JPG ఫోటో ఎంచుకోండి.",
+  "photoNotImage": "ఒక ఫోటో ఎంచుకోండి.",
+  "photoSaved": "ఫోటో సేవ్ అయింది",
+  "photoEmpty": "ఫోటో తీయండి లేదా ఎంచుకోండి",
+  "photoUploading": "అప్‌లోడ్ అవుతోంది…",
+  "photoTake": "ఫోటో తీయండి",
+  "photoRetake": "ఫోటో మళ్లీ తీయండి",
+  "photoTakeAria": "{name} ఫోటో తీయండి",
+  "photoRetakeAria": "{name} ఫోటో మళ్లీ తీయండి",
+  "photoGallery": "గ్యాలరీ నుండి ఎంచుకోండి",
+  "photoGalleryAnother": "వేరేది ఎంచుకోండి",
+  "photoGalleryAria": "గ్యాలరీ నుండి {name} ఎంచుకోండి",
+  "photoGalleryAnotherAria": "గ్యాలరీ నుండి వేరే {name} ఎంచుకోండి",
+  "photoCameraInputAdd": "{name} యాడ్ చేయండి",
+  "photoCameraInputChange": "{name} మార్చండి",
+  "photoGalleryInput": "గ్యాలరీ నుండి {name} ఎంచుకోండి",
+  "photoRetryAria": "{name} మళ్లీ పంపి చూడండి",
+
+  "locationOffTitle": "లొకేషన్ ఆఫ్‌లో ఉంది",
+  "locationOffBody": "కస్టమర్లు మీ సెలూన్‌ని దాని లొకేషన్ ద్వారానే కనుక్కుంటారు. దాన్ని ఇలా ఆన్ చేయండి:",
+  "locationIosSettings": "మీ iPhoneలో Settings యాప్ ఓపెన్ చేయండి.",
+  "locationIosServices": "Privacy & Security నొక్కి, తర్వాత Location Services నొక్కండి. అది ఆన్‌లో ఉందో లేదో చూసుకోండి.",
+  "locationIosBrowser": "కిందికి స్క్రోల్ చేసి Safari Websites (లేదా మీ బ్రౌజర్) నొక్కి, \"While Using the App\" ఎంచుకోండి.",
+  "locationIosReturn": "ఇక్కడికి తిరిగి వచ్చి పేజీని రీలోడ్ చేయండి, తర్వాత \"మళ్లీ ప్రయత్నించండి\" నొక్కండి.",
+  "locationAndroidIcon": "అడ్రస్ బార్ ఎడమ వైపు ఉన్న ఐకాన్ (తాళం లేదా రెండు స్లైడర్లు) నొక్కండి.",
+  "locationAndroidAllow": "Permissions నొక్కి, తర్వాత Location నొక్కి, Allow ఎంచుకోండి.",
+  "locationAndroidQuickSettings": "మీ ఫోన్ క్విక్ సెట్టింగ్స్‌లో (పై నుండి కిందికి స్వైప్ చేయండి) Location ఆన్‌లో ఉందో లేదో చూసుకోండి.",
+  "locationAndroidReturn": "ఇక్కడికి తిరిగి వచ్చి \"మళ్లీ ప్రయత్నించండి\" నొక్కండి.",
+  "locationDesktopIcon": "అడ్రస్ బార్ ఎడమ వైపు ఉన్న ఐకాన్ క్లిక్ చేయండి.",
+  "locationDesktopAllow": "Location వెతికి, దాన్ని Allowకి మార్చండి.",
+  "locationDesktopReload": "పేజీని రీలోడ్ చేసి \"మళ్లీ ప్రయత్నించండి\" క్లిక్ చేయండి.",
+  "locationDesktopUsePhone": "కంప్యూటర్ తను ఎక్కడ ఉందో సుమారుగా మాత్రమే చెప్పగలదు: సెలూన్‌లో నిలబడి, మీ ఫోన్ నుండి రిజిస్టర్ చేయండి.",
+
+  "mapAttribution": "© OpenStreetMap contributors",
+  "mapPinTitle": "సెలూన్ లొకేషన్",
+  "mapPinMovedNorth": "పిన్ ఉత్తరం వైపు జరిగింది.",
+  "mapPinMovedSouth": "పిన్ దక్షిణం వైపు జరిగింది.",
+  "mapPinMovedWest": "పిన్ పడమర వైపు జరిగింది.",
+  "mapPinMovedEast": "పిన్ తూర్పు వైపు జరిగింది.",
+  "mapMovableAria": "మ్యాప్: పిన్‌ని మీ సెలూన్ డోర్ దగ్గరికి లాగండి, లేదా ట్యాబ్‌తో పిన్ మీదికి వెళ్లి యారో కీలు వాడండి",
+  "mapFixedAria": "మ్యాప్: మీ సెలూన్ పిన్, కస్టమర్లు మిమ్మల్ని కనుక్కునే చోటు",
+
+  "moreOffline": "ఇంటర్నెట్ లేదు. ఇంటర్నెట్ ఆన్ చేసి {label} మళ్లీ నొక్కండి.",
+  "moreNetwork": "ఇంటర్నెట్ లేదు లేదా సర్వర్ అందడం లేదు. ఇంటర్నెట్ ఆన్ చేసి {label} మళ్లీ నొక్కండి.",
+  "moreFailed": "ఇంకా లోడ్ కాలేదు. మళ్లీ ప్రయత్నించడానికి {label} నొక్కండి.",
+  "moreRefreshFailed": "లిస్ట్ రిఫ్రెష్ కాలేదు. ఇది కొంచెం పాతది అయి ఉండవచ్చు."
+}

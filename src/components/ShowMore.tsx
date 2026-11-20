@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ApiError } from '../api/errors'
+import { useT } from '../i18n'
 import { Button } from './ui'
 
 /**
@@ -77,23 +78,24 @@ export function ShowMoreFooter({
   /** Offered with a failed refresh: try the refresh again. */
   onRetryRefresh?: () => void
 }) {
+  const t = useT()
   const network = error instanceof ApiError && error.code === 'NETWORK'
   return (
     <>
       {(failed || offline || refreshFailed) && (
         <p role="alert" className="text-sm text-bad">
           {offline
-            ? `You're offline. Connect to the internet and tap ${label} again.`
+            ? t('ui.moreOffline', { label })
             : failed
               ? network
-                ? `You're offline or the server can't be reached. Connect and tap ${label} again.`
-                : `Couldn't load more. Tap ${label} to try again.`
-              : "Couldn't refresh the list. It may be a little out of date."}
+                ? t('ui.moreNetwork', { label })
+                : t('ui.moreFailed', { label })
+              : t('ui.moreRefreshFailed')}
         </p>
       )}
       {refreshFailed && !failed && !offline && onRetryRefresh && (
         <Button variant="secondary" onClick={onRetryRefresh}>
-          Try again
+          {t('common.retry')}
         </Button>
       )}
       {more && (

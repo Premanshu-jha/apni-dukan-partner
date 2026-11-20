@@ -5,6 +5,7 @@ import { explain } from '../../api/errors'
 import { fileApi, shopKeys, usePhotoLink } from '../../api/shop'
 import type { LicenceCheck, LicenceCheckReason, LicenceRead, RegistrationDocType } from '../../api/types'
 import { Banner, Card, Spinner } from '../../components/ui'
+import { t, useT } from '../../i18n'
 import { shrinkPhoto } from '../../lib/image'
 
 /** The backend takes files up to 10 MB. */
@@ -21,14 +22,15 @@ export const LICENCE_SLOW_POLL_MS = 30_000
 /** A check waiting longer than this is "taking longer than usual" (the AI is down, or not set up yet). */
 export const LICENCE_SLOW_AFTER_MS = 10 * 60_000
 
+/** The language keys of each kind's name. */
 const LABELS: Record<RegistrationDocType, string> = {
-  TRADE_LICENCE: 'Trade licence',
-  SHOPS_ESTABLISHMENT: 'Shops and Establishments certificate',
-  UDYAM: 'Udyam certificate',
+  TRADE_LICENCE: 'shop.docTradeLicence',
+  SHOPS_ESTABLISHMENT: 'shop.docShopsEstablishment',
+  UDYAM: 'shop.docUdyam',
 }
 
 export function docLabel(type: RegistrationDocType | null | undefined): string | null {
-  return type ? LABELS[type] : null
+  return type ? t(LABELS[type]) : null
 }
 
 /**
@@ -50,31 +52,26 @@ export function docKind(file: { type: string; name?: string }): 'photo' | 'pdf' 
 export function docProblem(file: { type: string; size: number; name?: string }): string | null {
   const kind = docKind(file)
   if (kind === 'photo') return null
-  if (kind !== 'pdf') return 'Pick a photo or a PDF of your trade licence.'
-  if (file.size > MAX_DOC_BYTES) return 'This PDF is bigger than 10 MB. Take a photo of the licence instead.'
+  if (kind !== 'pdf') return t('shop.docPickPhotoOrPdf')
+  if (file.size > MAX_DOC_BYTES) return t('shop.docPdfTooBig')
   return null
 }
 
-/** Every reason the backend gives (LicenceCheckReason): the compiler checks each has its text. */
+/** Every reason the backend gives (LicenceCheckReason): the compiler checks each has its text (a language key). */
 const REASONS: Record<LicenceCheckReason, (addressLocked: boolean) => string> = {
-  UNREADABLE: () => 'We couldn’t read it. Take a clear, well-lit photo of the whole licence, or upload the PDF.',
-  NOT_TRADE_LICENCE: () => 'It isn’t a municipal trade licence. Upload your trade licence from GHMC or your municipality.',
-  LOOKS_EDITED: () => 'It looks edited. Upload the licence exactly as you got it.',
-  NO_NUMBER: () => 'We couldn’t find the licence number on it. Make sure the whole licence is in the photo.',
-  NOT_A_SALON_TRADE: () => 'It is a licence for another kind of business, not a salon.',
-  NO_VALIDITY: () => 'We couldn’t find until when it is valid. Make sure the dates are in the photo.',
-  EXPIRED: () => 'It has expired. Upload the renewed licence.',
-  NAME_MISMATCH: () =>
-    'The name on it doesn’t match your salon’s name or the owner’s name. If your details are wrong, change them in Salon details: the licence is checked again by itself.',
-  ADDRESS_MISMATCH: (locked) =>
-    locked
-      ? 'The address on it doesn’t match your salon’s address. If your address is wrong, ask our field team to change it (Salon details → Request address change): once they do, the licence is checked again by itself.'
-      : 'The address on it doesn’t match your salon’s address. If your address is wrong, change it in Salon details: the licence is checked again by itself.',
-  DUPLICATE: () => 'This licence is already used by another salon. If it is yours, write to support and we’ll sort it out.',
-  NOT_READ: () => 'We couldn’t read it. Try a clearer photo, or the PDF.',
-  NOT_A_SHOP_TRADE: () => 'It is for another kind of business, not a grocery or general store.',
-  NOT_SHOPS_ESTABLISHMENT: () =>
-    'It isn’t a Shops and Establishments certificate. If it is your trade licence, choose Trade licence and upload it again.',
+  UNREADABLE: () => 'shop.licenceReasonUnreadable',
+  NOT_TRADE_LICENCE: () => 'shop.licenceReasonNotTradeLicence',
+  LOOKS_EDITED: () => 'shop.licenceReasonLooksEdited',
+  NO_NUMBER: () => 'shop.licenceReasonNoNumber',
+  NOT_A_SALON_TRADE: () => 'shop.licenceReasonNotASalonTrade',
+  NO_VALIDITY: () => 'shop.licenceReasonNoValidity',
+  EXPIRED: () => 'shop.licenceReasonExpired',
+  NAME_MISMATCH: () => 'shop.licenceReasonNameMismatch',
+  ADDRESS_MISMATCH: (locked) => (locked ? 'shop.licenceReasonAddressMismatchLocked' : 'shop.licenceReasonAddressMismatch'),
+  DUPLICATE: () => 'shop.licenceReasonDuplicate',
+  NOT_READ: () => 'shop.licenceReasonNotRead',
+  NOT_A_SHOP_TRADE: () => 'shop.licenceReasonNotAShopTrade',
+  NOT_SHOPS_ESTABLISHMENT: () => 'shop.licenceReasonNotShopsEstablishment',
 }
 
 /**
@@ -82,8 +79,8 @@ const REASONS: Record<LicenceCheckReason, (addressLocked: boolean) => string> = 
  * `addressLocked`: the address was verified by our field team, so only they change it (a request).
  */
 export function licenceReasonText(reason: LicenceCheckReason | null | undefined, addressLocked = false): string {
-  const text = reason ? REASONS[reason] : undefined
-  return text ? text(addressLocked) : 'Upload another photo or the PDF of your trade licence.'
+  const key = reason ? REASONS[reason] : undefined
+  return t(key ? key(addressLocked) : 'shop.licenceReasonOther')
 }
 
 export const ALL_REASONS = Object.keys(REASONS) as LicenceCheckReason[]
@@ -129,17 +126,17 @@ export function licenceState(shop: LicenceShop, today = indiaToday()): LicenceSt
 export function licenceSummary(shop: LicenceShop): string {
   switch (licenceState(shop)) {
     case 'NONE':
-      return 'Not added (optional): no "Licensed" badge'
+      return t('shop.licenceSummaryNone')
     case 'CHECKING':
-      return 'Being checked'
+      return t('shop.licenceSummaryChecking')
     case 'LICENSED':
-      return `Checked: customers see "Licensed" until ${shortDate(shop.licenceValidUntil!)}`
+      return t('shop.licenceSummaryLicensed', { date: shortDate(shop.licenceValidUntil!) })
     case 'EXPIRED':
-      return 'Expired: add the renewed licence'
+      return t('shop.licenceSummaryExpired')
     case 'NOT_ACCEPTED':
-      return 'Not accepted: open to see why'
+      return t('shop.licenceSummaryNotAccepted')
     case 'OLD_KIND':
-      return 'Only a trade licence counts now: add yours'
+      return t('shop.licenceSummaryOldKind')
   }
 }
 
@@ -168,6 +165,7 @@ export function useLicencePolling(checking: boolean) {
 
 /** "Checking…", which turns into "taking longer than usual" by itself once the check waits over 10 minutes. */
 function CheckingBanner({ since, now }: { since?: string | null; now: number }) {
+  const t = useT()
   const started = since ? Date.parse(since) : NaN
   const slowAt = Number.isFinite(started) ? started + LICENCE_SLOW_AFTER_MS : Infinity
   const [slow, setSlow] = useState(() => now > slowAt)
@@ -182,25 +180,26 @@ function CheckingBanner({ since, now }: { since?: string | null; now: number }) 
   return (
     <Banner tone="info">
       {slow
-        ? 'Checking your trade licence is taking longer than usual. We’ll send you a message when it’s done; nothing else about your salon changes meanwhile.'
-        : 'Checking your trade licence. This usually takes under a minute; you can leave this page.'}
+        ? t('shop.licenceCheckingSlow')
+        : t('shop.licenceChecking')}
     </Banner>
   )
 }
 
 /** The licence's state, in a banner (and, when it wasn't accepted for a name or an address, what was read). */
 export function LicenceStatus({ shop, now = Date.now() }: { shop: LicenceShop; now?: number }) {
+  const t = useT()
   switch (licenceState(shop)) {
     case 'NONE':
       return null
     case 'CHECKING':
       return <CheckingBanner since={shop.licenceCheckSince} now={now} />
     case 'LICENSED':
-      return <Banner tone="good">Checked: customers see "Licensed" on your salon until {shortDate(shop.licenceValidUntil!)}.</Banner>
+      return <Banner tone="good">{t('shop.licenceStatusLicensed', { date: shortDate(shop.licenceValidUntil!) })}</Banner>
     case 'EXPIRED':
       return (
         <Banner tone="warn">
-          Your trade licence expired on {shortDate(shop.licenceValidUntil!)}: customers no longer see "Licensed". Upload the renewed licence.
+          {t('shop.licenceStatusExpired', { date: shortDate(shop.licenceValidUntil!) })}
         </Banner>
       )
     case 'NOT_ACCEPTED': {
@@ -211,15 +210,16 @@ export function LicenceStatus({ shop, now = Date.now() }: { shop: LicenceShop; n
       return (
         <Banner tone="bad">
           <span className="flex flex-col gap-2">
-            <span>Not accepted. {licenceReasonText(shop.licenceCheckReason, Boolean(shop.addressLocked))}</span>
+            <span>{t('shop.licenceNotAccepted', { reason: licenceReasonText(shop.licenceCheckReason, Boolean(shop.addressLocked)) })}</span>
             {showRead && (
               <span>
-                On the licence we read: {names || 'no name'}
-                {place ? `; ${place}` : ''}.
+                {place
+                  ? t('shop.licenceReadNamesPlace', { names: names || t('shop.licenceReadNoName'), place })
+                  : t('shop.licenceReadNames', { names: names || t('shop.licenceReadNoName') })}
               </span>
             )}
             <Link to="/help" className="text-link underline">
-              Write to support
+              {t('shop.writeToSupport')}
             </Link>
           </span>
         </Banner>
@@ -228,7 +228,7 @@ export function LicenceStatus({ shop, now = Date.now() }: { shop: LicenceShop; n
     case 'OLD_KIND':
       return (
         <Banner tone="warn">
-          Only a municipal trade licence counts now. Replace your {docLabel(shop.registrationDocType)?.toLowerCase()} with your trade licence to show "Licensed".
+          {t(shop.registrationDocType === 'UDYAM' ? 'shop.licenceOldKindUdyam' : 'shop.licenceOldKindShops')}
         </Banner>
       )
   }
@@ -252,6 +252,7 @@ export function RegistrationDocCard({
   remove?: () => Promise<void>
   onBusy?: (busy: boolean) => void
 }) {
+  const t = useT()
   const inputId = useId()
   const [busy, setBusy] = useState(false)
   useEffect(() => onBusy?.(busy), [busy, onBusy])
@@ -301,11 +302,9 @@ export function RegistrationDocCard({
   return (
     <Card className="flex flex-col gap-3">
       <div>
-        <p className="font-medium">Trade licence (optional)</p>
+        <p className="font-medium">{t('shop.licenceCardTitle')}</p>
         <p className="text-sm text-muted">
-          Add a photo or PDF of your salon’s trade licence (GHMC, Cyberabad, Malkajgiri or your municipality) and get
-          "Licensed" on your salon. We check it automatically against your salon’s name and address. No licence? Your
-          salon stays open as it is, with no badge.
+          {t('shop.licenceCardIntro')}
         </p>
       </div>
       <div ref={statusRef} tabIndex={-1} className="outline-none">
@@ -317,23 +316,23 @@ export function RegistrationDocCard({
           busy ? 'pointer-events-none opacity-60' : ''
         }`}
       >
-        {busy ? <Spinner label="Uploading…" /> : fileId ? 'Upload another photo or PDF' : 'Take a photo or choose a PDF'}
+        {busy ? <Spinner label={t('shop.licenceUploading')} /> : fileId ? t('shop.licenceUploadAnother') : t('shop.licenceTakePhotoOrPdf')}
       </label>
       <input
         id={inputId}
         type="file"
         accept="image/*,application/pdf"
         className="sr-only"
-        aria-label={fileId ? 'Replace the trade licence' : 'Add the trade licence'}
+        aria-label={fileId ? t('shop.licenceReplaceLabel') : t('shop.licenceAddLabel')}
         disabled={busy}
         onChange={picked}
       />
       {fileId && (
         <p className="text-sm">
-          Added: {docLabel(shop.registrationDocType)}.{' '}
+          {t('shop.licenceAdded', { doc: docLabel(shop.registrationDocType) ?? '' })}{' '}
           {link.data?.url && (
             <a href={link.data.url} target="_blank" rel="noreferrer" className="text-link underline">
-              Open it
+              {t('shop.licenceOpenIt')}
             </a>
           )}
           {canCheckAgain && (
@@ -345,7 +344,7 @@ export function RegistrationDocCard({
                 disabled={busy}
                 onClick={() => run(() => save('TRADE_LICENCE', fileId!), true)}
               >
-                Check it again
+                {t('shop.licenceCheckItAgain')}
               </button>
             </>
           )}
@@ -353,7 +352,7 @@ export function RegistrationDocCard({
             <>
               {' · '}
               <button type="button" className="text-bad underline disabled:opacity-50" disabled={busy} onClick={() => run(remove, true)}>
-                Remove it
+                {t('shop.licenceRemoveIt')}
               </button>
             </>
           )}

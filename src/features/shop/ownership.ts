@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { salonKeys } from '../../api/salon'
 import { shopKeys } from '../../api/shop'
 import type { Shop } from '../../api/types'
+import { t } from '../../i18n'
 
 /**
  * After closing a shop or taking one over (the session was refreshed already): the shop gate gets the new answer at
@@ -42,18 +43,18 @@ export function forgetClosed() {
 export function goneText(status: unknown): string {
   switch (status) {
     case 'ACCEPTED':
-      return 'This request was already accepted.'
+      return t('register.goneAccepted')
     case 'DECLINED':
-      return 'This request was already declined.'
+      return t('register.goneDeclined')
     case 'CANCELLED':
-      return 'The owner cancelled this request.'
+      return t('register.goneCancelled')
     case 'EXPIRED':
-      return 'This request ran out (requests last 7 days). Ask the owner to send it again.'
+      return t('register.goneExpired')
     case 'CLOSED':
-      return 'The shop has been closed, so it can no longer be handed over.'
+      return t('register.goneClosed')
     case 'OWNER_CHANGED':
-      return 'The shop has a different owner now, so this request no longer stands.'
+      return t('register.goneOwnerChanged')
     default:
-      return "This hand-over request isn't open any more."
+      return t('register.goneOther')
   }
 }

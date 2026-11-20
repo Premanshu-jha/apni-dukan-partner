@@ -7,11 +7,12 @@ import { useShop } from '../../api/shop'
 import type { Appointment } from '../../api/types'
 import { OFFSCREEN_CHEAP, ShowMoreFooter, useShowMore } from '../../components/ShowMore'
 import { Banner, Button, Card, Chip, EmptyState, ErrorState, Field, Loading, Page } from '../../components/ui'
+import { useT } from '../../i18n'
 import { addDays, dateOfIst, dayLabel, isDate, todayIst } from '../../lib/ist'
 import { rupees } from '../../lib/money'
 import { can } from '../../lib/roles'
 import { AppointmentCard, dayLink } from './Today'
-import { statusText } from './status'
+import { statusTextOr } from './status'
 
 /** Groups appointments by India date, keeping their order. */
 export function byDate(list: Appointment[]): Array<{ date: string; items: Appointment[] }> {
@@ -27,17 +28,18 @@ export function byDate(list: Appointment[]): Array<{ date: string; items: Appoin
 
 /** Coming bookings across days, and (owner and helpers) the history with totals. */
 export function Bookings() {
+  const t = useT()
   const shop = useShop()
   const [tab, setTab] = useState<'upcoming' | 'history'>('upcoming')
   return (
-    <Page title="Bookings">
+    <Page title={t('day.bookingsTitle')}>
       {can(shop.myRole).history && (
-        <div className="flex gap-2" role="group" aria-label="Show">
+        <div className="flex gap-2" role="group" aria-label={t('day.show')}>
           <Chip selected={tab === 'upcoming'} onClick={() => setTab('upcoming')}>
-            Coming up
+            {t('day.comingUp')}
           </Chip>
           <Chip selected={tab === 'history'} onClick={() => setTab('history')}>
-            History
+            {t('day.history')}
           </Chip>
         </div>
       )}
@@ -53,6 +55,7 @@ function useOpenOnBoard() {
 }
 
 function Upcoming() {
+  const t = useT()
   const openOnBoard = useOpenOnBoard()
   const list = useUpcoming()
   // Only what changed, every minute and on return to the app (once the pages are on screen)
@@ -74,25 +77,25 @@ function Upcoming() {
       <>
         {refreshFailed && (
           <>
-            <Banner tone="warn">Couldn't refresh the list. It may be a little out of date.</Banner>
+            <Banner tone="warn">{t('day.listRefreshFailed')}</Banner>
             <Button variant="secondary" onClick={() => void poll.refetch()}>
-              Try again
+              {t('common.retry')}
             </Button>
           </>
         )}
-        <EmptyState title="No bookings coming up" body="New online bookings show here and on the day board." />
+        <EmptyState title={t('day.noUpcomingTitle')} body={t('day.noUpcomingBody')} />
       </>
     )
   }
   const capped = full && afterCap.data === true
   const n = items.length
   return (
-    <section aria-label="Bookings coming up" className="flex flex-col gap-3">
+    <section aria-label={t('day.upcomingSection')} className="flex flex-col gap-3">
       <p ref={pager.countRef} tabIndex={-1} className="text-sm text-muted focus:outline-none">
-        {list.hasNextPage || capped ? `The next ${n} bookings, soonest first` : `${n} ${n === 1 ? 'booking' : 'bookings'} coming up`}
+        {list.hasNextPage || capped ? t('day.nextBookings', { count: n }) : t('day.bookingsComingUp', { count: n })}
       </p>
       <p aria-live="polite" className="sr-only">
-        {n} bookings shown
+        {t('day.bookingsShown', { count: n })}
       </p>
       <Grouped
         list={items}
@@ -101,11 +104,11 @@ function Upcoming() {
         onOpen={openOnBoard}
       />
       {capped && (
-        <Banner tone="info">Showing the next {n} bookings. Open a day on Today to see the ones after.</Banner>
+        <Banner tone="info">{t('day.upcomingCapped', { count: n })}</Banner>
       )}
       <ShowMoreFooter
-        label="Show more bookings"
-        loadingLabel="Loading more bookings…"
+        label={t('day.showMoreBookings')}
+        loadingLabel={t('day.loadingMoreBookings')}
         more={list.hasNextPage}
         busy={list.isFetchingNextPage}
         failed={list.isFetchNextPageError}
@@ -120,6 +123,7 @@ function Upcoming() {
 }
 
 function History() {
+  const t = useT()
   const openOnBoard = useOpenOnBoard()
   const today = todayIst()
   const [from, setFrom] = useState(addDays(today, -6))
@@ -136,11 +140,11 @@ function History() {
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
-        <Field id="history-from" label="From" type="date" max={to} value={from} onChange={(e) => setFrom(e.target.value)} />
-        <Field id="history-to" label="To" type="date" min={from} max={today} value={to} onChange={(e) => setTo(e.target.value)} />
+        <Field id="history-from" label={t('day.historyFrom')} type="date" max={to} value={from} onChange={(e) => setFrom(e.target.value)} />
+        <Field id="history-to" label={t('day.historyTo')} type="date" min={from} max={today} value={to} onChange={(e) => setTo(e.target.value)} />
       </div>
       {!valid ? (
-        <Banner tone="warn">Pick up to 31 days, ending today or earlier.</Banner>
+        <Banner tone="warn">{t('day.historyRange')}</Banner>
       ) : list.isPending ? (
         <Loading />
       ) : list.isError && !totals ? (
@@ -149,25 +153,25 @@ function History() {
         totals && (
           <>
             <Card className="flex flex-col gap-2">
-              <p className="text-sm text-muted">Done (at list prices)</p>
+              <p className="text-sm text-muted">{t('day.historyDone')}</p>
               <p className="text-2xl font-bold">{rupees(totals.completedPaise ?? 0)}</p>
               <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
                 {Object.entries(totals.counts ?? {}).map(([status, count]) => (
                   <li key={status}>
-                    {statusText[status as keyof typeof statusText] ?? status}: <span className="font-semibold">{count}</span>
+                    {statusTextOr(status)}: <span className="font-semibold">{count}</span>
                   </li>
                 ))}
               </ul>
             </Card>
             {n === 0 ? (
-              <EmptyState title="Nothing in these days" />
+              <EmptyState title={t('day.historyEmpty')} />
             ) : (
-              <section aria-label="History" className="flex flex-col gap-3">
+              <section aria-label={t('day.history')} className="flex flex-col gap-3">
                 <p ref={pager.countRef} tabIndex={-1} className="text-sm text-muted focus:outline-none">
-                  {list.hasNextPage || capped ? `The latest ${n}, latest first` : `${n} ${n === 1 ? 'booking or walk-in' : 'bookings and walk-ins'}, latest first`}
+                  {list.hasNextPage || capped ? t('day.historyLatest', { count: n }) : t('day.historyCount', { count: n })}
                 </p>
                 <p aria-live="polite" className="sr-only">
-                  {n} shown
+                  {t('day.historyShown', { count: n })}
                 </p>
                 <Grouped
                   list={items}
@@ -177,10 +181,10 @@ function History() {
                 />
               </section>
             )}
-            {capped && <Banner tone="info">Showing the latest {n}. Pick fewer days to see the earlier ones.</Banner>}
+            {capped && <Banner tone="info">{t('day.historyCapped', { count: n })}</Banner>}
             <ShowMoreFooter
-              label="Show more"
-              loadingLabel="Loading more…"
+              label={t('day.showMore')}
+              loadingLabel={t('day.loadingMore')}
               more={list.hasNextPage}
               busy={list.isFetchingNextPage}
               failed={list.isFetchNextPageError}

@@ -1,0 +1,17 @@
+{
+  "justNow": "Just now",
+  "minAgo": "{minutes} min ago",
+  "hoursAgo": "{hours} h ago",
+  "title": "Messages",
+  "unreadCount": "{count} unread",
+  "markAllRead": "Mark all read",
+  "noneTitle": "No messages yet",
+  "noneBody": "New bookings, changes, cancellations and news about your salon show up here.",
+  "unread": "Unread",
+  "showOlder": "Show older",
+  "showingLatest": "Showing the latest {count} messages.",
+  "keptFor": "Messages are kept for 90 days.",
+  "bell": "Messages",
+  "bellUnread": "Messages, {count} unread",
+  "bellUnreadMany": "Messages, more than 99 unread"
+}

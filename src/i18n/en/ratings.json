@@ -1,0 +1,16 @@
+{
+  "tagOnTime": "On time",
+  "tagClean": "Clean",
+  "tagFriendly": "Friendly",
+  "tagSkilled": "Skilled",
+  "tagGoodValue": "Good value",
+  "starsOutOf5": "{stars} out of 5 stars",
+  "title": "Ratings",
+  "noneTitle": "No ratings yet",
+  "noneBody": "Customers can rate a visit after an online booking ends. They get a message asking them to.",
+  "showMore": "Show more",
+  "count": { "one": "{count} rating", "other": "{count} ratings" },
+  "countNew": { "one": "{count} rating · customers see \"New\" until you have 5", "other": "{count} ratings · customers see \"New\" until you have 5" },
+  "customer": "Customer",
+  "visit": "Visit: {when}"
+}

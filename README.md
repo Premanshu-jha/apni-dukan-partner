@@ -12,8 +12,8 @@ One app for everyone in a salon, each seeing only their part:
 | Helper | The owner invites their number in Team; they accept | The day board and its actions, breaks, pause; setup to look at, not change |
 | Barber | The owner invites his number on his barber page; he accepts | His own bookings and his own breaks (everyone's day if the owner gave him walk-in access) |
 
-v1 is for salons only. Someone whose shop is a kirana sees "Kirana partners: coming soon" and nothing else; no
-kirana screen exists in this app. Customers use [apni-dukan-customer](https://github.com/Premanshu-jha/apni-dukan-customer);
+On `main` the app is for salons. Kiranas (grocery and general stores) are built on the `kirana-partner` branch: a
+kirana's people see only kirana screens (counter, bills, products, khata) and a salon's only salon screens. Customers use [apni-dukan-customer](https://github.com/Premanshu-jha/apni-dukan-customer);
 the field team (approvals, strike support) will use the admin app.
 
 ## Run it on your laptop
@@ -213,6 +213,8 @@ src/
               location guide
   features/   auth, shop (gate, start, register, home), day (board, sheet, walk-in, time off, closed days,
               pause, bookings), setup (services, barbers, rules), team, notifications, profile (More)
+  i18n/       the app's languages: index.ts (t, useT, setLanguage), LanguagePicker, and one folder of JSON files
+              per language (en, hi, te, mr, ta, kn)
   lib/        India time, money, phone, roles, GPS, photo shrinking, storage, device name
 e2e/          fake backend and journeys
 docs/         scenarios.md
@@ -375,9 +377,55 @@ switches over. Change `OFFLINE_CACHE` in `sw.js` when the offline page changes.
 Until the admin app exists, nobody can approve a salon: for a first real test, approve it by hand in the database
 (set `shops.status` to `APPROVED`).
 
+## Languages
+
+The app is in English, Hindi, Telugu, Marathi, Tamil and Kannada. The language is chosen on the sign-in screen (each
+shown in its own script), offered once to everyone already signed in (a box at the top of every tab), and changed
+any time under More → Language; it applies at once, keeps whatever was typed,
+and is remembered on that phone (`localStorage.language`), not on the account: an owner and a helper can each use
+their own.
+
+- **Where the words are.** `src/i18n/<language>/<area>.json`, the same keys in every language. English is in the main
+  download; each other language is one download of its own (about 35 KB gzipped), fetched when chosen. A text a
+  language lacks shows in English. Blanks are `{name}`; counts use `{ "one": …, "other": … }`.
+- **In code.** In a component `const t = useT()` then `t('shop.homeTitle')`; outside React `t()` from `src/i18n`,
+  called when the text is needed (never kept in a module-level constant, which would not follow the language).
+- **The backend's messages.** `messageOf(e)` looks for the app's words for the error's code (`error.json`), then for
+  the backend's exact English message (`server.json`: its keys are those messages), else shows the message as it
+  came. Messages the backend builds with names, numbers or lists in them (a barber busy until a time, "must be 2 to 40
+  characters", hours outside the salon's), and push notifications and the inbox, are still in English: they need
+  the backend to send the values separately and to know each person's language.
+- **A new version while the app is open.** Choosing a language whose file is gone (renamed by a new deploy) reloads
+  the app once into the new version. Offline at start-up, the app shows English until it is back online.
+- **Dates and numbers.** Day and month names follow the language (`Intl.DateTimeFormat`); digits stay 0-9 in every
+  language, so prices, counts and phone numbers read as on bills and packs.
+- **Not translated.** The legal pages (About, Terms, Privacy, Refunds, Delivery, Contact) stay in English, the
+  language they are binding in. Names people type, and everything saved, stay as entered.
+- **CI check.** `src/i18n/i18n.test.ts` fails when a language lacks a text English has, has one English doesn't, an
+  empty one, or different blanks.
+- **Fixing a word.** Change it in that language's JSON file and open a PR; nothing else needs touching. The first
+  translations were written by AI and should be read once by a native speaker of each language
+  (`docs/translation-review.md` lists what to look at first).
+
 ## Changelog
 
-### 0.28.0 — 2026-11-18
+### 0.28.0 — 2026-11-19
+
+- **Languages:** the whole app in Hindi, Telugu, Marathi, Tamil and Kannada as well as English, chosen on the
+  sign-in screen, in a one-time offer to everyone signed in, and under More → Language (see Languages above). About
+  1,530 texts per language, and about 250 of the backend's fixed messages. Messages with names or numbers in them,
+  and push notifications, stay in English for now. No backend change is needed.
+- A field's reason is no longer compared with English text to recognise "your own number" (hand-over): the
+  backend's field detail is checked directly, so it works in every language.
+
+### Kirana branch — 2026-11-20 (not released; `kirana-partner` only)
+
+- `main`'s languages (0.28.0) merged in. The screens both branches had changed (start, registration, Home, Profile,
+  the shop video and licence, the re-check notice, the tabs) keep the salon's translated words and get their own
+  kirana words (about 70 new texts, in all six languages), chosen by the shop's kind. The kirana-only screens
+  (counter, bills, products, khata, kirana registration) are still in English: they follow in the next round.
+
+### Kirana branch — 2026-11-18 (not released; `kirana-partner` only)
 
 Needs the backend's `kirana` branch with `PUT /shops/me/type`, `PUT /kirana/settings/sells-food`, a kirana's video
 and licence, and V74–V75 (backend PR #71); deploy the backend first.

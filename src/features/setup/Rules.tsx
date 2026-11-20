@@ -5,13 +5,15 @@ import { salonKeys, setupApi, useSettings } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import type { Settings } from '../../api/types'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
+import { useT } from '../../i18n'
 import { can } from '../../lib/roles'
 
 /** How much notice a booking needs, and how far ahead customers can book. */
 export function Rules() {
+  const t = useT()
   const settings = useSettings()
   return (
-    <Page back="/setup" title="Booking rules">
+    <Page back="/setup" title={t('setup.rulesTitle')}>
       {settings.isPending ? (
         <Loading />
       ) : settings.isError ? (
@@ -24,6 +26,7 @@ export function Rules() {
 }
 
 function RulesForm({ settings }: { settings: Settings }) {
+  const t = useT()
   const qc = useQueryClient()
   const edit = can(useShop().myRole).editSetup
   const [lead, setLead] = useState(String(settings.minLeadMinutes))
@@ -55,28 +58,28 @@ function RulesForm({ settings }: { settings: Settings }) {
     <Card className="flex flex-col gap-4">
       <Field
         id="min-lead"
-        label="Notice needed (minutes)"
+        label={t('setup.noticeLabel')}
         inputMode="numeric"
         value={lead}
         disabled={!edit}
         onChange={(e) => setLead(e.target.value.replace(/\D/g, ''))}
-        error={leadBad ? 'From 0 to 1440 minutes (a day)' : undefined}
-        hint="Customers can't book a time closer than this. 0 lets them book for right now."
+        error={leadBad ? t('setup.noticeError') : undefined}
+        hint={t('setup.noticeHint')}
       />
       <Field
         id="max-ahead"
-        label="Book up to (days ahead)"
+        label={t('setup.aheadLabel')}
         inputMode="numeric"
         value={ahead}
         disabled={!edit}
         onChange={(e) => setAhead(e.target.value.replace(/\D/g, ''))}
-        error={aheadBad ? 'From 1 to 30 days' : undefined}
+        error={aheadBad ? t('setup.aheadError') : undefined}
       />
       {error && <Banner tone="bad">{error}</Banner>}
-      {saved && <Banner tone="good">Saved.</Banner>}
+      {saved && <Banner tone="good">{t('setup.saved')}</Banner>}
       {edit && (
         <Button busy={busy} disabled={leadBad || aheadBad} onClick={save}>
-          Save
+          {t('common.save')}
         </Button>
       )}
     </Card>

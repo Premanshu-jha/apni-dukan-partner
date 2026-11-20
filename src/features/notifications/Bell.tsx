@@ -1,11 +1,13 @@
 import { Link } from 'react-router'
 import { useUnreadCount } from '../../api/notifications'
+import { useT } from '../../i18n'
 
 /** The bell at the top of Home, with the number of unread messages. */
 export function Bell() {
+  const t = useT()
   const unread = useUnreadCount().data ?? 0
   // The backend counts up to 100 (NotificationStore.UNREAD_CAP): 100 means "100 or more"
-  const label = unread ? `Messages, ${unread > 99 ? 'more than 99' : unread} unread` : 'Messages'
+  const label = unread ? (unread > 99 ? t('notifications.bellUnreadMany') : t('notifications.bellUnread', { count: unread })) : t('notifications.bell')
   return (
     <Link
       to="/notifications"

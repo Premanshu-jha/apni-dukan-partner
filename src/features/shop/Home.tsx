@@ -6,6 +6,7 @@ import { licencesReady } from './KiranaLicences'
 import { useShop } from '../../api/shop'
 import { Button, Card, EmptyState, Loading, Page } from '../../components/ui'
 import { CopyCode } from '../../components/CopyCode'
+import { useT } from '../../i18n'
 import { readyForVisit } from '../../lib/salonVideo'
 import { signOutHere } from '../profile/signOut'
 import { HandoverOffers } from './HandoverOffers'
@@ -60,6 +61,7 @@ function ResumeRegistration() {
 
 /** A helper or barber of a salon the field team hasn't approved yet: nothing to do until then. */
 function NotLiveYet() {
+  const t = useT()
   const shop = useShop()
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -69,21 +71,26 @@ function NotLiveYet() {
       <HandoverOffers />
       <InviteOffers />
       <EmptyState
-        title={shop.status === 'PENDING_VISIT' ? 'Waiting for approval' : `Your ${shop.type === 'KIRANA' ? 'shop' : 'salon'} isn't live yet`}
-        body={
-          `${shop.ownerName} ${shop.status === 'PENDING_VISIT' ? 'has registered' : 'is still registering'} ${shop.name}. Once our field team approves it, ${
-            shop.type === 'KIRANA' ? "you'll bill at the counter here." : "you'll see the day's bookings here."}`
+        title={
+          shop.status === 'PENDING_VISIT'
+            ? t('shop.notLiveWaitingTitle')
+            : t(shop.type === 'KIRANA' ? 'shop.notLiveTitleKirana' : 'shop.notLiveTitle')
         }
-        action={<Button onClick={() => recheck()}>Check again</Button>}
+        body={
+          shop.status === 'PENDING_VISIT'
+            ? t(shop.type === 'KIRANA' ? 'shop.notLiveRegisteredBodyKirana' : 'shop.notLiveRegisteredBody', { ownerName: shop.ownerName, name: shop.name })
+            : t(shop.type === 'KIRANA' ? 'shop.notLiveRegisteringBodyKirana' : 'shop.notLiveRegisteringBody', { ownerName: shop.ownerName, name: shop.name })
+        }
+        action={<Button onClick={() => recheck()}>{t('shop.checkAgain')}</Button>}
       />
       <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
-        Sign out
+        {t('shop.signOut')}
       </Button>
       <Link to="/help" className="py-2 text-center text-sm text-link underline">
-        Need help? Write to support
+        {t('shop.needHelpWriteSupport')}
       </Link>
       <Link to="/profile/delete" className="py-2 text-center text-sm text-bad underline">
-        Delete my account
+        {t('shop.deleteMyAccount')}
       </Link>
     </Page>
   )
@@ -91,19 +98,19 @@ function NotLiveYet() {
 
 /** On Today for an owner waiting for the visit: what happens next, and the shop code to quote. */
 export function WaitingForVisit() {
+  const t = useT()
   const shop = useShop()
   return (
     <Card className="flex flex-col gap-2 border-brand/40">
-      <p className="text-lg font-semibold">What happens next</p>
+      <p className="text-lg font-semibold">{t('shop.visitNextTitle')}</p>
       <p className="text-sm text-muted">
-        We'll call you to fix a time, visit {shop.name} and switch it on.{' '}
-        {shop.type === 'KIRANA' ? 'Nearby customers can order once it’s approved; your counter works already.' : "Customers can book once it's approved."}
+        {t(shop.type === 'KIRANA' ? 'shop.visitNextBodyKirana' : 'shop.visitNextBody', { name: shop.name })}
       </p>
       <p className="text-sm">
-        Your shop code: <span className="font-bold tracking-wide">{shop.shopCode}</span>{' '}
+        {t('shop.yourShopCode')} <span className="font-bold tracking-wide">{shop.shopCode}</span>{' '}
         <CopyCode code={String(shop.shopCode)} />
       </p>
-      <p className="text-xs text-muted">Quote it when you talk to us.</p>
+      <p className="text-xs text-muted">{t('shop.quoteShopCode')}</p>
     </Card>
   )
 }

@@ -5,6 +5,7 @@ import { refreshSession } from '../../api/client'
 import { messageOf } from '../../api/errors'
 import { fetchMyShop, shopApi, shopKeys, useMyShop } from '../../api/shop'
 import { Banner, Button, Card, Loading, Page } from '../../components/ui'
+import { useT } from '../../i18n'
 import { formatPhone } from '../../lib/phone'
 import { useSession } from '../../store/session'
 import { Brand } from '../auth/Brand'
@@ -19,6 +20,7 @@ import { closedNotice, forgetClosed, startNotice } from './ownership'
  * owner must add.
  */
 export function Start() {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const user = useSession((s) => s.user)!
@@ -47,7 +49,7 @@ export function Start() {
       } else {
         // Joining is by invitation now: look for one for this number
         const invites = await qc.fetchQuery({ queryKey: shopKeys.incomingInvites, queryFn: shopApi.incomingInvites, staleTime: 0 })
-        setNotice(invites.length ? 'Your invitation is at the top of this screen: accept it to join.' : 'No invitation for this number yet.')
+        setNotice(invites.length ? t('register.inviteAtTop') : t('register.noInviteYet'))
       }
     } catch (e) {
       setNotice(messageOf(e))
@@ -58,11 +60,10 @@ export function Start() {
 
   return (
     <Page>
-      <Brand subtitle={`Welcome, ${user.name ?? ''}. Let's get your shop on Clozest.`} />
+      <Brand subtitle={t('register.welcomeShop', { name: user.name ?? '' })} />
       {closed && (
         <Banner tone="info">
-          {closed} is closed. Its upcoming bookings were cancelled and the customers told. You can register a new shop,
-          or delete your account below.
+          {t('register.closedNoticeShop', { name: closed })}
         </Banner>
       )}
       {note && <Banner tone="info">{note}</Banner>}
@@ -72,46 +73,44 @@ export function Start() {
       {!worker ? (
         <div className="flex flex-col gap-3">
           <Card className="flex flex-col gap-3">
-            <p className="text-lg font-semibold">I own a shop</p>
+            <p className="text-lg font-semibold">{t('register.ownShopTitle')}</p>
             <p className="text-sm text-muted">
-              A kirana or a salon: register it in a few short steps. Our field team visits, and then customers nearby
-              find you.
+              {t('register.ownShopBody')}
             </p>
-            <Button onClick={() => navigate('/register/kind')}>Register my shop</Button>
+            <Button onClick={() => navigate('/register/kind')}>{t('register.registerMyShop')}</Button>
           </Card>
           <Card className="flex flex-col gap-3">
-            <p className="text-lg font-semibold">I work at a shop</p>
-            <p className="text-sm text-muted">A helper, or a barber, whose owner already uses Clozest.</p>
+            <p className="text-lg font-semibold">{t('register.workAtShopTitle')}</p>
+            <p className="text-sm text-muted">{t('register.workAtShopBody')}</p>
             <Button variant="secondary" onClick={() => setWorker(true)}>
-              I work at a shop
+              {t('register.workAtShopButton')}
             </Button>
           </Card>
         </div>
       ) : (
         <Card className="flex flex-col gap-3">
-          <p className="text-lg font-semibold">Ask your owner to invite you</p>
+          <p className="text-lg font-semibold">{t('register.askOwnerTitle')}</p>
           <p className="text-muted">
-            Your owner invites this number in their Clozest Partner app (Team for helpers, or a barber's profile for
-            barbers). The invitation shows on this screen; accept it to join:
+            {t('register.askOwnerBody')}
           </p>
           <p className="text-center text-2xl font-bold tracking-wide">+91 {formatPhone(user.phone)}</p>
           {notice && <Banner tone="info">{notice}</Banner>}
           <Button busy={busy} onClick={checkAgain}>
-            I've been invited, check again
+            {t('register.invitedCheckAgain')}
           </Button>
           <Button variant="ghost" onClick={() => setWorker(false)}>
-            Back
+            {t('common.back')}
           </Button>
         </Card>
       )}
       <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
-        Sign out
+        {t('register.signOut')}
       </Button>
       <Link to="/help" className="py-2 text-center text-sm text-link underline">
-        Need help? Write to support
+        {t('register.needHelp')}
       </Link>
       <Link to="/profile/delete" className="py-2 text-center text-sm text-bad underline">
-        Delete my account
+        {t('register.deleteMyAccount')}
       </Link>
     </Page>
   )

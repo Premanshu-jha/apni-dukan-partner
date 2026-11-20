@@ -1,5 +1,6 @@
 import { api } from './client'
 import { ApiError } from './errors'
+import { t } from '../i18n'
 
 /** POST /files/ticket and the video's "complete": a file to send with a support message (by its id). */
 export interface TicketFile {
@@ -105,7 +106,7 @@ function put(link: VideoLink, file: Blob, onProgress: (done: number) => void, si
         if (xhr.status >= 200 && xhr.status < 300) {
           onProgress(1)
           resolve()
-        } else reject(xhr.status === 403 ? new Error('The upload link ran out. Add the video again.') : ApiError.network())
+        } else reject(xhr.status === 403 ? new Error(t('misc.uploadLinkExpiredAddAgain')) : ApiError.network())
       })
     xhr.onerror = () => done(() => reject(ApiError.network()))
     xhr.onabort = () => done(() => reject(stalled ? ApiError.network() : new DOMException('Cancelled', 'AbortError')))

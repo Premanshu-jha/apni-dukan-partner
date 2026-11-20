@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ApiError, messageOf } from '../../api/errors'
 import { FILE_MAX_BYTES, isJpegOrPng, kindOf, MAX_FILES, ticketFiles, VIDEO_MAX_BYTES, type TicketFile } from '../../api/ticketFiles'
 import { shrinkPhoto } from '../../lib/image'
+import { t, useT } from '../../i18n'
 
 /** One file picked for a support message: sent to storage at once, then sent with the message by its id. */
 export interface Picked {
@@ -42,6 +43,7 @@ let next = 0
  * going up; a file sent up but never sent with a message is deleted by the backend after a day.
  */
 export function useAttachments() {
+  const t = useT()
   const [items, setItems] = useState<Picked[]>([])
   const controllers = useRef(new Map<string, AbortController>())
   const previews = useRef(new Set<string>())
@@ -77,9 +79,9 @@ export function useAttachments() {
         // A photo this browser can't read (an iPhone's HEIC): it goes as it is, as a file to download
         const unread = small === item.source && !isJpegOrPng(item.source.type || 'image/jpeg')
         if (unread && small.size > FILE_MAX_BYTES) {
-          throw new CantSend('This photo is over 10 MB in a format that can\'t be shrunk here. Send a screenshot of it, or set the camera to JPEG ("Most compatible").')
+          throw new CantSend(t('help.photoTooBigUnreadable'))
         }
-        if (small.size > FILE_MAX_BYTES) throw new CantSend('This photo is too big (over 10 MB). Take it again or send a screenshot.')
+        if (small.size > FILE_MAX_BYTES) throw new CantSend(t('help.photoTooBig'))
         if (unread) update(item.key, { asFile: true, preview: null })
         const name = small === item.source ? item.name : item.name.replace(/\.[^.]+$/, '') + '.jpg'
         file = await ticketFiles.upload(small, name, controller.signal)
@@ -114,19 +116,19 @@ export function useAttachments() {
     for (const f of files) {
       const kind = kindOf(f)
       if (kind.kind === 'video' && f.size > VIDEO_MAX_BYTES) {
-        problems.push(`${f.name} is ${sizeText(f.size)}, over 100 MB. Send a shorter clip (under a minute on most phones).`)
+        problems.push(t('help.videoTooBig', { name: f.name, size: sizeText(f.size) }))
         continue
       }
       if (kind.kind === 'file' && f.type.startsWith('video/') && f.size > FILE_MAX_BYTES) {
-        problems.push(`${f.name}: this kind of video can't be played here. Send an MP4 or MOV (the phone camera's own), or one under 10 MB as a file.`)
+        problems.push(t('help.videoCantPlay', { name: f.name }))
         continue
       }
       if ((kind.kind === 'pdf' || kind.kind === 'file') && f.size > FILE_MAX_BYTES) {
-        problems.push(`${f.name} is ${sizeText(f.size)}, over 10 MB. Send a smaller one (a video can be up to 100 MB).`)
+        problems.push(t('help.fileTooBig', { name: f.name, size: sizeText(f.size) }))
         continue
       }
       if (f.size === 0) {
-        problems.push(`${f.name} is empty.`)
+        problems.push(t('help.fileEmpty', { name: f.name }))
         continue
       }
       if (added.length >= room) {
@@ -135,9 +137,9 @@ export function useAttachments() {
       }
       const preview = kind.kind === 'photo' && typeof URL.createObjectURL === 'function' ? URL.createObjectURL(f) : null
       if (preview) previews.current.add(preview)
-      added.push({ key: `f${++next}`, kind: kind.kind, name: f.name || (kind.kind === 'photo' ? 'Photo' : kind.kind === 'video' ? 'Video' : kind.kind === 'pdf' ? 'Document.pdf' : 'File'), size: f.size, preview, status: 'sending', progress: 0, error: null, final: false, asFile: kind.kind === 'file', arrived: null, file: null, source: f })
+      added.push({ key: `f${++next}`, kind: kind.kind, name: f.name || (kind.kind === 'photo' ? t('help.defaultPhotoName') : kind.kind === 'video' ? t('help.defaultVideoName') : kind.kind === 'pdf' ? t('help.defaultPdfName') : t('help.defaultFileName')), size: f.size, preview, status: 'sending', progress: 0, error: null, final: false, asFile: kind.kind === 'file', arrived: null, file: null, source: f })
     }
-    if (left.length > 0) problems.push(`At most ${MAX_FILES} files in one message, so ${left.join(', ')} ${left.length === 1 ? "wasn't" : "weren't"} added: send ${left.length === 1 ? 'it' : 'them'} in the next one.`)
+    if (left.length > 0) problems.push(t('help.tooManyFiles', { count: left.length, max: MAX_FILES, names: left.join(', ') }))
     if (added.length > 0) {
       setItems((list) => [...list, ...added])
       added.forEach((i) => void sendUp(i))
@@ -197,11 +199,11 @@ export type Attachments = ReturnType<typeof useAttachments>
 
 /** What a picked file's status line says (screen readers hear it only when it changes kind, not each percent). */
 function statusText(i: Picked): string {
-  if (i.status === 'failed') return i.error ?? "It didn't go up."
-  if (i.status === 'sending') return i.kind === 'video' && i.progress > 0 && i.progress < 1 ? `Uploading… ${Math.round(i.progress * 100)}% of ${sizeText(i.size)}` : `Uploading… ${sizeText(i.size)}`
+  if (i.status === 'failed') return i.error ?? t('help.didntGoUp')
+  if (i.status === 'sending') return i.kind === 'video' && i.progress > 0 && i.progress < 1 ? t('help.uploadingProgress', { percent: Math.round(i.progress * 100), size: sizeText(i.size) }) : t('help.uploading', { size: sizeText(i.size) })
   return i.asFile || i.file?.contentType === DOWNLOAD_ONLY
-    ? `Attached as a file (it can't be shown here, only downloaded) · ${sizeText(i.file?.sizeBytes ?? i.size)} · goes when you tap Send`
-    : `Attached · ${sizeText(i.file?.sizeBytes ?? i.size)} · goes when you tap Send`
+    ? t('help.attachedAsFile', { size: sizeText(i.file?.sizeBytes ?? i.size) })
+    : t('help.attached', { size: sizeText(i.file?.sizeBytes ?? i.size) })
 }
 
 /** "Add photo, video or file" and the files picked, each with how it is going and a way to take it out. */
@@ -209,6 +211,7 @@ export function AttachmentPicker({ a, id, disabled }: { a: Attachments; id: stri
   const input = useRef<HTMLInputElement | null>(null)
   const button = useRef<HTMLButtonElement | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
+  const t = useT()
   return (
     <div className="flex flex-col gap-2">
       <input
@@ -231,16 +234,16 @@ export function AttachmentPicker({ a, id, disabled }: { a: Attachments; id: stri
         disabled={disabled || a.full}
         onClick={() => input.current?.click()}
       >
-        📎 Add photo, video or file
+        {t('help.addFile')}
       </button>
-      {a.full && !problem && <p className="text-xs text-muted">That's the most for one message: send the rest in the next one.</p>}
+      {a.full && !problem && <p className="text-xs text-muted">{t('help.mostForOneMessage')}</p>}
       {problem && (
         <p role="alert" className="text-sm text-bad">
           {problem}
         </p>
       )}
       {a.items.length > 0 && (
-        <ul className="flex flex-col gap-2" aria-label="Files to send">
+        <ul className="flex flex-col gap-2" aria-label={t('help.filesToSend')}>
           {a.items.map((i) => (
             <li key={i.key} className="flex items-center gap-3 rounded-xl border border-line bg-surface p-2">
               {i.preview ? (
@@ -254,13 +257,13 @@ export function AttachmentPicker({ a, id, disabled }: { a: Attachments; id: stri
                 <span className="text-sm font-medium [overflow-wrap:anywhere]">{i.name}</span>
                 <span className={`text-xs ${i.status === 'failed' ? 'text-bad' : 'text-muted'}`}>{statusText(i)}</span>
                 <span className="sr-only" aria-live="polite">
-                  {i.status === 'sending' ? `${i.name}: uploading` : i.status === 'failed' ? `${i.name}: ${i.error ?? 'failed'}` : `${i.name}: attached`}
+                  {i.status === 'sending' ? t('help.srUploading', { name: i.name }) : i.status === 'failed' ? (i.error ? `${i.name}: ${i.error}` : t('help.srFailed', { name: i.name })) : t('help.srAttached', { name: i.name })}
                 </span>
                 {i.status === 'sending' && i.kind === 'video' && (
                   <span
                     className="mt-1 h-1 overflow-hidden rounded bg-raised"
                     role="progressbar"
-                    aria-label={`${i.name} uploading`}
+                    aria-label={t('help.uploadingAria', { name: i.name })}
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={Math.round(i.progress * 100)}
@@ -278,13 +281,13 @@ export function AttachmentPicker({ a, id, disabled }: { a: Attachments; id: stri
                     document.getElementById(`${id}-remove-${i.key}`)?.focus()   // this button goes while it is sent again
                   }}
                 >
-                  Try again
+                  {t('common.retry')}
                 </button>
               )}
               <button
                 type="button"
                 id={`${id}-remove-${i.key}`}
-                aria-label={`Remove ${i.name}`}
+                aria-label={t('help.removeFile', { name: i.name })}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-muted hover:bg-raised"
                 onClick={() => {
                   a.remove(i.key)
@@ -318,8 +321,8 @@ export interface ShownFile {
 /** What a downloaded file is, from its name: "iPhone photo (HEIC)", "DOCX file". */
 function fileKind(name: string | null): string {
   const ext = name && name.includes('.') ? name.split('.').pop()!.toLowerCase() : ''
-  if (ext === 'heic' || ext === 'heif') return 'iPhone photo (HEIC)'
-  return ext ? `${ext.toUpperCase()} file` : 'file'
+  if (ext === 'heic' || ext === 'heif') return t('help.kindHeic')
+  return ext ? t('help.kindExt', { ext: ext.toUpperCase() }) : t('help.kindFile')
 }
 
 /** A file of a kind we don't show (a Word file, a zip, an iPhone HEIC photo): only downloaded. */
@@ -330,6 +333,7 @@ export const DOWNLOAD_ONLY = 'application/octet-stream'
  * only while it hasn't been started (or has ended). The older one stays valid for at least an hour more.
  */
 function Video({ url }: { url: string }) {
+  const t = useT()
   const [src, setSrc] = useState(url)
   const ref = useRef<HTMLVideoElement | null>(null)
   useEffect(() => {
@@ -353,42 +357,42 @@ function Video({ url }: { url: string }) {
         }
       }}
     >
-      <a href={src}>Open the video</a>
+      <a href={src}>{t('help.openVideo')}</a>
     </video>
   )
 }
 
-/** Why a file shows as removed, as the person reading it needs to know. */
-const REMOVED = 'removed (files are kept for 6 months after a request is resolved or last written on)'
-
 /** The photos (tap for full size), videos (played here), PDFs and other files (downloaded) a message carries. */
-export function MessageFiles({ files, removedNote = REMOVED }: { files: ShownFile[]; removedNote?: string }) {
+export function MessageFiles({ files, removedNote }: { files: ShownFile[]; removedNote?: string }) {
+  const t = useT()
   if (files.length === 0) return null
+  // Why a file shows as removed, as the person reading it needs to know
+  const note = removedNote ?? t('help.fileRemoved')
   return (
-    <ul className="flex flex-col gap-2" aria-label="Files">
+    <ul className="flex flex-col gap-2" aria-label={t('help.files')}>
       {files.map((f) => (
         <li key={f.id}>
           {f.removed || !f.url ? (
-            <p className="text-xs text-muted">📎 {f.name ?? 'A file'}: {removedNote}</p>
+            <p className="text-xs text-muted">📎 {f.name ?? t('help.aFile')}: {note}</p>
           ) : f.contentType.startsWith('image/') ? (
-            <a href={f.url} target="_blank" rel="noreferrer" className="flex flex-col gap-1" aria-label={`Open the photo ${f.name ?? ''} in full`}>
-              <img src={f.url} alt={f.name ?? 'Photo'} loading="lazy" className="max-h-56 max-w-full rounded-lg border border-line object-contain" />
-              <span className="text-xs text-muted">Tap to see it full size (opens in a new tab)</span>
+            <a href={f.url} target="_blank" rel="noreferrer" className="flex flex-col gap-1" aria-label={t('help.openPhotoAria', { name: f.name ?? '' })}>
+              <img src={f.url} alt={f.name ?? t('help.photoAlt')} loading="lazy" className="max-h-56 max-w-full rounded-lg border border-line object-contain" />
+              <span className="text-xs text-muted">{t('help.tapFullSize')}</span>
             </a>
           ) : f.contentType.startsWith('video/') ? (
             <Video url={f.url} />
           ) : f.contentType === DOWNLOAD_ONLY ? (
-            <a href={f.downloadUrl ?? f.url} className="text-sm text-link underline [overflow-wrap:anywhere]" aria-label={`Download ${f.name ?? 'the file'}, ${fileKind(f.name)}, ${sizeText(f.sizeBytes)}`}>
-              📎 {f.name ?? 'File'} <span className="text-xs text-muted no-underline">· {fileKind(f.name)} · {sizeText(f.sizeBytes)} · Download</span>
+            <a href={f.downloadUrl ?? f.url} className="text-sm text-link underline [overflow-wrap:anywhere]" aria-label={t('help.downloadFileAria', { name: f.name ?? t('help.theFile'), kind: fileKind(f.name), size: sizeText(f.sizeBytes) })}>
+              📎 {f.name ?? t('help.defaultFileName')} <span className="text-xs text-muted no-underline">· {fileKind(f.name)} · {sizeText(f.sizeBytes)} · {t('help.download')}</span>
             </a>
           ) : (
             <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <a href={f.url} target="_blank" rel="noreferrer" className="text-sm text-link underline [overflow-wrap:anywhere]">
-                📄 {f.name ?? 'Document.pdf'} · {sizeText(f.sizeBytes)} <span className="text-xs text-muted no-underline">(opens in a new tab)</span>
+                📄 {f.name ?? t('help.defaultPdfName')} · {sizeText(f.sizeBytes)} <span className="text-xs text-muted no-underline">{t('help.opensNewTab')}</span>
               </a>
               {f.downloadUrl && (
-                <a href={f.downloadUrl} className="text-xs text-link underline" aria-label={`Download ${f.name ?? 'the PDF'}`}>
-                  Download
+                <a href={f.downloadUrl} className="text-xs text-link underline" aria-label={t('help.downloadAria', { name: f.name ?? t('help.thePdf') })}>
+                  {t('help.download')}
                 </a>
               )}
             </span>

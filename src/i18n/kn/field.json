@@ -1,0 +1,16 @@
+{
+  "staffId": "ಬಾರ್ಬರ್:",
+  "serviceIds": "ಸೇವೆಗಳು:",
+  "name": "ಹೆಸರು",
+  "reason": "ಕಾರಣ",
+  "endAt": "ಮುಗಿಯುವ ಸಮಯ",
+  "startAt": "ಶುರುವಾಗುವ ಸಮಯ",
+  "until": "ನಿಲ್ಲಿಸುವ ಸಮಯ",
+  "date": "ದಿನಾಂಕ",
+  "durationMinutes": "ಬೇಕಾಗುವ ಸಮಯ",
+  "pricePaise": "ಬೆಲೆ",
+  "phone": "ಆ ನಂಬರ್",
+  "hours": "ಸಮಯ:",
+  "returnAfterDays": "ಮತ್ತೆ ಬರಲು ನೆನಪಿಸುವ ದಿನಗಳು",
+  "fileId": "ಫೈಲ್"
+}

@@ -18,12 +18,15 @@ import { useSession } from '../../store/session'
 import { NotificationsRow } from './Notifications'
 import { licenceSummary } from '../shop/RegistrationDoc'
 import { signOutHere } from './signOut'
+import { useT } from '../../i18n'
+import { LanguagePicker } from '../../i18n/LanguagePicker'
 
 /** The map library is big: loaded only when the owner opens the pin. */
 const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ default: m.PinMap })))
 
 /** More: the person's profile, the shop's other screens (a salon's or a kirana's), help and signing out. */
 export function Profile() {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const [phoneChanged] = useState(takePhoneChanged)
@@ -41,7 +44,6 @@ export function Profile() {
   const [showPin, setShowPin] = useState(false)
   const owner = shop.myRole === 'OWNER'
   const kirana = shop.type === 'KIRANA'
-  const noun = kirana ? 'shop' : 'salon'
   const addressAsked = useAddressRequest(owner && Boolean(shop.addressLocked))
 
   async function saveName() {
@@ -67,7 +69,7 @@ export function Profile() {
       navigate('/signin', { replace: true })
     } catch (e) {
       // Not signed out anywhere: say so, so nobody believes a lost phone is signed out
-      setOutError(`${messageOf(e)} Your other devices are still signed in.`)
+      setOutError(t('profile.signOutAllFailed', { message: messageOf(e) }))
       setBusy(false)
     }
   }
@@ -87,26 +89,25 @@ export function Profile() {
   }
 
   const links = (kirana ? [
-    owner && { to: '/kirana/team', text: 'Team: your helpers' },
-    { to: '/kirana/day', text: "Day's totals" },
-    owner && { to: '/kirana/upi', text: 'UPI ID for the counter QR' },
-    owner && { to: '/kirana/licences', text: 'Licences: FSSAI, trade licence' },
-    { to: '/notifications', text: 'Messages' },
+    owner && { to: '/kirana/team', text: t('profile.linkKiranaTeam') },
+    { to: '/kirana/day', text: t('profile.linkKiranaDay') },
+    owner && { to: '/kirana/upi', text: t('profile.linkKiranaUpi') },
+    owner && { to: '/kirana/licences', text: t('profile.linkKiranaLicences') },
+    { to: '/notifications', text: t('profile.linkMessages') },
   ] : [
-    rights.team && { to: '/team', text: 'Team and walk-in access' },
-    rights.closures && { to: '/salon/closures', text: 'Closed days' },
-    rights.seeSetup && { to: '/salon/offers', text: 'Offers' },
-    rights.seeSetup && { to: '/salon/ratings', text: 'Ratings' },
-    !rights.seeSetup && { to: '/salon/info', text: 'Salon info: hours, services, offers' },
-    { to: '/notifications', text: 'Messages' },
+    rights.team && { to: '/team', text: t('profile.linkTeam') },
+    rights.closures && { to: '/salon/closures', text: t('profile.linkClosures') },
+    rights.seeSetup && { to: '/salon/offers', text: t('profile.linkOffers') },
+    rights.seeSetup && { to: '/salon/ratings', text: t('profile.linkRatings') },
+    !rights.seeSetup && { to: '/salon/info', text: t('profile.linkSalonInfo') },
+    { to: '/notifications', text: t('profile.linkMessages') },
   ]).filter(Boolean) as Array<{ to: string; text: string }>
 
   return (
-    <Page title="More">
+    <Page title={t('profile.title')}>
       {phoneChanged && (
         <Banner tone="good">
-          Your mobile number is now +91 {formatPhone(phoneChanged)}. Other devices were signed out; sign in there with
-          the new number.
+          {t('profile.phoneChanged', { phone: formatPhone(phoneChanged) })}
         </Banner>
       )}
       {/* The salon as registered, in full: what the owner can check and, if wrong, change in one tap */}
@@ -114,8 +115,8 @@ export function Profile() {
         <div className="flex items-start justify-between gap-3">
           <p className="min-w-0 font-semibold break-words">{shop.name}</p>
           {owner && (
-            <Link to="/setup/details" state={{ from: '/more', edit: true }} className="shrink-0 text-sm text-link" aria-label={`Edit ${noun} details`}>
-              Edit
+            <Link to="/setup/details" state={{ from: '/more', edit: true }} className="shrink-0 text-sm text-link" aria-label={t(kirana ? 'profile.editShopAriaKirana' : 'profile.editSalonAria')}>
+              {t('common.edit')}
             </Link>
           )}
         </div>
@@ -126,43 +127,43 @@ export function Profile() {
           <p className="text-sm break-words">
             {addressAsked.data?.status === 'PENDING' && (
               <span className="text-muted">
-                New address waiting for our field team: {addressAsked.data.addressLine}, {addressAsked.data.area}.{' '}
+                {t('profile.addressWaiting', { addressLine: addressAsked.data.addressLine, area: addressAsked.data.area })}{' '}
               </span>
             )}
             <Link to="/setup/address" state={{ from: '/more' }} className="text-link underline">
-              {addressAsked.data?.status === 'PENDING' ? 'See the request' : 'Request address change'}
+              {addressAsked.data?.status === 'PENDING' ? t('profile.seeAddressRequest') : t('profile.requestAddressChange')}
             </Link>
           </p>
         )}
-        <p className="text-sm text-muted break-words">Owner: {shop.ownerName}</p>
+        <p className="text-sm text-muted break-words">{t('profile.owner', { name: shop.ownerName })}</p>
         {owner && !kirana && (
           <p className="text-sm break-words">
             <Link to="/setup/document" state={{ from: '/more' }} className="text-link underline">
-              Trade licence: {licenceSummary(shop)}
+              {t('profile.tradeLicence', { summary: licenceSummary(shop) })}
             </Link>
           </p>
         )}
         <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
-          <span>Shop code {shop.shopCode}</span>
+          <span>{t('profile.shopCode', { code: String(shop.shopCode) })}</span>
           <CopyCode code={String(shop.shopCode)} />
-          <span>· You are the {owner ? 'owner' : shop.myRole === 'HELPER' ? 'helper' : 'barber'}</span>
+          <span>{owner ? t('profile.youAreOwner') : shop.myRole === 'HELPER' ? t('profile.youAreHelper') : t('profile.youAreBarber')}</span>
         </div>
         {shop.recheckSince && (
-          <p className="text-sm text-muted">Our field team will check your recent changes. Your {noun} stays {kirana ? 'open' : 'live'} meanwhile.</p>
+          <p className="text-sm text-muted">{t(kirana ? 'profile.recheckKirana' : 'profile.recheck')}</p>
         )}
         {owner && (
           <p className="flex flex-wrap gap-x-4 text-sm">
             <Link to="/setup/photos" state={{ from: '/more' }} className="text-link underline">
-              Photos and video
+              {t('profile.photosAndVideo')}
             </Link>
           </p>
         )}
         <button type="button" className="self-start text-sm text-link underline" aria-expanded={showPin} onClick={() => setShowPin((v) => !v)}>
-          {showPin ? 'Hide the map' : 'See the pin on the map'}
+          {showPin ? t('profile.hideMap') : t('profile.seePin')}
         </button>
         {showPin && (
           <MapBoundary>
-            <Suspense fallback={<Loading label="Loading the map…" />}>
+            <Suspense fallback={<Loading label={t('profile.loadingMap')} />}>
               <PinMap lat={shop.latitude} lng={shop.longitude} />
             </Suspense>
           </MapBoundary>
@@ -185,11 +186,11 @@ export function Profile() {
       <Card className="flex flex-col gap-4">
         {editing ? (
           <div className="flex flex-col gap-3">
-            <Field id="profile-name" label="Your name" hint={`Your sign-in name. The ${noun}'s owner name is in the ${noun} details.`} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+            <Field id="profile-name" label={t('profile.yourName')} hint={t(kirana ? 'profile.yourNameHintKirana' : 'profile.yourNameHint')} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
             {error && <Banner tone="bad">{error}</Banner>}
             <div className="flex gap-2">
               <Button busy={busy} disabled={name.trim().length < 2} onClick={saveName} className="flex-1">
-                Save
+                {t('common.save')}
               </Button>
               <Button
                 variant="ghost"
@@ -199,28 +200,28 @@ export function Profile() {
                   setError(null)
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
             </div>
           </div>
         ) : (
-          <Row label="Your name" value={user.name ?? ''} action={<button type="button" className="text-link" aria-label="Edit your name" onClick={() => setEditing(true)}>Edit</button>} />
+          <Row label={t('profile.yourName')} value={user.name ?? ''} action={<button type="button" className="text-link" aria-label={t('profile.editNameAria')} onClick={() => setEditing(true)}>{t('common.edit')}</button>} />
         )}
         <Row
-          label="Mobile"
+          label={t('profile.mobile')}
           value={`+91 ${formatPhone(user.phone)}`}
           action={
-            <Link to="/profile/phone" className="text-link" aria-label="Change mobile number">
-              Change
+            <Link to="/profile/phone" className="text-link" aria-label={t('profile.changeMobileAria')}>
+              {t('common.change')}
             </Link>
           }
         />
         <Row
-          label="Email"
+          label={t('profile.email')}
           value={user.email ?? ''}
           action={
             <Link to="/profile/email" className="text-link">
-              Change
+              {t('common.change')}
             </Link>
           }
         />
@@ -230,23 +231,27 @@ export function Profile() {
         <NotificationsRow />
       </Card>
 
+      <Card className="flex flex-col gap-2">
+        <p className="font-medium">{t('language.title')}</p>
+        <LanguagePicker />
+        <p className="text-xs text-muted">{t('language.profileHint')}</p>
+      </Card>
+
       {!kirana && <SubscriptionRow />}
 
       <Card className="flex flex-col gap-1">
-        <p className="font-medium">Need help?</p>
+        <p className="font-medium">{t('profile.needHelp')}</p>
         <p className="text-sm text-muted">
-          {kirana
-            ? "A problem with a bill, the app or your shop's listing? Write to us: we see your shop with your message and reply by email."
-            : "A problem with a booking, the app or your salon's listing? Write to us: we see your salon with your message and reply by email."}
+          {t(kirana ? 'profile.needHelpBodyKirana' : 'profile.needHelpBody')}
         </p>
         <Link to="/help" className="text-sm text-link underline">
-          Write to support
+          {t('profile.writeToSupport')}
         </Link>
         <Link to="/help/requests" state={{ from: true }} className="text-sm text-link underline">
-          My requests (our replies and yours)
+          {t('profile.myRequests')}
         </Link>
         <p className="text-sm text-muted">
-          Or email{' '}
+          {t('profile.orEmailBefore')}{' '}
           <a href={`mailto:${SUPPORT_EMAIL}`} className="text-link underline [overflow-wrap:anywhere]">
             {SUPPORT_EMAIL}
           </a>
@@ -255,61 +260,61 @@ export function Profile() {
 
       <div className="flex flex-col gap-2">
         <Button variant="secondary" busy={busy} onClick={() => out(false)}>
-          Sign out
+          {t('profile.signOut')}
         </Button>
         <Button variant="ghost" onClick={() => setConfirmAll(true)}>
-          Sign out on all devices
+          {t('profile.signOutAll')}
         </Button>
         {rights.leaveShop && (
           <Button variant="ghost" className="text-bad" onClick={() => setLeaving(true)}>
-            Leave {shop.name}
+            {t('profile.leaveShop', { name: shop.name })}
           </Button>
         )}
         {shop.myRole === 'OWNER' && (
           <>
             <Link to="/shop/handover" className="py-3 text-center text-sm text-link underline">
-              Hand over {shop.name}
+              {t('profile.handOverShop', { name: shop.name })}
             </Link>
             <Link to="/shop/close" className="py-3 text-center text-sm text-bad underline">
-              Close {shop.name}
+              {t('profile.closeShop', { name: shop.name })}
             </Link>
           </>
         )}
         {rights.deleteAccount ? (
           <Link to="/profile/delete" className="py-3 text-center text-sm text-bad underline">
-            Delete my account
+            {t('profile.deleteMyAccount')}
           </Link>
         ) : (
           <p className="py-3 text-center text-sm text-muted">
-            To delete your account, <Link to="/shop/close" className="underline">close</Link> or{' '}
-            <Link to="/shop/handover" className="underline">hand over</Link> your shop first.
+            {t('profile.deleteFirstBefore')} <Link to="/shop/close" className="underline">{t('profile.deleteFirstCloseLink')}</Link> {t('profile.deleteFirstOr')}{' '}
+            <Link to="/shop/handover" className="underline">{t('profile.deleteFirstHandOverLink')}</Link> {t('profile.deleteFirstAfter')}
           </p>
         )}
       </div>
 
       <LegalLinks />
 
-      <Sheet open={confirmAll} title="Sign out everywhere?" onClose={() => setConfirmAll(false)}>
+      <Sheet open={confirmAll} title={t('profile.signOutEverywhereTitle')} onClose={() => setConfirmAll(false)}>
         <div className="flex flex-col gap-3">
-          <p className="text-muted">Every phone and computer signed in to your account will need the SMS code again.</p>
+          <p className="text-muted">{t('profile.signOutEverywhereBody')}</p>
           {outError && <Banner tone="bad">{outError}</Banner>}
           <Button busy={busy} onClick={() => out(true)}>
-            Sign out everywhere
+            {t('profile.signOutEverywhere')}
           </Button>
           <Button variant="secondary" onClick={() => setConfirmAll(false)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
         </div>
       </Sheet>
-      <Sheet open={leaving} title={`Leave ${shop.name}?`} onClose={() => setLeaving(false)}>
+      <Sheet open={leaving} title={t('profile.leaveShopTitle', { name: shop.name })} onClose={() => setLeaving(false)}>
         <div className="flex flex-col gap-3">
-          <p className="text-muted">{kirana ? "You won't be able to bill at this shop's counter any more." : "You won't see this salon's bookings any more."} The owner can add you again.</p>
+          <p className="text-muted">{t(kirana ? 'profile.leaveShopBodyKirana' : 'profile.leaveShopBody')}</p>
           {leaveError && <Banner tone="bad">{leaveError}</Banner>}
           <Button variant="danger" busy={busy} onClick={leave}>
-            Leave
+            {t('profile.leave')}
           </Button>
           <Button variant="secondary" onClick={() => setLeaving(false)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
         </div>
       </Sheet>
@@ -331,18 +336,19 @@ function Row({ label, value, action }: { label: string; value: string; action?: 
 
 /** The salon's subscription in one line, the whole card opening its page (not for a suspended salon). */
 function SubscriptionRow() {
+  const t = useT()
   const shop = useShop()
   const sub = useSubscription()
   if (!sub.data || shop.status === 'SUSPENDED') return null
   return (
-    <Link to="/subscription" aria-label="Subscription" className="block">
+    <Link to="/subscription" aria-label={t('profile.subscription')} className="block">
       <Card className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-medium">Subscription</p>
+          <p className="font-medium">{t('profile.subscription')}</p>
           <p className="text-sm text-muted">{subscriptionSummary(sub.data)}</p>
         </div>
         <span aria-hidden="true" className="shrink-0 text-link">
-          Open
+          {t('profile.open')}
         </span>
       </Card>
     </Link>

@@ -3,6 +3,7 @@ import { messageOf } from '../../api/errors'
 import { useSalonHours, useServices } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import { Card, EmptyState, ErrorState, Loading, Page, Pill } from '../../components/ui'
+import { useT } from '../../i18n'
 import { clock12 } from '../../lib/ist'
 import { rupees } from '../../lib/money'
 import { weekLines } from '../../lib/salonHours'
@@ -14,6 +15,7 @@ import { offerWhat, offerWhen } from '../offers/offerText'
  * Salon tab.
  */
 export function SalonInfo() {
+  const t = useT()
   const shop = useShop()
   const services = useServices()
   const hours = useSalonHours()
@@ -21,7 +23,7 @@ export function SalonInfo() {
 
   if (services.isPending || hours.isPending || offers.isPending) {
     return (
-      <Page back="/more" title="Salon info">
+      <Page back="/more" title={t('setup.infoTitle')}>
         <Loading />
       </Page>
     )
@@ -30,7 +32,7 @@ export function SalonInfo() {
   const failed = (!services.data && services.error) || (!hours.data && hours.error) || (!offers.data && offers.error)
   if (failed) {
     return (
-      <Page back="/more" title="Salon info">
+      <Page back="/more" title={t('setup.infoTitle')}>
         <ErrorState
           message={messageOf(failed)}
           onRetry={() => {
@@ -46,17 +48,17 @@ export function SalonInfo() {
   const active = (services.data ?? []).filter((s) => s.active).sort((a, b) => a.sortOrder - b.sortOrder)
   const names = new Map(active.map((s) => [s.id, s.name]))
   return (
-    <Page back="/more" title="Salon info">
-      <p className="text-sm text-muted">What customers see for {shop.name}. Only the owner can change it.</p>
+    <Page back="/more" title={t('setup.infoTitle')}>
+      <p className="text-sm text-muted">{t('setup.infoIntro', { name: shop.name })}</p>
       <Card className="flex flex-col gap-1">
-        <h2 className="font-semibold">Offers</h2>
+        <h2 className="font-semibold">{t('setup.offersTitle')}</h2>
         {offers.data?.length ? (
           <ul className="flex flex-col gap-2">
             {offers.data.map(({ offer, state }) => (
               <li key={offer.id} className="flex flex-col">
                 <span className="flex items-center gap-2">
-                  <span className="font-medium">{offer.percentOff}% off</span>
-                  <Pill tone={state === 'RUNNING' ? 'good' : 'brand'}>{state === 'RUNNING' ? 'Running' : 'Coming'}</Pill>
+                  <span className="font-medium">{t('setup.percentOff', { percent: offer.percentOff })}</span>
+                  <Pill tone={state === 'RUNNING' ? 'good' : 'brand'}>{state === 'RUNNING' ? t('setup.offerRunning') : t('setup.offerComing')}</Pill>
                 </span>
                 <span className="text-sm text-muted break-words">
                   {offerWhat(offer, names)} · {offerWhen(offer)}
@@ -65,11 +67,11 @@ export function SalonInfo() {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted">No offers on now or coming.</p>
+          <p className="text-sm text-muted">{t('setup.noOffers')}</p>
         )}
       </Card>
       <Card className="flex flex-col gap-1">
-        <h2 className="font-semibold">Opening hours</h2>
+        <h2 className="font-semibold">{t('setup.hoursTitle')}</h2>
         {hours.data?.days.length ? (
           weekLines(hours.data.days, clock12).map((line) => (
             <p key={line} className="text-sm">
@@ -77,24 +79,24 @@ export function SalonInfo() {
             </p>
           ))
         ) : (
-          <p className="text-sm text-muted">Not set yet.</p>
+          <p className="text-sm text-muted">{t('setup.hoursNotSet')}</p>
         )}
       </Card>
       <Card className="flex flex-col gap-2">
-        <h2 className="font-semibold">Services</h2>
+        <h2 className="font-semibold">{t('setup.servicesHeading')}</h2>
         {active.length ? (
           <ul className="flex flex-col gap-2">
             {active.map((s) => (
               <li key={s.id} className="flex items-baseline justify-between gap-3">
                 <span className="min-w-0 break-words">
-                  {s.name} <span className="text-sm text-muted">· {s.durationMinutes} min</span>
+                  {s.name} <span className="text-sm text-muted">· {t('setup.minutesShort', { minutes: s.durationMinutes })}</span>
                 </span>
                 <span className="shrink-0">{rupees(s.pricePaise, s.priceIsFrom)}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <EmptyState title="No services yet" />
+          <EmptyState title={t('setup.noServices')} />
         )}
       </Card>
     </Page>
