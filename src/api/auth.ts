@@ -1,3 +1,4 @@
+import type { Lang } from '../i18n'
 import { deviceName } from '../lib/device'
 import { api } from './client'
 import type { Tokens, User } from './types'
@@ -27,6 +28,8 @@ export const authApi = {
   logoutAll: () => api<void>('POST', `${A}/logout-all`),
   me: () => api<User>('GET', `${A}/me`),
   rename: (name: string) => api<User>('PATCH', `${A}/me`, { body: { name } }),
+  /** The account's language (its messages come in it); the rest of the profile stays as it is. */
+  saveLanguage: (language: Lang) => api<User>('PATCH', `${A}/me`, { body: { language } }),
   /** phoneCode is needed only when replacing an email that is already verified. */
   sendEmailCode: (email: string, phoneCode?: string) =>
     api<void>('POST', `${A}/email/send-code`, { body: { email, phoneCode: phoneCode || null } }),
