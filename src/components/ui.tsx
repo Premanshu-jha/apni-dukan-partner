@@ -66,8 +66,8 @@ export function Field({
   )
 }
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`rounded-2xl border border-line bg-surface p-4 ${className}`}>{children}</div>
+export function Card({ children, className = '', id }: { children: ReactNode; className?: string; id?: string }) {
+  return <div id={id} className={`rounded-2xl border border-line bg-surface p-4 ${className}`}>{children}</div>
 }
 
 export function Spinner({ small = false, label }: { small?: boolean; label?: string }) {
@@ -314,8 +314,11 @@ const pillTones = {
   muted: 'bg-raised text-muted',
 } as const
 
-export function Pill({ tone, children }: { tone: keyof typeof pillTones; children: ReactNode }) {
-  return <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${pillTones[tone]}`}>{children}</span>
+export function Pill({ tone, wrap = false, children }: { tone: keyof typeof pillTones; wrap?: boolean; children: ReactNode }) {
+  // Never wraps or shrinks: the name beside it wraps instead (status words stay whole in every language). A long pill
+  // (a phone number, a few words in Tamil or Kannada) may take a second line instead of pushing out of a 360px phone.
+  const fit = wrap ? 'min-w-0 whitespace-normal text-center [overflow-wrap:anywhere]' : 'shrink-0 whitespace-nowrap'
+  return <span className={`inline-flex ${fit} rounded-full px-2.5 py-0.5 text-xs font-semibold ${pillTones[tone]}`}>{children}</span>
 }
 
 /** An on/off switch with a visible label. */

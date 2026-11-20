@@ -1,0 +1,20 @@
+{
+  "whatToFix": "ఏమి సరిచేయాలి:",
+  "noteFromTeam": "టీమ్ నుండి నోట్",
+  "fixLink": "సరిచేయండి ›",
+  "fixAria": "సరిచేయండి: {reason}",
+  "reasonSHOP_FRONT_PHOTO": "సెలూన్ ముందు ఫోటో లేదు లేదా స్పష్టంగా లేదు",
+  "reasonBOARD_NOT_VISIBLE": "ఫోటోలో సెలూన్ పేరు బోర్డు కనిపించడం లేదు",
+  "reasonINSIDE_PHOTOS": "లోపలి ఫోటోలు లేవు లేదా స్పష్టంగా లేవు",
+  "reasonLICENCE_UNREADABLE": "ట్రేడ్ లైసెన్స్ చదవడానికి రావడం లేదు",
+  "reasonLICENCE_NAME_MISMATCH": "ట్రేడ్ లైసెన్స్‌లో పేరు సెలూన్‌తో సరిపోలడం లేదు",
+  "reasonLICENCE_EXPIRED": "ట్రేడ్ లైసెన్స్ గడువు ముగిసింది",
+  "reasonLICENCE_WRONG_TYPE": "ఇది మున్సిపల్ ట్రేడ్ లైసెన్స్ కాదు",
+  "reasonADDRESS_WRONG": "అడ్రస్ తప్పుగా ఉంది",
+  "reasonPIN_WRONG_PLACE": "మ్యాప్‌లో పిన్ మీ సెలూన్ గుమ్మం దగ్గర లేదు",
+  "reasonSERVICES_MISSING": "సర్వీస్‌లు లేదా ధరలు లేవు",
+  "reasonHOURS_MISSING": "సెలూన్ టైమింగ్స్ లేవు",
+  "reasonVIDEO_UNCLEAR": "సెలూన్ వీడియో స్పష్టంగా లేదు",
+  "reasonOWNER_NAME": "ఓనర్ పేరు సరిచేయాలి",
+  "reasonOTHER": "ఇంకేదో (నోట్ చూడండి)"
+}

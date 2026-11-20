@@ -1,4 +1,5 @@
-import { addDays, clock12, dateOfIst, dayLabel, nextDates, timeIst, todayIst, weekdayName } from './ist'
+import { addDays, clock12, dateOfIst, dayLabel, fullDate, nextDates, timeIst, todayIst, weekdayName } from './ist'
+import { resetLanguageForTests, setLanguage, t } from '../i18n'
 import { duration, rupees } from './money'
 import { formatPhone, looksLikeEmail, normalizePhone } from './phone'
 
@@ -65,5 +66,16 @@ describe('phone numbers', () => {
     expect(formatPhone('9848012345')).toBe('98480 12345')
     expect(looksLikeEmail('a@b.in')).toBe(true)
     expect(looksLikeEmail('a@b')).toBe(false)
+  })
+})
+
+describe('a full date (a licence\'s last day)', () => {
+  afterEach(() => resetLanguageForTests())
+
+  it('in English as always; in another language with the app\'s own month words', async () => {
+    expect(fullDate('2026-11-07')).toBe('7 Nov 2026')
+    await setLanguage('hi')
+    expect(fullDate('2026-11-07')).toBe(`7 ${t('shop.monthShortNov')} 2026`)
+    expect(t('shop.monthShortNov')).not.toBe('Nov')
   })
 })

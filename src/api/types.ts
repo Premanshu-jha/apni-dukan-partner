@@ -9,6 +9,8 @@ export interface User {
   email: string | null
   emailVerified: boolean
   admin: boolean
+  /** The language the account reads ("hi"; its messages come in it); null until chosen. Missing from older backends. */
+  language?: string | null
 }
 
 export interface Tokens {
@@ -88,8 +90,13 @@ export interface Shop {
   gstin: string | null
   udyamNumber: string | null
   status: ShopStatus
-  /** Why it was suspended, or a note from the field team. */
+  /** Why it was suspended, or the field team's own note with what to fix (may be null with reason codes). */
   statusReason: string | null
+  /**
+   * What the field team asked to fix, as fixed codes (ReviewReason: the app shows each in the reader's language);
+   * empty when none (and from an older backend: missing). statusReason is then their optional note.
+   */
+  statusReasonCodes?: string[]
   type: ShopType
   myRole: ShopRole
   ownerPhotoFileId: string | null
@@ -151,7 +158,10 @@ export interface AddressIn extends GeocodeIn {
 export interface AddressRequest extends AddressIn {
   id: string
   status: 'PENDING' | 'APPROVED' | 'DECLINED' | 'CANCELLED'
+  /** The field team's note on a decline (may be null when they ticked reasons). */
   reason: string | null
+  /** Why it was declined, as fixed codes (ReviewReason); empty when none (older backend: missing). */
+  statusReasonCodes?: string[]
   createdAt: string
   decidedAt: string | null
 }

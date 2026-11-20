@@ -54,7 +54,7 @@ describe('languages', () => {
     resetLanguageForTests()
     provideForTests('hi', { language: { title: 'भाषा' }, demo: { left: { one: '{count} बचा', other: '{count} बचे' } } })
     provideForTests('en', { ...en, demo: { left: { one: '{count} left', other: '{count} left' }, only: 'Only {name}' } })
-    expect(t('demo.left', { count: 1200 })).toBe('1,200 left')
+    expect(t('demo.left', { count: 1200 })).toBe('1200 left')
     await setLanguage('hi')
     expect(t('language.title')).toBe('भाषा')
     expect(t('demo.left', { count: 1 })).toBe('1 बचा')

@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { useSalonHours, useServices } from '../../api/salon'
+import { shopAsk } from './TeamReasons'
 import { useShop } from '../../api/shop'
 import { Button, Card, EmptyState, Loading, Page } from '../../components/ui'
 import { CopyCode } from '../../components/CopyCode'
@@ -30,7 +31,7 @@ function ResumeRegistration() {
   const services = useServices()
   const hours = useSalonHours()
   // Sent back by the field team: the review shows their reason, with a link to each step
-  if (shop.statusReason) return <Navigate to="/register/review" replace />
+  if (shopAsk(shop)) return <Navigate to="/register/review" replace />
   if (!photosDone) return <Navigate to="/register/photos" replace />
   if (services.isError || hours.isError) return <Navigate to="/register/review" replace />
   if (!services.data || !hours.data) return <Loading />

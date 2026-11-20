@@ -12,6 +12,8 @@ import { forgetThisPerson } from './features/profile/signOut'
 import { refreshSalonWork } from './api/salon'
 import { shopKeys } from './api/shop'
 import { restoreLanguage } from './i18n'
+import { LanguageToast } from './i18n/LanguageToast'
+import { followAccountLanguage } from './lib/accountLanguage'
 import { followOtherTabs, useSession } from './store/session'
 import '@fontsource/poppins/600.css'
 import '@fontsource/poppins/700.css'
@@ -97,9 +99,11 @@ async function start() {
   })
 }
 
-void start()
-// The language chosen on this phone before (the app shows in English until its words arrive, a moment later)
+// The language chosen on this phone before (shown at once from the texts kept on the phone)
 void restoreLanguage()
+// Then each account's own language, saved on the account too
+followAccountLanguage()
+void start()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -109,6 +113,7 @@ createRoot(document.getElementById('root')!).render(
           <App />
         </ErrorBoundary>
         <UpdatePrompt />
+        <LanguageToast />
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

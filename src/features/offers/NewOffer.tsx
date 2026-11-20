@@ -9,6 +9,7 @@ import { useT } from '../../i18n'
 import { addDays, todayIst, weekdayName } from '../../lib/ist'
 import { rupees } from '../../lib/money'
 import { checkOffer, endTime, MAX_DAYS_AHEAD, offerPrice, offerWhen } from './offerText'
+import { serviceName } from '../../lib/serviceName'
 
 /** The offer in the list is this very one (a lost answer, then a second tap). */
 function sameOffer(o: OfferView, b: NewOfferBody): boolean {
@@ -150,7 +151,7 @@ export function NewOffer() {
               <li key={s.id}>
                 <label className="flex min-h-12 items-center gap-3 rounded-xl border border-line px-3">
                   <input type="checkbox" className="h-5 w-5" checked={serviceIds.includes(s.id)} onChange={() => toggle(s.id)} />
-                  <span className="flex-1">{s.name}</span>
+                  <span className="flex-1">{serviceName(s.name)}</span>
                   <span className="text-sm text-muted">
                     <s>{rupees(s.pricePaise, s.priceIsFrom)}</s> <span className="text-accent">{rupees(offerPrice(s.pricePaise, percentOff), s.priceIsFrom)}</span>
                   </span>
@@ -211,7 +212,7 @@ export function NewOffer() {
           <ul className="flex flex-col gap-1" aria-label={t('offers.pricesInOffer')}>
             {preview.services.map((s) => (
               <li key={s.serviceId} className="flex justify-between gap-2 text-sm">
-                <span>{s.name}</span>
+                <span>{serviceName(s.name)}</span>
                 <span>
                   <s className="text-muted">{rupees(s.pricePaise, s.priceIsFrom)}</s> <strong className="text-accent">{rupees(s.offerPricePaise, s.priceIsFrom)}</strong>
                 </span>

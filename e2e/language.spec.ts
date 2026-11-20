@@ -31,13 +31,13 @@ test('someone signed in before is offered the languages once; later it is under 
   await expect(page.getByRole('region', { name: 'Use the app in your language' })).toBeHidden()
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'More' }).click()
   await atSalonProfile(page)
-  await page.getByRole('button', { name: 'తెలుగు' }).click()
+  await page.getByRole('button', { name: 'తెలుగు', exact: true }).click()
   await expect(page.getByText(te('language').title, { exact: true })).toBeVisible()
   const nav = page.getByRole('navigation', { name: te('app').navMain })
   await expect(nav.getByRole('link', { name: te('app').tabToday })).toBeVisible() // the tabs follow at once
   await expect(page.getByText(te('language').profileHint)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'తెలుగు' })).toHaveAttribute('aria-pressed', 'true')
-  await page.getByRole('button', { name: 'English' }).click()
+  await expect(page.getByRole('button', { name: 'తెలుగు', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'English', exact: true }).click()
   await expect(page.getByText('Language', { exact: true })).toBeVisible()
 })
 
