@@ -7,14 +7,16 @@
     <title>You're offline · Clozest Partner</title>
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="stylesheet" href="/offline.css" />
+    <!-- Its lines in the language chosen in the app -->
+    <script src="/offline.js" defer></script>
   </head>
   <body>
-    <!-- Shown by the service worker when the app is opened without a connection (sw.js keeps it, its CSS and icon). -->
+    <!-- Shown by the service worker when the app is opened without a connection (sw.js keeps it, its CSS, script and icon). -->
     <main>
       <img src="/icon.svg" alt="" width="64" height="64" />
-      <h1>You're offline</h1>
-      <p>Clozest Partner needs the internet to show your salon's day. Check your connection, then try again.</p>
-      <a href="">Try again</a>
+      <h1 id="offline-heading">You're offline</h1>
+      <p id="offline-body">Clozest Partner needs the internet to show your salon's day. Check your connection, then try again.</p>
+      <a id="offline-retry" href="">Try again</a>
     </main>
   </body>
 </html>
