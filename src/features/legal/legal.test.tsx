@@ -1,5 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { MemoryRouter } from 'react-router'
+import { resetLanguageForTests, setLanguage } from '../../i18n'
 import { BUSINESS, OPERATED_BY } from '../../lib/business'
 import { useSession } from '../../store/session'
 import { About } from './About'
@@ -13,8 +17,15 @@ function at(path: string, page: React.ReactNode) {
   render(<MemoryRouter initialEntries={[path]}>{page}</MemoryRouter>)
 }
 
+const words = (lang: string, area: string) =>
+  JSON.parse(readFileSync(join(process.cwd(), `src/i18n/${lang}/${area}.json`), 'utf8')) as Record<string, string>
+
 describe('public pages', () => {
   beforeEach(() => useSession.setState({ status: 'signedOut', user: null }))
+  afterEach(() => {
+    resetLanguageForTests()
+    window.localStorage.clear()
+  })
 
   it.each([
     ['/about', <About key="a" />, 'Clozest for salons'],
@@ -82,7 +93,7 @@ describe('public pages', () => {
     at('/privacy', <Privacy />)
     expect(screen.getByText(/never the\s+owner's phone, email or documents/)).toBeInTheDocument()
     expect(screen.getByText(/an owner closes or hands over the salon first/)).toBeInTheDocument()
-    expect(screen.getByText(`Last updated: ${BUSINESS.policiesUpdated}`)).toBeInTheDocument()
+    expect(screen.getByText('Last updated: 15 November 2026')).toBeInTheDocument()
   })
 
   it('Contact gives an email, a phone to tap and the address, and points to More → Write to support', () => {
@@ -99,5 +110,78 @@ describe('public pages', () => {
     at('/delivery', <Delivery />)
     expect(screen.getByText(/We sell and ship no physical goods/)).toBeInTheDocument()
     expect(screen.getByText(/starts as soon as it is paid/)).toBeInTheDocument()
+  })
+
+  it('About in Hindi: picked on the page (under the logo, kept as the phone\'s choice), every text in Hindi, the amounts unchanged', async () => {
+    const hi = words('hi', 'about')
+    at('/about', <About />)
+    const picker = screen.getByRole('group', { name: 'Choose your language' })
+    // Under the logo and the tagline, before everything else
+    expect(screen.getByText('Near You. For You.').compareDocumentPosition(picker) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'हिन्दी' }))
+    expect(await screen.findByRole('heading', { level: 1, name: hi.title })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'हिन्दी' })).toHaveAttribute('aria-pressed', 'true')
+    expect(window.localStorage.getItem('language')).toBe('hi')
+    // The price and the trial: the same figures, in the Hindi sentence
+    const price = hi.priceLine.replace('{price}', '500').replace('{days}', '30')
+    expect(price).toMatch(/₹500/)
+    expect(screen.getByText(price)).toBeInTheDocument()
+    expect(screen.getByText(hi.priceNoGst.replace('{price}', '500'))).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: hi.priceTitle })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: hi.signInOrUp })).toHaveAttribute('href', '/signin')
+    expect(screen.getByRole('link', { name: hi.customersRefundLink })).toHaveAttribute('href', '/refunds')
+    // Nothing of the English page is left, but the tagline and who runs Clozest stay in English
+    expect(document.body.textContent).not.toMatch(/What you get|Online bookings|Cancel any time|Questions\?|Sign in or sign up/)
+    expect(screen.getByText('Near You. For You.')).toBeInTheDocument()
+    expect(screen.getByText(OPERATED_BY)).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: words('hi', 'misc').legalNavAria })).toBeInTheDocument()
+  })
+
+  it('About offers the languages only to someone signed out (signed in, it is under More)', () => {
+    useSession.setState({ status: 'signedIn' })
+    at('/about', <About />)
+    expect(screen.queryByRole('group', { name: 'Choose your language' })).toBeNull()
+  })
+
+  it('Contact in Telugu: the words translated, the email, phone and address as they are', async () => {
+    const te = words('te', 'about')
+    await act(async () => {
+      await setLanguage('te')
+    })
+    at('/contact', <Contact />)
+    expect(screen.getByRole('heading', { level: 1, name: te.contactTitle })).toBeInTheDocument()
+    expect(screen.getByText(te.contactPhone)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: BUSINESS.phone })).toHaveAttribute('href', 'tel:+919381251613')
+    expect(screen.getAllByRole('link', { name: BUSINESS.email })[0]).toHaveAttribute('href', `mailto:${BUSINESS.email}`)
+    expect(screen.getByText(new RegExp(BUSINESS.address))).toBeInTheDocument()
+    expect(screen.getByText(words('te', 'help').writeToSupport)).toBeInTheDocument()
+    expect(document.body.textContent).toContain(words('te', 'app').tabMore)
+    expect(document.body.textContent).not.toMatch(/Write or call|Grievance officer|Signed in\?/)
+  })
+
+  it.each([
+    ['/terms', <Terms key="t" />, 'termsTitle', 'Law and disputes'],
+    ['/privacy', <Privacy key="p" />, 'privacyTitle', 'What we collect'],
+    ['/refunds', <Refunds key="r" />, 'refundsTitle', 'Cancelling'],
+    ['/delivery', <Delivery key="d" />, 'deliveryTitle', 'Nothing is shipped'],
+  ])('%s: the policy stays in English; in another language its title and links are translated and a line says the English applies', async (path, page, title, english) => {
+    const en = words('en', 'about')
+    const { unmount } = render(<MemoryRouter initialEntries={[path]}>{page}</MemoryRouter>)
+    expect(screen.queryByText(en.englishApplies)).toBeNull()
+    expect(screen.queryByRole('note')).toBeNull()
+    unmount()
+
+    const ta = words('ta', 'about')
+    await act(async () => {
+      await setLanguage('ta')
+    })
+    at(path, page)
+    expect(screen.getByRole('heading', { level: 1, name: ta[title] })).toBeInTheDocument()
+    expect(screen.getByRole('note')).toHaveTextContent(ta.englishApplies)
+    const policy = screen.getByRole('heading', { level: 2, name: english })
+    expect(policy.closest('[lang="en"]')).not.toBeNull()
+    expect(screen.getByText(OPERATED_BY)).toHaveAttribute('lang', 'en')
+    const nav = screen.getByRole('navigation', { name: words('ta', 'misc').legalNavAria })
+    expect(nav).toHaveTextContent(words('ta', 'misc').legalContact)
   })
 })

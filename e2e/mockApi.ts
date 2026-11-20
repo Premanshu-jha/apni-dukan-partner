@@ -39,7 +39,18 @@ export interface MockUser {
   email: string | null
   emailVerified: boolean
   admin: boolean
+  /** users.language (V83): the language the account reads; null: none saved. */
+  language?: string | null
 }
+
+/** The six languages users.language accepts (its CHECK). */
+export const USER_LANGUAGES = ['en', 'hi', 'te', 'mr', 'ta', 'kn']
+
+/** ReviewReason: the field team's fixed reasons for sending a shop back, asking for a fix, or declining an address. */
+export const REVIEW_REASONS = [
+  'SHOP_FRONT_PHOTO', 'BOARD_NOT_VISIBLE', 'INSIDE_PHOTOS', 'LICENCE_UNREADABLE', 'LICENCE_NAME_MISMATCH', 'LICENCE_EXPIRED',
+  'LICENCE_WRONG_TYPE', 'ADDRESS_WRONG', 'PIN_WRONG_PLACE', 'SERVICES_MISSING', 'HOURS_MISSING', 'VIDEO_UNCLEAR', 'OWNER_NAME', 'OTHER',
+]
 
 export interface Call {
   method: string
@@ -179,7 +190,7 @@ function myTicket(t: MockTicket) {
 }
 
 export class MockApi {
-  user: MockUser = { id: 'u1', phone: '9848012345', name: null, email: null, emailVerified: false, admin: false }
+  user: MockUser = { id: 'u1', phone: '9848012345', name: null, email: null, emailVerified: false, admin: false, language: null }
   /** "Need help" tickets sent, in order. */
   tickets: MockTicket[] = []
   /** Support files (TicketFileService): photos and PDFs, videos to the fake R2. */
@@ -396,6 +407,15 @@ export class MockApi {
   editUntil: string | null = '2099-01-01T00:00:00Z'
   /** Edit codes sent (POST /auth/me/edit-code). */
   editCodesSent = 0
+  /** PATCH /auth/me calls carrying a language that fail as a network error (the app tries again at the next start). */
+  failLanguagePatches = 0
+  /** The languages sent with PATCH /auth/me, in order. */
+  get languagePatches(): string[] {
+    return this.calls
+      .filter((c) => c.method === 'PATCH' && c.path === '/api/v1/auth/me')
+      .map((c) => (c.body as { language?: string } | null)?.language)
+      .filter((l): l is string => typeof l === 'string')
+  }
   /** The owner's address change requests, newest last (AddressRequestStore). */
   addressRequests: Json[] = []
 
@@ -409,27 +429,28 @@ export class MockApi {
 
   /** The request is gone: a re-check it alone started ends. */
   private endAddressRecheck() {
-    if (this.recheckOnlyForAddress && this.shop) this.shop = { ...this.shop, recheckSince: null, statusReason: null }
+    if (this.recheckOnlyForAddress && this.shop) this.shop = { ...this.shop, recheckSince: null, statusReason: null, statusReasonCodes: [] }
     this.recheckOnlyForAddress = false
   }
 
   /** The field team decides the owner's waiting address request (ShopAdminService.approve / declineAddressRequest). */
-  decideAddressRequest(approve: boolean, reason: string | null = null) {
+  decideAddressRequest(approve: boolean, reason: string | null = null, reasonCodes: string[] = []) {
     const r = this.addressRequests.find((x) => x.status === 'PENDING')
     if (!r) return
     r.status = approve ? 'APPROVED' : 'DECLINED'
     r.reason = approve ? null : reason
+    r.statusReasonCodes = approve ? [] : reasonCodes
     r.decidedAt = new Date().toISOString()
     const moved = approve
-      ? { addressLine: r.addressLine, area: r.area, city: r.city, pincode: r.pincode, latitude: r.latitude, longitude: r.longitude, recheckSince: null, statusReason: null }
+      ? { addressLine: r.addressLine, area: r.area, city: r.city, pincode: r.pincode, latitude: r.latitude, longitude: r.longitude, recheckSince: null, statusReason: null, statusReasonCodes: [] }
       : {}
-    this.shop = { ...this.shop!, ...moved, version: (this.shop!.version as number) + 1 }
+    this.shop = { ...this.shop!, ...moved, version: (this.shop!.version as number) + 1, updatedAt: r.decidedAt }   // shop.touch(now())
     if (approve) this.recheckOnlyForAddress = false
     else this.endAddressRecheck()
   }
 
   static completeUser(): MockUser {
-    return { id: 'u1', phone: '9848012345', name: 'Ravi Kumar', email: 'ravi@example.com', emailVerified: true, admin: false }
+    return { id: 'u1', phone: '9848012345', name: 'Ravi Kumar', email: 'ravi@example.com', emailVerified: true, admin: false, language: null }
   }
 
   /** An approved salon with this person in the given role. */
@@ -456,14 +477,15 @@ export class MockApi {
   private recheckIfLive(changed: boolean) {
     if (!changed || !this.shop || this.shop.status !== 'APPROVED') return
     this.recheckOnlyForAddress = false
-    this.shop = { ...this.shop, recheckSince: this.shop.recheckSince ?? new Date().toISOString(), statusReason: null }
+    this.shop = { ...this.shop, recheckSince: this.shop.recheckSince ?? new Date().toISOString(), statusReason: null, statusReasonCodes: [] }
   }
 
   /** The field team asked the owner to fix something on the live salon's re-check (ShopAdminService.askToFix). */
-  askToFix(reason: string) {
+  askToFix(reason: string | null, reasonCodes: string[] = []) {
     this.shop = {
       ...this.shop!,
       statusReason: reason,
+      statusReasonCodes: reasonCodes,
       recheckSince: this.shop!.recheckSince ?? new Date().toISOString(),
       version: (this.shop!.version as number) + 1,   // saved, as the backend does
     }
@@ -510,6 +532,7 @@ export class MockApi {
       udyamNumber: null,
       status: 'APPROVED',
       statusReason: null,
+      statusReasonCodes: [],
       type: 'SALON',
       myRole: 'OWNER',
       ownerPhotoFileId: 'f-owner',
@@ -998,8 +1021,24 @@ export class MockApi {
       return ok(200, tokens)
     }
     if (p === '/auth/me' && method === 'GET') return ok(200, this.user)
+    // AuthController.updateMe: name and language both optional, at least one sent ({} → 400 on `name`). The name's
+    // size is checked first (@Valid: a bad name and a bad language report only the name); then a language outside the
+    // six is VALIDATION_FAILED on `language`; "language": null clears it. All or nothing: nothing saved on a 400.
     if (p === '/auth/me' && method === 'PATCH') {
-      this.user = { ...this.user, name: body.name }
+      const nameSent = body?.name !== undefined && body?.name !== null
+      const languageSent = body != null && typeof body === 'object' && 'language' in body
+      if (nameSent && (typeof body.name !== 'string' || body.name.trim().length < 2 || body.name.length > 60)) {
+        return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { name: 'size must be between 2 and 60' })
+      }
+      if (!nameSent && !languageSent) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { name: 'send a name or a language' })
+      if (languageSent && body.language !== null && !USER_LANGUAGES.includes(body.language)) {
+        return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { language: 'must be one of en, hi, te, mr, ta, kn' })
+      }
+      if (this.failLanguagePatches > 0 && body.language !== undefined) {
+        this.failLanguagePatches--
+        return route.abort('internetdisconnected')
+      }
+      this.user = { ...this.user, ...(nameSent ? { name: String(body.name).trim() } : {}), ...(languageSent ? { language: body.language ?? null } : {}) }
       return ok(200, this.user)
     }
     // "Need help" (TicketService.ask): a verified email and a name; a message of 10 to 5,000 characters
@@ -1099,7 +1138,7 @@ export class MockApi {
       }
       if (!this.shop) return fail(404, 'NO_SHOP', 'You have no shop yet.')
       // ShopResponse: recheckSince is the owner's only; a barber gets no statusReason (forBarber)
-      const mine = this.role === 'OWNER' ? this.shop : { ...this.shop, recheckSince: null, ...(this.role === 'BARBER' ? { statusReason: null } : {}) }
+      const mine = this.role === 'OWNER' ? this.shop : { ...this.shop, recheckSince: null, ...(this.role === 'BARBER' ? { statusReason: null, statusReasonCodes: [] } : {}) }
       return ok(200, mine)
     }
     if (p === '/shops/geocode' && method === 'POST') {
@@ -1261,7 +1300,7 @@ export class MockApi {
       }
       const made = {
         id: `ar${++this.n}`, addressLine: body.addressLine.trim(), area: body.area.trim(), city: body.city.trim(), pincode: body.pincode,
-        latitude: body.latitude, longitude: body.longitude, status: 'PENDING', reason: null, createdAt: new Date().toISOString(), decidedAt: null,
+        latitude: body.latitude, longitude: body.longitude, status: 'PENDING', reason: null, statusReasonCodes: [], createdAt: new Date().toISOString(), decidedAt: null,
       }
       this.addressRequests.push(made)
       const waitedBefore = Boolean(this.shop.recheckSince)
@@ -1289,7 +1328,7 @@ export class MockApi {
           return fail(409, 'REGISTRATION_INCOMPLETE', "Add the salon's services and its opening hours first.", missing)
         }
       }
-      this.shop = { ...this.shop, status: 'PENDING_VISIT', statusReason: null, version: (this.shop.version as number) + 1 }
+      this.shop = { ...this.shop, status: 'PENDING_VISIT', statusReason: null, statusReasonCodes: [], version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
     }
     // ---------- invitations (ShopInvitesService): the same answer for any number; nobody joins until they accept ----------

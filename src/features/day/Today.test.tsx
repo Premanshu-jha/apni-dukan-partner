@@ -48,7 +48,8 @@ vi.mock('./AppointmentSheet', () => ({
   ),
 }))
 
-const { Today, MANY_BARBERS, cardTimes, openingColumn } = await import('./Today')
+const { Today, MANY_BARBERS, cardTimes, openingColumn, AppointmentCard } = await import('./Today')
+const { provideForTests, resetLanguageForTests, setLanguage } = await import('../../i18n')
 
 function appt(staff: number, i: number, date: string): Appointment {
   const minutes = 9 * 60 + i * 15
@@ -249,5 +250,41 @@ describe('the column the board opens on', () => {
     renderAt('/salon/day')
     expect(cards()).toHaveLength(3)
     expect(screen.getByText('Customer 1-0')).toBeInTheDocument()
+  })
+})
+
+describe('a booking card', () => {
+  afterEach(() => resetLanguageForTests())
+
+  it('shows each service\'s picture (the salon\'s own choice first), at most 3, hidden from screen readers', () => {
+    const a = appt(1, 0, todayIst())
+    a.services = [
+      { serviceId: 'v1', name: 'Haircut', durationMinutes: 15, pricePaise: 20000, priceIsFrom: false },
+      { serviceId: 'v2', name: 'Beard trim', durationMinutes: 15, pricePaise: 10000, priceIsFrom: false },
+      { serviceId: 'v3', name: 'Something new', durationMinutes: 15, pricePaise: 10000, priceIsFrom: false },
+    ]
+    render(<MemoryRouter><AppointmentCard a={a} barber={null} onOpen={() => {}} icons={new Map([['v3', 'FACIAL']])} /></MemoryRouter>)
+    const icons = [...screen.getByTestId('card-service-icons').querySelectorAll('svg')]
+    expect(icons.map((i) => i.getAttribute('data-icon'))).toEqual(['HAIRCUT', 'BEARD', 'FACIAL'])
+    expect(icons.every((i) => i.getAttribute('aria-hidden') === 'true')).toBe(true)
+  })
+
+  it('a break has no service pictures', () => {
+    const a = { ...appt(1, 0, todayIst()), kind: 'BLOCK', blockType: 'BREAK', status: 'BLOCKED' } as Appointment
+    render(<MemoryRouter><AppointmentCard a={a} barber={null} onOpen={() => {}} /></MemoryRouter>)
+    expect(screen.queryByTestId('card-service-icons')).toBeNull()
+  })
+
+  it('its status pill never wraps or shrinks (short words), and the name beside it wraps instead of being cut', async () => {
+    provideForTests('hi', { day: { pillCancelledByCustomer: 'ग्राहक ने कैंसल', statusCancelledByCustomer: 'ग्राहक ने कैंसल किया' } })
+    await setLanguage('hi')
+    const a = { ...appt(1, 0, todayIst()), status: 'CANCELLED_BY_CUSTOMER', customerName: 'Venkata Satyanarayana Murthy Garu' } as Appointment
+    render(<MemoryRouter><AppointmentCard a={a} barber={null} onOpen={() => {}} /></MemoryRouter>)
+    const pill = screen.getByText('ग्राहक ने कैंसल')
+    expect(pill.className).toContain('whitespace-nowrap')
+    expect(pill.className).toContain('shrink-0')
+    const name = screen.getByText('Venkata Satyanarayana Murthy Garu')
+    expect(name.className).not.toContain('truncate')
+    expect(name.className).toContain('min-w-0')
   })
 })
