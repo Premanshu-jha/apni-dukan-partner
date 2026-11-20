@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Banner, Button } from '../../components/ui'
+import { useT } from '../../i18n'
 
 /**
  * The phone's back camera reading barcodes on packs. Chrome on Android reads them itself (BarcodeDetector); other
@@ -8,8 +9,10 @@ import { Banner, Button } from '../../components/ui'
  * holding a pack in front of the camera adds it once; scanning it again after that adds another.
  */
 export function Scanner({ onCode, paused = false }: { onCode: (code: string) => void; paused?: boolean }) {
+  const t = useT()
   const video = useRef<HTMLVideoElement>(null)
-  const [state, setState] = useState<'starting' | 'on' | 'denied' | 'none'>('starting')
+  // noReader: the camera works but the barcode reader didn't download (offline on first use)
+  const [state, setState] = useState<'starting' | 'on' | 'denied' | 'none' | 'noReader'>('starting')
   const [typed, setTyped] = useState('')
   const last = useRef<{ code: string; at: number } | null>(null)
   const handler = useRef(onCode)
@@ -46,9 +49,9 @@ export function Scanner({ onCode, paused = false }: { onCode: (code: string) => 
       try {
         read = await reader()
       } catch {
-        // The reader didn't load (offline on first use, an old phone): stop the camera, typing still works
+        // The reader didn't load (offline on first use): stop the camera, typing still works
         stream.getTracks().forEach((t) => t.stop())
-        if (!stopped) setState('none')
+        if (!stopped) setState('noReader')
         return
       }
       if (stopped) return
@@ -90,20 +93,18 @@ export function Scanner({ onCode, paused = false }: { onCode: (code: string) => 
 
   return (
     <div className="flex flex-col gap-3">
-      {state !== 'denied' && state !== 'none' && (
+      {(state === 'starting' || state === 'on') && (
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-black">
-          <video ref={video} className="h-full w-full object-cover" muted playsInline aria-label="Camera: hold the barcode inside the box" />
+          <video ref={video} className="h-full w-full object-cover" muted playsInline aria-label={t('kiranaCounter.cameraAria')} />
           <div aria-hidden className="pointer-events-none absolute inset-x-8 top-1/3 bottom-1/3 rounded-lg border-2 border-brand/80" />
-          {state === 'starting' && <p className="absolute inset-0 flex items-center justify-center text-sm text-white">Starting the camera…</p>}
+          {state === 'starting' && <p className="absolute inset-0 flex items-center justify-center text-sm text-white">{t('kiranaCounter.cameraStarting')}</p>}
         </div>
       )}
       {state === 'denied' && (
-        <Banner tone="warn">
-          The camera is blocked for this app. Allow it in the browser's site settings (the lock next to the address), or
-          type the barcode's digits below.
-        </Banner>
+        <Banner tone="warn">{t('kiranaCounter.cameraDenied')}</Banner>
       )}
-      {state === 'none' && <Banner tone="info">This phone's camera can't be used here. Type the barcode's digits below.</Banner>}
+      {state === 'none' && <Banner tone="info">{t('kiranaCounter.cameraNone')}</Banner>}
+      {state === 'noReader' && <Banner tone="info">{t('kiranaCounter.scannerNotLoaded')}</Banner>}
       <form
         className="flex items-end gap-2"
         onSubmit={(e) => {
@@ -113,7 +114,7 @@ export function Scanner({ onCode, paused = false }: { onCode: (code: string) => 
       >
         <div className="flex flex-1 flex-col gap-1">
           <label htmlFor="typed-barcode" className="text-sm text-muted">
-            Or type the digits under the barcode
+            {t('kiranaCounter.typeDigits')}
           </label>
           <input
             id="typed-barcode"
@@ -126,7 +127,7 @@ export function Scanner({ onCode, paused = false }: { onCode: (code: string) => 
           />
         </div>
         <Button type="submit" variant="secondary" disabled={!typed.trim()}>
-          Use
+          {t('kiranaCounter.useTyped')}
         </Button>
       </form>
     </div>

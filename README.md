@@ -390,11 +390,31 @@ their own.
   language lacks shows in English. Blanks are `{name}`; counts use `{ "one": …, "other": … }`.
 - **In code.** In a component `const t = useT()` then `t('shop.homeTitle')`; outside React `t()` from `src/i18n`,
   called when the text is needed (never kept in a module-level constant, which would not follow the language).
-- **The backend's messages.** `messageOf(e)` looks for the app's words for the error's code (`error.json`), then for
-  the backend's exact English message (`server.json`: its keys are those messages), else shows the message as it
-  came. Messages the backend builds with names, numbers or lists in them (a barber busy until a time, "must be 2 to 40
-  characters", hours outside the salon's), and push notifications and the inbox, are still in English: they need
-  the backend to send the values separately and to know each person's language.
+- **The backend's messages.** `messageOf(e)` shows the app's words for the backend's message (the order is below,
+  under "Which words win"). Messages the backend builds with names, numbers or lists in them that its details don't
+  carry (a barber busy until a time, which product of a bill is in the list already, hours outside the salon's), and
+  push notifications and the inbox, are still in English on this branch: they need the backend to send the values
+  separately and to know each person's language (`main` has the latter from V83; it comes with the next merge).
+- **Which words win for an error** (`messageOf`, `src/api/errors.ts`; one code can have several messages), in
+  order: (1) `server.json` for the backend's exact English message (about 200 kirana messages added: the counter,
+  bills, products and stock, khata, scans and bills from distributors, recounts, registration, FSSAI); (2) only in a
+  language other than English, `error.json` for the code (about 60 kirana codes: `BILL_CHANGED`, `KHATA_LIMIT`,
+  `PRODUCT_GONE`, `TOO_MANY_PAGES`…), its `{blanks}` filled from the error's `details` (`{max}`, `{pages}`, `{name}`; `availablePaise` 25050 also gives
+  `{available}` "₹250.50"); (3) the backend's English as sent. So English always shows the backend's own sentence
+  (it may name a customer or a product), and another language shows the code's words when the exact sentence isn't
+  in `server.json` because it was built with names or amounts. A code goes in `error.json` only when its details
+  carry everything its message says; `src/api/kiranaErrors.test.ts` checks each language has every such code, with
+  the same blanks, and that each code's blanks are filled by what its errors carry.
+- **Tapped reasons.** A quick reason chip (cancelling a bill, items brought back) is saved in English (`inEnglish`)
+  and shown in each person's language (`shownAs`, matched against the chips' English); typed words are saved and
+  shown as typed. So a bill cancelled "Billed twice" by a helper in Telugu reads "Billed twice" in the owner's Hindi
+  app, and the backend and reports keep one English word for it.
+- **Kirana screens.** The counter, bills and the day, products and stock, the khata, the scanner, kirana
+  registration, Licences and the UPI ID are in all six languages (`kiranaCounter`, `kiranaBills`, `kiranaProducts`,
+  `kiranaRegister`: about 600 texts in all). Pieces are counted the language's way (`qtyWithUnit`: "3 పీస్‌లు"); kg, ₹
+  and digits stay as on packs. The FSSAI check's reasons, including the ones with a date or a number, are shown in the
+  person's language (`fssaiReasonText`). The khata's WhatsApp reminder is written in the app's language (the owner's
+  choice, sent from his phone). A scanner whose barcode reader couldn't download says so, instead of "no camera".
 - **A new version while the app is open.** Choosing a language whose file is gone (renamed by a new deploy) reloads
   the app once into the new version. Offline at start-up, the app shows English until it is back online.
 - **Dates and numbers.** Day and month names follow the language (`Intl.DateTimeFormat`); digits stay 0-9 in every
@@ -408,6 +428,22 @@ their own.
   (`docs/translation-review.md` lists what to look at first).
 
 ## Changelog
+
+### Kirana branch — 2026-11-20, languages (not released; `kirana-partner` only)
+
+No backend change is needed.
+
+- **The kirana-only screens in Hindi, Telugu, Marathi, Tamil and Kannada** as well as English: the counter, bills and
+  the day, products and stock, the khata, the scanner, kirana registration, Licences and the UPI ID (about 600 texts
+  per language), and about 200 more of the backend's kirana messages (see Languages).
+- **Kirana errors in the person's language:** the exact message first, then, outside English, the code's words with
+  the details filled in (about 60 kirana codes; amounts in paise shown in rupees), else the backend's English. In
+  English the backend's own sentence is always shown.
+- **Quick reasons saved in English** (a bill cancelled, items brought back) and shown in each person's language;
+  typed reasons stay as typed.
+- Pieces counted the language's way; the FSSAI check's reasons in the person's language; the khata's WhatsApp
+  reminder in the app's language; numbers no longer grouped (1200, not 1,200); a scanner whose reader couldn't
+  download says so.
 
 ### 0.28.0 — 2026-11-19
 

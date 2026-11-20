@@ -1,4 +1,5 @@
-import { hasText, t } from '../i18n'
+import { hasText, language, t } from '../i18n'
+import { rupees } from '../lib/money'
 import type { ErrorBody } from './types'
 
 /** Every failed call becomes one of these. `code` is the backend's error code, or NETWORK / UNKNOWN. */
@@ -37,17 +38,20 @@ export function isApiError(e: unknown, code?: string): e is ApiError {
 }
 
 /**
- * The words to show a person for any error, in their language: the app's own words for the backend's code
- * (error.json), else for the backend's exact message (server.json), else the backend's message as it came (English,
- * written for people).
+ * The words to show a person for any error, in their language: the app's own words for the backend's exact message
+ * (server.json: the most precise, as one code can have several messages); else, in another language than English, the
+ * words for the backend's code (error.json, its blanks filled from the details: for a message the backend built with
+ * names or amounts); else the backend's message as it came (English, written for people: in English it says more than
+ * the code's words, the names in it included).
  */
 export function messageOf(e: unknown): string {
   // 429 TRY_LATER (sign-in codes): this network has to wait before the next try; Retry-After says how long
   if (e instanceof ApiError && e.code === 'TRY_LATER') return tryLaterText(e.retryAfterSeconds)
   if (e instanceof ApiError) {
     if (e.code === 'NETWORK') return t('error.NETWORK')
-    if (hasText(`error.${e.code}`)) return t(`error.${e.code}`, textVars(e.details))
-    return serverText(e.message)
+    if (hasText(`server.${e.message}`)) return serverText(e.message)
+    if (language() !== 'en' && hasText(`error.${e.code}`)) return t(`error.${e.code}`, textVars(e.details))
+    return e.message
   }
   return t('error.UNKNOWN')
 }
@@ -57,11 +61,15 @@ export function serverText(message: string): string {
   return t(`server.${message}`, undefined, message)
 }
 
-/** The details that can fill a message's blanks (numbers and words; never lists or objects). */
+/**
+ * The details that can fill a message's blanks (numbers and words; never lists or objects). An amount in paise also
+ * fills the blank without "Paise" in rupees: availablePaise 25050 → {available} "₹250.50".
+ */
 function textVars(details: Record<string, unknown>): Record<string, string | number> {
   const out: Record<string, string | number> = {}
   for (const [k, v] of Object.entries(details)) {
     if (typeof v === 'string' || typeof v === 'number') out[k] = v
+    if (typeof v === 'number' && k.endsWith('Paise') && k.length > 5) out[k.slice(0, -5)] = rupees(v)
   }
   return out
 }

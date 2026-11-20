@@ -7,6 +7,7 @@ import { ShopContext, shopApi, shopKeys, useShop } from '../../api/shop'
 import type { Shop, ShopType } from '../../api/types'
 import { MapBoundary } from '../../components/MapBoundary'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page, Sheet } from '../../components/ui'
+import { t, useT } from '../../i18n'
 import { cleanUpiId, upiIdLooksRight } from '../../lib/kirana'
 import { loadRegisterKind, saveRegisterKind } from '../../lib/registerDraft'
 import { readyForVisit } from '../../lib/salonVideo'
@@ -16,17 +17,10 @@ import { DraftExits, Line, SentBack, Steps, Thumb } from './Register'
 
 const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ default: m.PinMap })))
 
+/** The kinds, with the language keys of their title and description. */
 const KINDS: { kind: ShopType; title: string; body: string }[] = [
-  {
-    kind: 'KIRANA',
-    title: 'Kirana / general store',
-    body: 'Grocery, provisions, daily needs. Bill at your counter, keep your stock and khata, and get orders from nearby customers.',
-  },
-  {
-    kind: 'SALON',
-    title: 'Salon / barber shop',
-    body: 'Haircuts, grooming, beauty. Customers nearby book a time with you or your barbers.',
-  },
+  { kind: 'KIRANA', title: 'kiranaRegister.kindKiranaTitle', body: 'kiranaRegister.kindKiranaBody' },
+  { kind: 'SALON', title: 'kiranaRegister.kindSalonTitle', body: 'kiranaRegister.kindSalonBody' },
 ]
 
 /**
@@ -35,6 +29,7 @@ const KINDS: { kind: ShopType; title: string; body: string }[] = [
  * changing it asks first, saying what goes, then PUT /shops/me/type.
  */
 export function RegisterKind() {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const shop = useContext(ShopContext)
@@ -83,14 +78,14 @@ export function RegisterKind() {
   const losingCertificate = asking === 'SALON' && shop?.registrationDocType === 'SHOPS_ESTABLISHMENT'
   const keepsLicence = Boolean(shop?.registrationDocFileId) && !losingCertificate
   return (
-    <Page back={shop ? '/' : '/start'} title="What do you run?">
+    <Page back={shop ? '/' : '/start'} title={t('kiranaRegister.whatDoYouRun')}>
       <p className="text-muted">
         {shop
-          ? `You're registering ${shop.name}. Picked the wrong kind? Change it here; you can do this until you submit it.`
-          : 'Choose one. You can change it later while you register, until you submit it.'}
+          ? t('kiranaRegister.kindIntroSaved', { name: shop.name })
+          : t('kiranaRegister.kindIntroNew')}
       </p>
       {shop?.statusReason && <SentBack reason={shop.statusReason} />}
-      <div className="flex flex-col gap-3" role="group" aria-label="What do you run?">
+      <div className="flex flex-col gap-3" role="group" aria-label={t('kiranaRegister.whatDoYouRun')}>
         {KINDS.map((k) => (
           <button
             key={k.kind}
@@ -100,32 +95,33 @@ export function RegisterKind() {
             className={`flex flex-col gap-1 rounded-2xl border p-4 text-left hover:bg-raised ${current === k.kind ? 'border-brand bg-brand/10' : 'border-line bg-surface'}`}
           >
             <span className="text-lg font-semibold">
-              {k.title}
-              {current === k.kind && <span className="ml-2 text-sm font-normal text-link">(chosen)</span>}
+              {t(k.title)}
+              {current === k.kind && <span className="ml-2 text-sm font-normal text-link">{t('kiranaRegister.kindChosen')}</span>}
             </span>
-            <span className="text-sm text-muted">{k.body}</span>
+            <span className="text-sm text-muted">{t(k.body)}</span>
           </button>
         ))}
       </div>
       {error && <Banner tone="bad">{error}</Banner>}
-      <Sheet open={asking !== null} title={asking === 'KIRANA' ? 'Change to a kirana?' : 'Change to a salon?'} onClose={() => !busy && setAsking(null)}>
+      <Sheet open={asking !== null} title={asking === 'KIRANA' ? t('kiranaRegister.changeToKiranaTitle') : t('kiranaRegister.changeToSalonTitle')} onClose={() => !busy && setAsking(null)}>
         <div className="flex flex-col gap-3">
-          <p>Your shop's name, address, location pin, photos and video stay.</p>
-          {keepsLicence && <p className="text-sm text-muted">Your trade licence stays and is checked again for a {asking === 'KIRANA' ? 'kirana' : 'salon'}.</p>}
-          {losingCertificate && <p className="text-warn">We'll remove your Shops and Establishments certificate: only a kirana adds one.</p>}
-          {asking === 'KIRANA' ? (
-            <p className="text-sm text-muted">Next: whether you sell food (then your FSSAI licence), and the UPI ID your customers pay to at the counter.</p>
-          ) : (
+          <p>{t('kiranaRegister.changeKeeps')}</p>
+          {keepsLicence && (
             <p className="text-sm text-muted">
-              Next you'll add the salon's services and opening hours. A UPI ID or food answer you gave stays saved, unused by a salon, in
-              case you change back.
+              {asking === 'KIRANA' ? t('kiranaRegister.changeLicenceStaysKirana') : t('kiranaRegister.changeLicenceStaysSalon')}
             </p>
           )}
+          {losingCertificate && <p className="text-warn">{t('kiranaRegister.changeRemovesCertificate')}</p>}
+          {asking === 'KIRANA' ? (
+            <p className="text-sm text-muted">{t('kiranaRegister.changeNextKirana')}</p>
+          ) : (
+            <p className="text-sm text-muted">{t('kiranaRegister.changeNextSalon')}</p>
+          )}
           <Button variant="secondary" disabled={busy} onClick={() => setAsking(null)}>
-            Keep it as it is
+            {t('kiranaRegister.changeKeep')}
           </Button>
           <Button busy={busy} onClick={() => asking && change(asking)}>
-            {asking === 'KIRANA' ? 'Yes, it is a kirana' : 'Yes, it is a salon'}
+            {asking === 'KIRANA' ? t('kiranaRegister.changeYesKirana') : t('kiranaRegister.changeYesSalon')}
           </Button>
         </div>
       </Sheet>
@@ -138,6 +134,7 @@ export function RegisterKind() {
  * scanning the QR the counter shows. Owner only; the backend keeps it without spaces, in lower case.
  */
 export function UpiIdForm({ onSaved, saveLabel }: { onSaved: (upiId: string) => void; saveLabel: string }) {
+  const t = useT()
   const qc = useQueryClient()
   const settings = useKiranaSettings()
   const [typed, setTyped] = useState<string | null>(null)
@@ -149,7 +146,11 @@ export function UpiIdForm({ onSaved, saveLabel }: { onSaved: (upiId: string) => 
   const saved = settings.data?.upiId ?? ''
   const value = typed ?? saved
   const cleaned = cleanUpiId(value)
-  const problem = !cleaned ? 'Enter the UPI ID' : !upiIdLooksRight(cleaned) ? 'It looks like name@bank, e.g. sharmastore@okhdfcbank' : null
+  const problem = !cleaned
+    ? t('kiranaRegister.upiEnter')
+    : !upiIdLooksRight(cleaned)
+      ? t('kiranaRegister.upiLooksLike', { format: 'name@bank', example: 'sharmastore@okhdfcbank' })
+      : null
 
   async function save() {
     setTouched(true)
@@ -178,8 +179,8 @@ export function UpiIdForm({ onSaved, saveLabel }: { onSaved: (upiId: string) => 
       <Card className="flex flex-col gap-3">
         <Field
           id="upi-id"
-          label="Your shop's UPI ID"
-          hint="The one your customers pay to: in your UPI app (PhonePe, Google Pay, Paytm, BHIM) under your profile or QR."
+          label={t('kiranaRegister.upiLabel')}
+          hint={t('kiranaRegister.upiHint')}
           value={value}
           onChange={(e) => {
             setTyped(e.target.value)
@@ -194,11 +195,8 @@ export function UpiIdForm({ onSaved, saveLabel }: { onSaved: (upiId: string) => 
           placeholder="sharmastore@okhdfcbank"
           error={shown || undefined}
         />
-        {cleaned && !problem && cleaned !== value.trim() && <p className="text-sm text-muted">Saved as {cleaned}</p>}
-        <p className="text-sm text-muted">
-          At the counter the app shows a QR with the bill's amount; the customer scans it and pays straight to this ID.
-          Money never passes through Clozest. Our field team checks it when they visit.
-        </p>
+        {cleaned && !problem && cleaned !== value.trim() && <p className="text-sm text-muted">{t('kiranaRegister.upiSavedAs', { upiId: cleaned })}</p>}
+        <p className="text-sm text-muted">{t('kiranaRegister.upiHowPaid')}</p>
       </Card>
       {error !== null && !fieldError(error, 'upiId') && !isApiError(error, 'EDIT_LOCKED') && <Banner tone="bad">{messageOf(error)}</Banner>}
       <Button busy={busy} onClick={save}>
@@ -210,21 +208,23 @@ export function UpiIdForm({ onSaved, saveLabel }: { onSaved: (upiId: string) => 
 
 /** Step 3 of a kirana's registration: its UPI ID. */
 export function RegisterUpi() {
+  const t = useT()
   const navigate = useNavigate()
   const shop = useShop()
   const location = useLocation()
   const fromReview = new URLSearchParams(location.search).get('from') === 'review'
   return (
-    <Page back={fromReview ? '/register/review' : '/register/licences'} title="UPI ID">
+    <Page back={fromReview ? '/register/review' : '/register/licences'} title={t('kiranaRegister.upiTitle')}>
       <Steps at={4} />
       {shop.statusReason && <SentBack reason={shop.statusReason} />}
-      <UpiIdForm saveLabel={fromReview ? 'Save and go back to the review' : 'Save and continue'} onSaved={() => navigate('/register/review')} />
+      <UpiIdForm saveLabel={fromReview ? t('kiranaRegister.saveBackToReview') : t('kiranaRegister.saveAndContinue')} onSaved={() => navigate('/register/review')} />
     </Page>
   )
 }
 
 /** A kirana's last step: check everything and ask for the field team's visit. */
 export function KiranaReview() {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const shop = useShop()
@@ -268,110 +268,129 @@ export function KiranaReview() {
 
   const address = `${shop.addressLine}, ${shop.area}, ${shop.city} ${shop.pincode}`
   return (
-    <Page back="/register/upi" title="Check and submit">
+    <Page back="/register/upi" title={t('kiranaRegister.reviewTitle')}>
       <Steps at={5} />
       {shop.statusReason && <SentBack reason={shop.statusReason} />}
       <Card className="flex flex-col gap-3">
-        <Line label="Shop" value={shop.name} />
-        <Line label="Owner" value={shop.ownerName} />
-        <Line label="Address" value={address} />
-        <Line label="GSTIN" value={shop.gstin ?? 'Not added (optional)'} />
+        <Line label={t('kiranaRegister.reviewShop')} value={shop.name} />
+        <Line label={t('kiranaRegister.reviewOwner')} value={shop.ownerName} />
+        <Line label={t('kiranaRegister.reviewAddress')} value={address} />
+        <Line label="GSTIN" value={shop.gstin ?? t('kiranaRegister.reviewGstinNone')} />
         <div className="flex flex-col gap-1">
-          <p className="text-sm text-muted">Pin on the map (customers find you here)</p>
+          <p className="text-sm text-muted">{t('kiranaRegister.reviewPin')}</p>
           <MapBoundary>
-            <Suspense fallback={<Loading label="Loading the map…" />}>
+            <Suspense fallback={<Loading label={t('kiranaRegister.reviewLoadingMap')} />}>
               <PinMap lat={shop.latitude} lng={shop.longitude} />
             </Suspense>
           </MapBoundary>
         </div>
         <Link to="/register?from=review" className="text-sm text-link underline">
-          Edit details or move the pin
+          {t('kiranaRegister.reviewEditDetails')}
         </Link>
       </Card>
       <Card className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span>Photos: {photos ? 'both added' : 'missing'}</span>
+          <span>{photos ? t('kiranaRegister.reviewPhotosAdded') : t('kiranaRegister.reviewPhotosMissing')}</span>
           <Link to="/register/photos?from=review" className="text-sm text-link underline">
-            {photos ? 'Change' : 'Add'}
+            {photos ? t('common.change') : t('common.add')}
           </Link>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <Thumb fileId={shop.ownerPhotoFileId} label="Your photo" />
-          <Thumb fileId={shop.shopPhotoFileId} label="Shop front" />
+          <Thumb fileId={shop.ownerPhotoFileId} label={t('kiranaRegister.reviewYourPhoto')} />
+          <Thumb fileId={shop.shopPhotoFileId} label={t('kiranaRegister.reviewShopFront')} />
         </div>
       </Card>
       <Card className="flex items-center justify-between">
-        <span>Shop video: {video ? 'added' : 'missing'}</span>
+        <span>{video ? t('kiranaRegister.reviewVideoAdded') : t('kiranaRegister.reviewVideoMissing')}</span>
         <Link to="/register/photos?from=review" className="text-sm text-link underline">
-          {video ? 'Change' : 'Add'}
+          {video ? t('common.change') : t('common.add')}
         </Link>
       </Card>
       <Card className="flex flex-col gap-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="font-medium">Licences</span>
+          <span className="font-medium">{t('kiranaRegister.licencesTitle')}</span>
           <Link to="/register/licences?from=review" className="shrink-0 text-sm text-link underline">
-            {papers ? 'Change' : 'Add'}
+            {papers ? t('common.change') : t('common.add')}
           </Link>
         </div>
         <p className="text-sm">
-          Sells food: {settings.isPending ? '…' : sellsFood === null ? 'not answered' : sellsFood ? 'yes' : 'no'}
+          {t('kiranaRegister.reviewSellsFood', {
+            answer: settings.isPending
+              ? '…'
+              : sellsFood === null
+                ? t('kiranaRegister.reviewNotAnswered')
+                : sellsFood
+                  ? t('kiranaRegister.reviewYes')
+                  : t('kiranaRegister.reviewNo'),
+          })}
         </p>
         {sellsFood && (
           <p className="text-sm break-words">
-            FSSAI: {!fssai || fssai.status === 'NONE' ? 'missing' : `${fssai.number ?? ''} · ${fssaiWords(fssai.status)}`}
+            {!fssai || fssai.status === 'NONE'
+              ? t('kiranaRegister.reviewFssaiMissing')
+              : t('kiranaRegister.reviewFssai', { number: fssai.number ?? '', status: fssaiWords(fssai.status) })}
           </p>
         )}
         <p className="text-sm text-muted">
-          Shop licence: {shop.registrationDocFileId ? (shop.registrationDocType === 'SHOPS_ESTABLISHMENT' ? 'Shops & Establishments' : 'trade licence') + ` · ${licenceWords(shop)}` : 'not added (optional)'}
+          {shop.registrationDocFileId
+            ? t('kiranaRegister.reviewShopLicence', {
+                doc: shop.registrationDocType === 'SHOPS_ESTABLISHMENT' ? t('kiranaRegister.reviewDocShops') : t('kiranaRegister.reviewDocTrade'),
+                status: licenceWords(shop),
+              })
+            : t('kiranaRegister.reviewShopLicenceNone')}
         </p>
       </Card>
       <Card className="flex items-center justify-between gap-2">
         <span className="min-w-0 break-words">
-          UPI ID: {settings.isPending ? '…' : upiId ?? 'missing'}
+          {settings.isPending
+            ? t('kiranaRegister.reviewUpiId', { upiId: '…' })
+            : upiId
+              ? t('kiranaRegister.reviewUpiId', { upiId })
+              : t('kiranaRegister.reviewUpiIdMissing')}
         </span>
         <Link to="/register/upi?from=review" className="shrink-0 text-sm text-link underline">
-          {upiId ? 'Change' : 'Add'}
+          {upiId ? t('common.change') : t('common.add')}
         </Link>
       </Card>
       {settings.isError && !settings.data && (
         <Banner tone="bad">
-          Couldn't read your UPI ID. {messageOf(settings.error)}{' '}
+          {t('kiranaRegister.upiReadFailed')} {messageOf(settings.error)}{' '}
           <button type="button" className="underline" onClick={() => void settings.refetch()}>
-            Try again
+            {t('common.retry')}
           </button>
         </Banner>
       )}
-      <p className="text-sm text-muted">
-        After you submit, our field team calls and visits to check the shop. Meanwhile you can add your products and
-        start billing at the counter.
-      </p>
+      <p className="text-sm text-muted">{t('kiranaRegister.reviewAfterSubmit')}</p>
       {error && <Banner tone="bad">{error}</Banner>}
       <Button disabled={!ready} onClick={() => setAsking(true)}>
-        Submit for the visit
+        {t('kiranaRegister.submitForVisit')}
       </Button>
       {!ready && !settings.isPending && (
         <p className="text-center text-sm text-muted">
-          {!photos ? 'Both photos are needed.' : !video ? 'The shop video is needed.' : !papers ? licencesGap(settings.data, fssai) : 'Your UPI ID is needed.'}
+          {!photos
+            ? t('kiranaRegister.gapPhotos')
+            : !video
+              ? t('kiranaRegister.gapVideo')
+              : !papers
+                ? licencesGap(settings.data, fssai)
+                : t('kiranaRegister.gapUpiId')}
         </p>
       )}
-      <Sheet open={asking} title="Submit for the field visit?" onClose={() => !busy && setAsking(false)}>
+      <Sheet open={asking} title={t('kiranaRegister.submitSheetTitle')} onClose={() => !busy && setAsking(false)}>
         <div className="flex flex-col gap-3">
           <ul className="flex flex-col gap-1 rounded-xl border border-line bg-raised px-4 py-3 text-sm">
             <li className="font-semibold">{shop.name}</li>
             <li className="text-muted">{address}</li>
-            <li className="break-words">UPI ID: {upiId}</li>
-            <li>{sellsFood ? `Sells food · FSSAI ${fssai?.number ?? ''}` : 'Sells no food'}</li>
+            <li className="break-words">{t('kiranaRegister.reviewUpiId', { upiId: upiId ?? '' })}</li>
+            <li>{sellsFood ? t('kiranaRegister.submitSellsFood', { number: fssai?.number ?? '' }) : t('kiranaRegister.submitSellsNoFood')}</li>
           </ul>
-          <p className="text-muted">
-            After you submit, our field team calls you to fix a time and visits {shop.name}. Nearby customers can order
-            from you once it's approved.
-          </p>
-          <p className="text-sm text-muted">Something to fix first? Tap Not yet. You can't change the kind of shop after submitting.</p>
+          <p className="text-muted">{t('kiranaRegister.submitWhatNext', { name: shop.name })}</p>
+          <p className="text-sm text-muted">{t('kiranaRegister.submitFixFirst')}</p>
           <Button variant="secondary" disabled={busy} onClick={() => setAsking(false)}>
-            Not yet
+            {t('kiranaRegister.submitNotYet')}
           </Button>
           <Button busy={busy} onClick={submit}>
-            Yes, submit
+            {t('kiranaRegister.submitYes')}
           </Button>
         </div>
       </Sheet>
@@ -381,9 +400,23 @@ export function KiranaReview() {
 }
 
 function fssaiWords(status: FssaiStatus): string {
-  return status === 'CHECKING' ? 'being checked' : status === 'VERIFIED' ? 'verified' : status === 'REJECTED' ? 'not accepted: fix it' : 'missing'
+  return t(
+    status === 'CHECKING'
+      ? 'kiranaRegister.statusBeingChecked'
+      : status === 'VERIFIED'
+        ? 'kiranaRegister.statusVerified'
+        : status === 'REJECTED'
+          ? 'kiranaRegister.statusFssaiRejected'
+          : 'kiranaRegister.statusMissing',
+  )
 }
 
 function licenceWords(shop: Shop): string {
-  return shop.licenceCheck === 'PASSED' ? 'checked' : shop.licenceCheck === 'FAILED' ? 'not accepted' : 'being checked'
+  return t(
+    shop.licenceCheck === 'PASSED'
+      ? 'kiranaRegister.statusChecked'
+      : shop.licenceCheck === 'FAILED'
+        ? 'kiranaRegister.statusNotAccepted'
+        : 'kiranaRegister.statusBeingChecked',
+  )
 }

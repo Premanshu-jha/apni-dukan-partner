@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { isApiError } from '../../api/errors'
 import { kiranaKeys, type KhataEntry, type Payment, type PaidBy } from '../../api/kirana'
 import { Button } from '../../components/ui'
+import { t, useT } from '../../i18n'
 import { rupees } from '../../lib/money'
 
 /** The value after the person stops typing for `ms` (a search box): one request per pause, never one per letter. */
@@ -29,6 +30,7 @@ export function SearchBox({
   onChange: (v: string) => void
   placeholder?: string
 }) {
+  const t = useT()
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={id} className="sr-only">
@@ -48,7 +50,7 @@ export function SearchBox({
           className="min-h-12 flex-1 bg-transparent text-base text-ink placeholder:text-muted/60 focus:outline-none"
         />
         {value && (
-          <button type="button" aria-label="Clear the search" className="h-10 w-10 text-muted" onClick={() => onChange('')}>
+          <button type="button" aria-label={t('kiranaProducts.clearSearch')} className="h-10 w-10 text-muted" onClick={() => onChange('')}>
             ✕
           </button>
         )}
@@ -59,10 +61,11 @@ export function SearchBox({
 
 /** "Show more" under a paged list. */
 export function MoreButton({ shown, busy, onClick }: { shown: boolean; busy: boolean; onClick: () => void }) {
+  const t = useT()
   if (!shown) return null
   return (
     <Button variant="secondary" busy={busy} onClick={onClick}>
-      Show more
+      {t('kiranaProducts.showMore')}
     </Button>
   )
 }
@@ -77,45 +80,47 @@ export function outcomeUnknown(e: unknown): boolean {
 }
 
 export function paymentText(p: Payment): string {
-  return p === 'CASH' ? 'Cash' : p === 'UPI' ? 'UPI' : 'Khata'
+  return p === 'CASH' ? t('kiranaProducts.paymentCash') : p === 'UPI' ? 'UPI' : t('kiranaProducts.paymentKhata')
 }
 
 export function paidByText(p: PaidBy | null | undefined): string {
-  return p === 'UPI' ? 'UPI' : 'cash'
+  // Each in the form that fills "{by}" in "paid now by {by}" (Marathi: रोखीने, UPI ने)
+  return p === 'UPI' ? t('kiranaProducts.paidByUpi') : t('kiranaProducts.paidByCash')
 }
 
 /** A stock change's reason in a shopkeeper's words. */
 export function moveText(reason: string): string {
   const words: Record<string, string> = {
-    SALE: 'Sold',
-    VOID: 'Bill cancelled',
-    RETURN: 'Returned',
-    RESTOCK: 'Stock came in',
-    DAMAGED: 'Damaged or expired',
-    COUNT: 'Counted',
+    SALE: t('kiranaProducts.moveSale'),
+    VOID: t('kiranaProducts.moveVoid'),
+    RETURN: t('kiranaProducts.moveReturn'),
+    RESTOCK: t('kiranaProducts.moveRestock'),
+    DAMAGED: t('kiranaProducts.moveDamaged'),
+    COUNT: t('kiranaProducts.moveCount'),
   }
-  return words[reason] ?? reason.charAt(0) + reason.slice(1).toLowerCase().replace(/_/g, ' ')
+  return words[reason] ?? t('kiranaProducts.moveOther')
 }
 
 /** A khata entry in a shopkeeper's words. */
 export function entryText(e: KhataEntry): string {
+  const billNo = String(e.billNo)
   switch (e.kind) {
     case 'SALE':
-      return e.billNo ? `Bill ${e.billNo} on khata` : 'Bought on khata'
+      return e.billNo ? t('kiranaProducts.entrySaleBill', { billNo }) : t('kiranaProducts.entrySale')
     case 'PAYMENT':
-      return `Paid by ${paidByText(e.method)}`
+      return e.method === 'UPI' ? t('kiranaProducts.entryPaidUpi') : t('kiranaProducts.entryPaidCash')
     case 'VOID':
-      return e.billNo ? `Bill ${e.billNo} cancelled` : 'Bill cancelled'
+      return e.billNo ? t('kiranaProducts.entryVoidBill', { billNo }) : t('kiranaProducts.entryVoid')
     case 'RETURN':
-      return e.billNo ? `Items returned (bill ${e.billNo})` : 'Items returned'
+      return e.billNo ? t('kiranaProducts.entryReturnBill', { billNo }) : t('kiranaProducts.entryReturn')
     case 'CHANGE':
-      return e.billNo ? `Bill ${e.billNo}: payment changed` : 'Payment changed'
+      return e.billNo ? t('kiranaProducts.entryChangeBill', { billNo }) : t('kiranaProducts.entryChange')
     case 'REVERSAL':
-      return 'Payment undone'
+      return t('kiranaProducts.entryReversal')
     case 'REFUND':
-      return `Advance given back (${paidByText(e.method)})`
+      return e.method === 'UPI' ? t('kiranaProducts.entryRefundUpi') : t('kiranaProducts.entryRefundCash')
     default:
-      return e.kind
+      return t('kiranaProducts.entryOther')
   }
 }
 
@@ -136,9 +141,9 @@ export function SumRow({ label, value, strong = false }: { label: ReactNode; val
 
 /** A khata customer's balance in words: what they owe, their advance, or settled. */
 export function balanceText(balancePaise: number): string {
-  if (balancePaise > 0) return `Owes ${rupees(balancePaise)}`
-  if (balancePaise < 0) return `Advance ${rupees(-balancePaise)}`
-  return 'Settled'
+  if (balancePaise > 0) return t('kiranaProducts.balanceOwes', { amount: rupees(balancePaise) })
+  if (balancePaise < 0) return t('kiranaProducts.balanceAdvance', { amount: rupees(-balancePaise) })
+  return t('kiranaProducts.balanceSettled')
 }
 
 /** Minutes since an instant (for a helper's 10 minutes). */
@@ -210,14 +215,18 @@ export function useUnsureSend<V>(key: string) {
 }
 
 /** Shown while a send is unsure: what to do, and a way out once they've checked it wasn't saved. */
-export function UnsureNote({ what, onStartOver }: { what: string; onStartOver: () => void }) {
+export function UnsureNote({ what, onStartOver }: {
+  what: 'count' | 'restock' | 'takenOff' | 'return' | 'payment' | 'advanceBack'
+  onStartOver: () => void
+}) {
+  const t = useT()
+  // One whole sentence per thing saved (each language words it its own way)
+  const key = `kiranaProducts.unsureSaved${what[0].toUpperCase()}${what.slice(1)}`
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-warn bg-warn/10 p-3 text-sm" role="status">
-      <p>
-        We couldn't tell if the {what} was saved. Save again as it is: it is recorded once, never twice.
-      </p>
+      <p>{t(key)}</p>
       <button type="button" className="self-start text-link underline" onClick={onStartOver}>
-        It wasn't saved (checked the history): change it
+        {t('kiranaProducts.unsureStartOver')}
       </button>
     </div>
   )

@@ -129,18 +129,15 @@ function lookup(lang: Lang, key: string): string | Plural | undefined {
   return loaded[lang]?.[key.slice(0, dot)]?.[key.slice(dot + 1)]
 }
 
-function fill(text: string, vars: Vars | undefined, lang: Lang): string {
+function fill(text: string, vars: Vars | undefined): string {
   if (!vars) return text
   return text.replace(/\{(\w+)\}/g, (whole, name: string) => {
     const v = vars[name]
-    return v === undefined ? whole : typeof v === 'number' ? v.toLocaleString(numberLocale(lang)) : v
+    // Numbers print as they are (digits 0-9, no grouping): as on bills, packs and phones
+    return v === undefined ? whole : String(v)
   })
 }
 
-/** Digits stay 0-9 in every language (prices, counts and phone numbers read the same as on packs and bills). */
-function numberLocale(lang: Lang): string {
-  return `${lang}-IN-u-nu-latn`
-}
 
 function pick(entry: string | Plural, vars: Vars | undefined, lang: Lang): string {
   if (typeof entry === 'string') return entry
@@ -154,10 +151,22 @@ function pick(entry: string | Plural, vars: Vars | undefined, lang: Lang): strin
  */
 export function t(key: string, vars?: Vars, fallback?: string): string {
   const mine = lookup(current, key)
-  if (mine !== undefined) return fill(pick(mine, vars, current), vars, current)
+  if (mine !== undefined) return fill(pick(mine, vars, current), vars)
   const en = lookup('en', key)
-  if (en !== undefined) return fill(pick(en, vars, 'en'), vars, 'en')
+  if (en !== undefined) return fill(pick(en, vars, 'en'), vars)
   return fallback ?? key
+}
+
+/** A text in English whatever the language: for words saved as data (a tapped reason), shown later via {@link shownAs}. */
+export function inEnglish(key: string, vars?: Vars): string {
+  const en = lookup('en', key)
+  return en === undefined ? key : fill(pick(en, vars, 'en'), vars)
+}
+
+/** Saved English words in the current language when they are exactly one of these keys' English, else as saved. */
+export function shownAs(saved: string, keys: readonly string[]): string {
+  const key = keys.find((k) => inEnglish(k) === saved)
+  return key === undefined ? saved : t(key)
 }
 
 /** Whether there are words for this key (in English at least). */

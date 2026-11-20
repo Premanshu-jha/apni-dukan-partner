@@ -6,6 +6,7 @@ import { useShop } from '../../api/shop'
 import { Banner, Button, Field, Loading } from '../../components/ui'
 import { parseRupees, rupeesInput } from '../../lib/kirana'
 import { rupees } from '../../lib/money'
+import { useT } from '../../i18n'
 import { normalizePhone } from '../../lib/phone'
 import { balanceText, MoreButton, SearchBox, useDebounced } from './common'
 
@@ -14,6 +15,7 @@ import { balanceText, MoreButton, SearchBox, useDebounced } from './common'
  * what they owe and can still buy, or a new customer added on the spot (name and, for the WhatsApp reminder, a phone).
  */
 export function KhataPicker({ onPick, chosenId }: { onPick: (c: KhataCustomer) => void; chosenId?: string | null }) {
+  const t = useT()
   const [search, setSearch] = useState('')
   const settled = useDebounced(search)
   const book = useKhata(settled, false)
@@ -23,18 +25,18 @@ export function KhataPicker({ onPick, chosenId }: { onPick: (c: KhataCustomer) =
   if (adding) return <NewCustomer start={search} onMade={onPick} onCancel={() => setAdding(false)} />
   return (
     <div className="flex flex-col gap-3">
-      <SearchBox id="khata-search" label="Search the khata book" placeholder="Name, flat or phone" value={search} onChange={setSearch} />
+      <SearchBox id="khata-search" label={t('kiranaBills.searchKhataBook')} placeholder={t('kiranaBills.searchPlaceholder')} value={search} onChange={setSearch} />
       {book.isPending ? (
         <Loading />
       ) : book.isError && !book.data ? (
         <Banner tone="bad">
           {messageOf(book.error)}{' '}
           <button type="button" className="underline" onClick={() => void book.refetch()}>
-            Try again
+            {t('common.retry')}
           </button>
         </Banner>
       ) : people.length === 0 ? (
-        <p className="text-sm text-muted">{settled.trim() ? `No one called “${settled.trim()}” in your khata.` : 'Your khata book is empty.'}</p>
+        <p className="text-sm text-muted">{settled.trim() ? t('kiranaBills.noOneCalledInKhata', { name: settled.trim() }) : t('kiranaBills.khataBookEmpty')}</p>
       ) : (
         <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto">
           {people.map((c) => (
@@ -51,7 +53,7 @@ export function KhataPicker({ onPick, chosenId }: { onPick: (c: KhataCustomer) =
                 </span>
                 <span className="shrink-0 text-right text-xs">
                   <span className="block">{balanceText(c.balancePaise)}</span>
-                  <span className="block text-muted">{c.availablePaise === null ? 'No limit' : `Can buy ${rupees(c.availablePaise)}`}</span>
+                  <span className="block text-muted">{c.availablePaise === null ? t('kiranaBills.noLimit') : t('kiranaBills.canBuy', { amount: rupees(c.availablePaise) })}</span>
                 </span>
               </button>
             </li>
@@ -62,7 +64,7 @@ export function KhataPicker({ onPick, chosenId }: { onPick: (c: KhataCustomer) =
         </ul>
       )}
       <Button variant="secondary" onClick={() => setAdding(true)}>
-        + New khata customer
+        {t('kiranaBills.newKhataCustomerButton')}
       </Button>
     </div>
   )
@@ -70,6 +72,7 @@ export function KhataPicker({ onPick, chosenId }: { onPick: (c: KhataCustomer) =
 
 /** A new khata customer: name, optional phone and note. The limit starts at ₹2,000; the owner can set another here. */
 export function NewCustomer({ start = '', onMade, onCancel }: { start?: string; onMade: (c: KhataCustomer) => void; onCancel: () => void }) {
+  const t = useT()
   const qc = useQueryClient()
   const owner = useShop().myRole === 'OWNER'
   const [limit, setLimit] = useState(rupeesInput(DEFAULT_LIMIT_PAISE))
@@ -80,8 +83,8 @@ export function NewCustomer({ start = '', onMade, onCancel }: { start?: string; 
   const [touched, setTouched] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
-  const nameProblem = name.trim().length < 2 ? 'Enter the customer’s name (2 to 80 letters)' : null
-  const phoneProblem = phone.trim() && !normalizePhone(phone) ? 'Enter a 10-digit mobile number, or leave it empty' : null
+  const nameProblem = name.trim().length < 2 ? t('kiranaBills.enterCustomerName') : null
+  const phoneProblem = phone.trim() && !normalizePhone(phone) ? t('kiranaBills.enterMobile') : null
   const lim = owner && !noLimit ? parseRupees(limit, { zeroAllowed: true, maxPaise: 100_000_000 }) : null
   const limitProblem = lim && 'error' in lim ? lim.error : null
 
@@ -105,30 +108,30 @@ export function NewCustomer({ start = '', onMade, onCancel }: { start?: string; 
 
   return (
     <div className="flex flex-col gap-3">
-      <Field id="new-customer-name" label="Name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} error={(touched && nameProblem) || fieldError(error, 'name') || undefined} />
+      <Field id="new-customer-name" label={t('kiranaBills.name')} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} error={(touched && nameProblem) || fieldError(error, 'name') || undefined} />
       <Field
         id="new-customer-phone"
-        label="Mobile (optional)"
-        hint="For the WhatsApp reminder."
+        label={t('kiranaBills.mobileOptional')}
+        hint={t('kiranaBills.forWhatsAppReminder')}
         inputMode="tel"
         value={phone}
         maxLength={20}
         onChange={(e) => setPhone(e.target.value)}
         error={(touched && phoneProblem) || fieldError(error, 'phone') || undefined}
       />
-      <Field id="new-customer-note" label="Note (optional)" hint="Like a flat number, to tell two people apart." value={note} maxLength={100} onChange={(e) => setNote(e.target.value)} />
+      <Field id="new-customer-note" label={t('kiranaBills.noteOptional')} hint={t('kiranaBills.noteHint')} value={note} maxLength={100} onChange={(e) => setNote(e.target.value)} />
       {owner ? (
         <>
           {!noLimit && (
-            <Field id="new-customer-limit" label="Khata limit (₹)" hint="How much they can owe at most." inputMode="decimal" value={limit} onChange={(e) => setLimit(e.target.value)} error={(touched && limitProblem) || fieldError(error, 'creditLimitPaise') || undefined} />
+            <Field id="new-customer-limit" label={t('kiranaBills.khataLimitRupees')} hint={t('kiranaBills.khataLimitHint')} inputMode="decimal" value={limit} onChange={(e) => setLimit(e.target.value)} error={(touched && limitProblem) || fieldError(error, 'creditLimitPaise') || undefined} />
           )}
           <label className="flex min-h-11 items-center gap-2 text-sm">
             <input type="checkbox" checked={noLimit} onChange={(e) => setNoLimit(e.target.checked)} className="h-5 w-5" />
-            No limit
+            {t('kiranaBills.noLimit')}
           </label>
         </>
       ) : (
-        <p className="text-sm text-muted">They can buy up to {rupees(DEFAULT_LIMIT_PAISE)} on khata to start with. The owner can change the limit.</p>
+        <p className="text-sm text-muted">{t('kiranaBills.startLimitNote', { amount: rupees(DEFAULT_LIMIT_PAISE) })}</p>
       )}
       {error !== null && !fieldError(error, 'name') && !fieldError(error, 'phone') && (
         <Banner tone="bad">{messageOf(error)}</Banner>
@@ -149,14 +152,14 @@ export function NewCustomer({ start = '', onMade, onCancel }: { start?: string; 
             }
           }}
         >
-          Use the customer who has this number
+          {t('kiranaBills.usePhoneOwner')}
         </Button>
       )}
       <Button busy={busy} onClick={save}>
-        Add to the khata book
+        {t('kiranaBills.addToKhataBook')}
       </Button>
       <Button variant="ghost" disabled={busy} onClick={onCancel}>
-        Back
+        {t('common.back')}
       </Button>
     </div>
   )

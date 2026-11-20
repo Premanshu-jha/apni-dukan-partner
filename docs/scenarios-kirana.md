@@ -145,6 +145,27 @@ Rounds 2 (online orders, earnings and payouts) and 3 (stock from distributors' b
 | 7.4 | Verified shop changes its UPI ID | 403 EDIT_LOCKED without the code | The UPI ID page is inside EditGate (the phone code first) | KIT aVerifiedKiranasUpiId… | — | OK-untested (app) |
 | 7.5 | A salon's people at `/kirana/*`, a kirana's at salon paths | 409 NOT_A_KIRANA / NOT_A_SALON | Sent home; no call of the other kind is made | KIT, SalonIT | e2e:gate "a kirana's people see only kirana screens…" | OK-tested |
 
+## 8. Languages on the kirana screens
+
+App tests here: `unit-errors:` is `src/api/kiranaErrors.test.ts`, `unit-bills:` `src/features/kirana/Bills.test.tsx`, `unit-scanner:` `src/features/kirana/Scanner.test.tsx`, `unit-fssai:` `src/features/shop/fssaiReason.test.ts`.
+
+| # | Scenario | API behaviour | App behaviour | Backend test | App test | Verdict |
+|---|---|---|---|---|---|---|
+| 8.1 | A kirana owner or helper who reads Hindi (or te/mr/ta/kn) | — | The counter, bills and the day, products and stock, the khata, the scanner, kirana registration, Licences and the UPI ID in the language; English is unchanged | — | i18n.test (every key in every language, same blanks) | OK-tested |
+| 8.2 | A kirana error whose exact English message the app has | Code + English message | `server.json`'s words for that message, in every language (the most precise: one code can have several messages) | — | unit-errors "show the exact message first, then the code's words…" | OK-tested |
+| 8.3 | A kirana error built with names or amounts (not in `server.json`), app in Hindi | e.g. 409 `KHATA_LIMIT` with `availablePaise`, `limitPaise` | `error.json`'s words for the code, blanks filled from `details` (paise shown as rupees: `{available}` "₹250.50") | — | unit-errors "show the exact message first…", "fills each code's blanks from what its errors carry…" | OK-tested |
+| 8.4 | The same error, app in English | — | The backend's own sentence (it may name the customer or product): never the code's shorter words | — | unit-errors "shows the backend's own words in English…" | OK-tested |
+| 8.5 | A code not in `error.json` and a message not in `server.json` | — | The backend's English as sent | — | unit-errors | OK-tested |
+| 8.6 | A language missing one of the kirana codes | — | CI fails (every language has every code, with the same blanks) | — | unit-errors; i18n.test | OK-tested |
+| 8.7 | Cancelling a bill or items brought back with a quick reason, app in Telugu | `…/void {reason}`, `…/returns {reason}`: saved as sent | The chip is saved in English ("Damaged"); shown in each person's language on the bill, so the owner in Hindi reads it in Hindi | — | unit-bills "saves a tapped reason in English, whatever the language…", "shows a saved reason in the person's language…"; e2e:kirana-fixes "items brought back with a tapped reason: saved in English, shown on the bill" | OK-tested |
+| 8.8 | A typed reason (or a chip tapped, then words typed) | Saved as sent | Saved and shown as typed, in whatever language it was typed | — | unit-bills "keeps typed words as typed…" | OK-tested |
+| 8.9 | Pieces and weights on the counter and bills | — | Pieces counted the language's way ("1 పీస్", "3 పీస్‌లు"); "kg", "₹" and digits 0-9 as on packs; numbers never grouped (1200) | — | unit "counts pieces in the app's language"; i18n.test | OK-tested |
+| 8.10 | Quantity or amount typed wrong | — | "Enter a whole number", "At most 3 decimals (grams)"… in the language | — | unit (parseQty, parseRupees) | OK-untested (other languages) |
+| 8.11 | The FSSAI check's reason (refused, being checked, an earlier licence still good until a date) | `fssai.reason` in English | Shown in the person's language, the date and number kept; an unknown reason as the backend wrote it | — | unit-fssai "stays as the backend wrote it in English", "is in the person's language…" | OK-tested |
+| 8.12 | WhatsApp khata reminder from an owner using Telugu | — | The message is written in the app's language (the owner sees it before pressing send in WhatsApp) | — | — | OK-untested |
+| 8.13 | The scanner's barcode reader doesn't download (offline on first use) | — | "The scanner couldn't load" in the language, typing the digits still works (not "no camera") | — | unit-scanner "says the scanner couldn't load…", "still says the camera can't be used…" | OK-tested |
+| 8.14 | Push and inbox messages for a kirana, and kirana messages the backend builds with names | English | English on this branch | — | — | N/A-v1 (the backend writes salon and shared messages per language from V83 on `main`; kirana messages aren't texts yet) |
+
 ## Many at once
 
 | # | Scenario | Behaviour | Verdict |
@@ -185,6 +206,9 @@ Rounds 2 (online orders, earnings and payouts) and 3 (stock from distributors' b
 | I.24 | Helpers weren't told why a product has no Edit | "Only the owner changes the name, price or alert." |
 | I.25 | The day picker was a tiny date | Full-size |
 | I.26 | Salon words on a kirana's video and edit screens | The shop's words, naming the paper it has |
+| I.27 | The kirana screens were English only after main's languages came in | All six languages (section 8) |
+| I.28 | A code's short words were shown before the backend's own sentence, so English lost the customer's or product's name | The exact message first; the code's words (details filled in, paise as rupees) only outside English |
+| I.29 | No barcode reader (offline on first use) said "the camera can't be used" | "The scanner couldn't load", typing still works |
 
 ### Left for later (features, not fixes; listed in the project's future plans)
 

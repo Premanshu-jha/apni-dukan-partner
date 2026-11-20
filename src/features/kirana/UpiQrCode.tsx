@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { UpiQr } from '../../api/kirana'
+import { useT } from '../../i18n'
 import { rupees } from '../../lib/money'
 
 /**
@@ -7,6 +8,7 @@ import { rupees } from '../../lib/money'
  * QR is shown), with the amount and the payee in words under it, for the customer to scan with any UPI app.
  */
 export function UpiQrCode({ upi }: { upi: UpiQr }) {
+  const t = useT()
   const [src, setSrc] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   useEffect(() => {
@@ -25,15 +27,15 @@ export function UpiQrCode({ upi }: { upi: UpiQr }) {
     <figure className="flex flex-col items-center gap-2">
       <div className="flex aspect-square w-full max-w-72 items-center justify-center rounded-2xl bg-white p-2">
         {src ? (
-          <img src={src} alt={`UPI QR to pay ${rupees(upi.amountPaise)} to ${upi.payeeName}`} className="h-full w-full" />
+          <img src={src} alt={t('kiranaCounter.qrAlt', { amount: rupees(upi.amountPaise), payee: upi.payeeName })} className="h-full w-full" />
         ) : (
-          <span className="text-sm text-black/60">{failed ? "Couldn't draw the QR. Ask them to pay to the UPI ID below." : 'Drawing the QR…'}</span>
+          <span className="text-sm text-black/60">{failed ? t('kiranaCounter.qrFailed') : t('kiranaCounter.qrDrawing')}</span>
         )}
       </div>
       <figcaption className="text-center">
         <p className="text-2xl font-bold">{rupees(upi.amountPaise)}</p>
         <p className="text-sm text-muted break-all">
-          To {upi.payeeName} · {upi.upiId}
+          {t('kiranaCounter.qrPayTo', { payee: upi.payeeName, upiId: upi.upiId })}
         </p>
       </figcaption>
     </figure>
