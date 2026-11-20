@@ -8,6 +8,7 @@ import { clock12 } from '../../lib/ist'
 import { rupees } from '../../lib/money'
 import { weekLines } from '../../lib/salonHours'
 import { offerWhat, offerWhen } from '../offers/offerText'
+import { serviceName } from '../../lib/serviceName'
 
 /**
  * Salon info, for a barber (anyone in the salon can open it): the opening hours, the services with their prices and
@@ -46,7 +47,7 @@ export function SalonInfo() {
   }
 
   const active = (services.data ?? []).filter((s) => s.active).sort((a, b) => a.sortOrder - b.sortOrder)
-  const names = new Map(active.map((s) => [s.id, s.name]))
+  const names = new Map(active.map((s) => [s.id, serviceName(s.name)]))
   return (
     <Page back="/more" title={t('setup.infoTitle')}>
       <p className="text-sm text-muted">{t('setup.infoIntro', { name: shop.name })}</p>
@@ -89,7 +90,7 @@ export function SalonInfo() {
             {active.map((s) => (
               <li key={s.id} className="flex items-baseline justify-between gap-3">
                 <span className="min-w-0 break-words">
-                  {s.name} <span className="text-sm text-muted">· {t('setup.minutesShort', { minutes: s.durationMinutes })}</span>
+                  {serviceName(s.name)} <span className="text-sm text-muted">· {t('setup.minutesShort', { minutes: s.durationMinutes })}</span>
                 </span>
                 <span className="shrink-0">{rupees(s.pricePaise, s.priceIsFrom)}</span>
               </li>

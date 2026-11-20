@@ -16,6 +16,7 @@ import { SalonHoursEditor } from '../setup/SalonHours'
 import { licenceSummary, RegistrationDocCard, useLicencePolling, licenceState } from './RegistrationDoc'
 import { RecheckWaiting } from './RecheckWaiting'
 import { SalonVideo } from './SalonVideo'
+import { shopAsk, TeamReasons, type FixShop, type TeamAsk } from './TeamReasons'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page, Sheet } from '../../components/ui'
 import {
   insideIndia,
@@ -95,9 +96,10 @@ export function Steps({
   const t = useT()
   const names = ['stepDetails', 'stepPhotos', 'stepServices', 'stepHours', 'stepSubmit']
   return (
-    <ol className="flex gap-2" aria-label={t('register.stepsLabel')}>
+    <ol className="flex gap-1.5" aria-label={t('register.stepsLabel')}>
       {names.map((n, i) => {
-        const look = `block flex-1 rounded-full py-1 text-center text-xs font-semibold ${i + 1 <= at ? 'bg-brand text-brand-ink' : 'bg-raised text-muted'}`
+        // min-w-0 and a second line if ever needed: five pills fit a 360px phone in every language
+        const look = `block min-w-0 flex-1 rounded-full px-1 py-1 text-center text-xs leading-tight font-semibold [overflow-wrap:anywhere] ${i + 1 <= at ? 'bg-brand text-brand-ink' : 'bg-raised text-muted'}`
         const text = (
           <>
             <span className="sr-only">{i + 1}. </span>
@@ -105,7 +107,7 @@ export function Steps({
           </>
         )
         return (
-          <li key={n} className="flex flex-1" aria-current={i + 1 === at ? 'step' : undefined}>
+          <li key={n} className="flex min-w-0 flex-1" aria-current={i + 1 === at ? 'step' : undefined}>
             {linked && i + 1 !== at ? (
               <Link
                 to={STEP_PATHS[i]}
@@ -530,7 +532,7 @@ export function RegisterDetails({
     >
       {!edit && !request && <Steps at={1} linked={shop !== null} leaveWarning={dirty ? UNSAVED : null} />}
       {edit && <RecheckWaiting />}
-      {!edit && !request && shop?.statusReason && <SentBack reason={shop.statusReason} />}
+      {!edit && !request && shop && shopAsk(shop) && <SentBack ask={shopAsk(shop)!} shop={shop} />}
       {request?.top}
       <Card className="flex flex-col gap-4">
         {request ? (
@@ -832,7 +834,7 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
           leaveWarning={leaveWarning}
         />
       )}
-      {!edit && shop.statusReason && <SentBack reason={shop.statusReason} />}
+      {!edit && shopAsk(shop) && <SentBack ask={shopAsk(shop)!} shop={shop} />}
       {edit && shop.status === 'APPROVED' && (
         <Banner tone="info">
           {t('register.newPhotoRecheck')}
@@ -893,7 +895,7 @@ export function RegisterHours() {
   return (
     <Page back="/register/services" title={t('register.openingHours')}>
       <Steps at={4} />
-      {shop.statusReason && <SentBack reason={shop.statusReason} />}
+      {shopAsk(shop) && <SentBack ask={shopAsk(shop)!} shop={shop} />}
       {hours.isPending ? (
         <Loading />
       ) : hours.isError && !hours.data ? (
@@ -1057,7 +1059,7 @@ export function RegisterReview() {
   return (
     <Page back="/register/hours" title={t('register.reviewTitle')}>
       <Steps at={5} />
-      {shop.statusReason && <SentBack reason={shop.statusReason} />}
+      {shopAsk(shop) && <SentBack ask={shopAsk(shop)!} shop={shop} />}
       <Card className="flex flex-col gap-3">
         <Line label={t('register.reviewSalon')} value={shop.name} />
         <Line label={t('register.reviewOwner')} value={shop.ownerName} />
@@ -1206,11 +1208,22 @@ function Line({ label, value }: { label: string; value: string }) {
 }
 
 /** The field team sent the registration back: what to fix before submitting again. */
-export function SentBack({ reason }: { reason: string }) {
+export function SentBack({ ask, shop }: { ask: TeamAsk; shop: FixShop }) {
   const t = useT()
+  // This step's own reasons first; each other one links to its step
+  const here = useLocation().pathname
+  // Before reason codes (or only a note): the team's words in the sentence, as always
+  if (ask.codes.length === 0) {
+    return (
+      <Banner tone="warn">
+        {t('register.sentBack', { reason: ask.note ?? '' })}
+      </Banner>
+    )
+  }
   return (
     <Banner tone="warn">
-      {t('register.sentBack', { reason })}
+      <p>{t('register.sentBackList')}</p>
+      <TeamReasons ask={ask} fixes={{ shop, here }} />
     </Banner>
   )
 }

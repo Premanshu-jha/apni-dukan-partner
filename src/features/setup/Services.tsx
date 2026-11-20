@@ -10,6 +10,7 @@ import { duration, rupees } from '../../lib/money'
 import { can } from '../../lib/roles'
 import { ServiceIcon } from '../../components/ServiceIcon'
 import { ICON_LABELS, iconsFor, SERVICE_ICONS, type ServiceIconName } from '../../lib/serviceIcons'
+import { serviceName } from '../../lib/serviceName'
 
 export interface ServiceForm {
   name: string
@@ -155,7 +156,7 @@ export function Services() {
                     onClick={() => setEditing(s)}
                   >
                     <span className="flex items-center gap-2">
-                      <span className="truncate font-semibold">{s.name}</span>
+                      <span className="truncate font-semibold">{serviceName(s.name)}</span>
                       {!s.active && <Pill tone="muted">{t('setup.off')}</Pill>}
                     </span>
                     <span className="text-sm text-muted">
@@ -163,7 +164,7 @@ export function Services() {
                       {comeBackText(s.returnAfterDays ?? 14) && ` · ${comeBackText(s.returnAfterDays ?? 14)}`}
                     </span>
                   </button>
-                  {edit && <Switch label={t('setup.serviceOnOffer', { name: s.name })} checked={s.active} disabled={busyId === s.id} onChange={(on) => toggle(s, on)} />}
+                  {edit && <Switch label={t('setup.serviceOnOffer', { name: serviceName(s.name) })} checked={s.active} disabled={busyId === s.id} onChange={(on) => toggle(s, on)} />}
                 </li>
               ))}
             </ul>

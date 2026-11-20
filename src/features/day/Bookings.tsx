@@ -13,6 +13,7 @@ import { rupees } from '../../lib/money'
 import { can } from '../../lib/roles'
 import { AppointmentCard, dayLink } from './Today'
 import { statusTextOr } from './status'
+import { useServiceIcons } from './serviceIconMap'
 
 /** Groups appointments by India date, keeping their order. */
 export function byDate(list: Appointment[]): Array<{ date: string; items: Appointment[] }> {
@@ -215,6 +216,7 @@ function Grouped({
   listRef: RefObject<HTMLDivElement | null>
   busy: boolean
 }) {
+  const icons = useServiceIcons()
   let index = 0
   return (
     <div ref={listRef} aria-busy={busy} className="flex flex-col gap-4">
@@ -224,7 +226,7 @@ function Grouped({
           <ul className="flex flex-col gap-2">
             {g.items.map((a) => (
               <li key={a.id} data-index={index++} className={OFFSCREEN_CHEAP}>
-                <AppointmentCard a={a} barber={null} onOpen={onOpen} />
+                <AppointmentCard a={a} barber={null} onOpen={onOpen} icons={icons} />
               </li>
             ))}
           </ul>

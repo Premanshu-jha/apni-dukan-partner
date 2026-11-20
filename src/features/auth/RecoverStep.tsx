@@ -4,7 +4,7 @@ import { authApi } from '../../api/auth'
 import { isApiError, messageOf } from '../../api/errors'
 import { CodeInput } from '../../components/CodeInput'
 import { Turnstile } from '../../components/Turnstile'
-import { useT } from '../../i18n'
+import { keepShownLanguage, useT } from '../../i18n'
 import { TURNSTILE_SITE_KEY } from '../../lib/config'
 import { Banner, Button, Field, Page } from '../../components/ui'
 import { formatPhone, looksLikeEmail, normalizePhone } from '../../lib/phone'
@@ -54,6 +54,8 @@ export function RecoverStep() {
     setError(null)
     try {
       const tokens = await authApi.completeRecovery(started.email, emailCode, started.phone, phoneCode)
+      // Signing in with the language on screen keeps it (as on the phone-number screen)
+      keepShownLanguage()
       signIn(tokens)
       navigate(nextAfterSignIn(tokens.user), { replace: true })
     } catch (err) {

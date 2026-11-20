@@ -12,7 +12,7 @@ import { Banner, Button, Field, Page, TextArea } from '../../components/ui'
 import { SUPPORT_EMAIL } from '../../lib/config'
 import { storage } from '../../lib/storage'
 import { rememberReturn } from '../auth/flow'
-import { useT } from '../../i18n'
+import { spaceBefore, useT } from '../../i18n'
 
 /** The backend's limits (TicketService): a message of 10 to 5,000 characters, a subject of at most 100. */
 const MESSAGE_MIN = 10
@@ -126,7 +126,7 @@ export function NeedHelp() {
         </h2>
         <Banner tone="good">
           {t('help.gotItBefore')} <strong>{done.number}</strong>{t('help.gotItMiddle')}{' '}
-          <span className="[overflow-wrap:anywhere]">{done.sentTo}</span> {t('help.gotItAfter')}
+          <span className="[overflow-wrap:anywhere]">{done.sentTo}</span>{spaceBefore(t('help.gotItAfter'))}{t('help.gotItAfter')}
         </Banner>
         <p className="text-sm text-muted">
           {t('help.emailedCopy', { number: done.number })}

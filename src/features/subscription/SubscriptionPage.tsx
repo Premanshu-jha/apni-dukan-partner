@@ -6,7 +6,7 @@ import { isApiError, messageOf } from '../../api/errors'
 import type { SubscriptionView } from '../../api/types'
 import { useShop } from '../../api/shop'
 import { Banner, Button, Card, ErrorState, Loading, Page } from '../../components/ui'
-import { t, useT } from '../../i18n'
+import { spaceBefore, t, useLanguage, useT } from '../../i18n'
 import { CheckoutStopped, payWithRazorpay } from '../../lib/razorpay'
 import { screensBehind } from '../../lib/nav'
 import { dayIst, payByDay, whatEnded } from './text'
@@ -170,8 +170,8 @@ function Details({
       )}
       {suspended && (
         <Banner tone="warn" live={false}>
-          {t('subscription.suspendedBefore')} <Link to="/help" className="underline">{t('subscription.suspendedLink')}</Link>{' '}
-          {t('subscription.suspendedAfter')}
+          {t('subscription.suspendedBefore')} <Link to="/help" className="underline">{t('subscription.suspendedLink')}</Link>
+          {spaceBefore(t('subscription.suspendedAfter'))}{t('subscription.suspendedAfter')}
         </Banner>
       )}
       {s.state === 'HIDDEN' && s.enforced && (
@@ -263,6 +263,7 @@ function stateWords(s: SubscriptionView): string {
 
 function OwnerActions({ s, busy, problem, onPay }: { s: SubscriptionView; busy: boolean; problem: string | null; onPay: () => void }) {
   const t = useT()
+  const lang = useLanguage()
   // Printed as it is ("₹1500"), not grouped
   const price = String(s.pricePerMonth)
   if (s.state === 'NONE') {
@@ -288,6 +289,8 @@ function OwnerActions({ s, busy, problem, onPay }: { s: SubscriptionView; busy: 
   return (
     <div className="flex flex-col gap-2">
       {problem && <Banner tone="bad">{problem}</Banner>}
+      {/* Razorpay's screen has no Indian languages: say what to tap there before it opens */}
+      {lang !== 'en' && <p className="text-sm">{t('subscription.nextScreenEnglish')}</p>}
       <Button busy={busy} onClick={onPay}>
         {later ? t('subscription.setUpAutoPay') : t('subscription.payPrice', { price })}
       </Button>
