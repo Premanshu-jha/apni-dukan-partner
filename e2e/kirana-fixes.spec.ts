@@ -137,6 +137,20 @@ test('a bill with items brought back: refunded at its discounted share, and how 
   await expect(page.getByText('Items came back on this bill, so how it was paid stays as it is.')).toBeVisible()
 })
 
+test('items brought back with a tapped reason: saved in English, shown on the bill', async ({ page, context, api }) => {
+  await atCounter(page, context, api)
+  await addSoap(page)
+  await page.getByRole('button', { name: 'Cash ₹35' }).click()
+  await page.getByRole('link', { name: /Open the bill/ }).click()
+  await page.getByRole('button', { name: 'Items brought back' }).click()
+  await page.getByLabel(/Lux Soap 100 g \(up to 1/).fill('1')
+  await page.getByRole('button', { name: 'Damaged', exact: true }).click()
+  await expect(page.getByLabel('Reason (optional)')).toHaveValue('Damaged')
+  await page.getByRole('button', { name: 'Save the return' }).click()
+  await expect(page.getByText(/· Damaged$/)).toBeVisible()
+  expect((api.kirana.bills[0].returns as { reason: string }[])[0].reason).toBe('Damaged')
+})
+
 test('a helper of a kirana waiting for the visit bills at the counter, as the owner does', async ({ page, context, api }) => {
   await atCounter(page, context, api, 'HELPER', { status: 'PENDING_VISIT' })
   await addSoap(page)

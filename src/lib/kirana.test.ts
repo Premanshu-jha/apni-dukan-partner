@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { provideForTests, resetLanguageForTests, setLanguage, type Messages } from '../i18n'
 import {
   addLoose,
   addOther,
@@ -49,7 +52,22 @@ describe('money and quantities, as the backend counts them', () => {
     expect(qtyText(-1500)).toBe('-1.5')
     expect(qtyWithUnit(1000, 'PIECE')).toBe('1 pc')
     expect(qtyWithUnit(3000, 'PIECE')).toBe('3 pcs')
+    expect(qtyWithUnit(-1000, 'PIECE')).toBe('-1 pc')
+    expect(qtyWithUnit(0, 'PIECE')).toBe('0 pcs')
     expect(qtyWithUnit(500, 'KG')).toBe('0.5 kg')
+  })
+
+  it('counts pieces in the app\'s language', async () => {
+    const te = JSON.parse(readFileSync(join(process.cwd(), 'src/i18n/te/kiranaProducts.json'), 'utf8')) as Messages[string]
+    provideForTests('te', { kiranaProducts: te })
+    await setLanguage('te')
+    try {
+      expect(qtyWithUnit(1000, 'PIECE')).toBe('1 పీస్')
+      expect(qtyWithUnit(3000, 'PIECE')).toBe('3 పీస్‌లు')
+      expect(qtyWithUnit(500, 'KG')).toBe('0.5 kg')
+    } finally {
+      resetLanguageForTests()
+    }
   })
 
   it('reads typed quantities: pieces whole, kg to the gram, within the limits', () => {
