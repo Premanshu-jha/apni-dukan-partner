@@ -1,0 +1,20 @@
+{
+  "haircut": "Haircut",
+  "beardTrim": "Beard trim",
+  "haircutAndBeard": "Haircut and beard",
+  "cleanShave": "Clean shave",
+  "kidsHaircut": "Kids haircut",
+  "womensHaircut": "Women's haircut",
+  "hairWash": "Hair wash",
+  "headMassage": "Head massage",
+  "hairColour": "Hair colour",
+  "beardColour": "Beard colour",
+  "hairSpa": "Hair spa",
+  "hairStraightening": "Hair straightening",
+  "facial": "Facial",
+  "faceCleanup": "Face clean-up",
+  "threading": "Threading",
+  "waxing": "Waxing",
+  "manicure": "Manicure",
+  "pedicure": "Pedicure"
+}

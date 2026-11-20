@@ -64,6 +64,7 @@
   "failedMoneyTaken": "{reason} If money was taken anyway, it shows here within a few minutes.",
   "couldntOpenPayment": "Couldn't open the payment screen. Check your internet and try again.",
   "paymentFailed": "The payment failed.",
+  "nextScreenEnglish": "The next screen is in English: choose UPI, then approve with your UPI PIN.",
 
   "bannerHiddenOwner": "Customers can't find your salon on Clozest until you pay.",
   "bannerHiddenStaffNamed": "Customers can't find {shop} until {name} pays the Clozest subscription.",

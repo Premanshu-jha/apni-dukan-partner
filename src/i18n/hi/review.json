@@ -1,0 +1,20 @@
+{
+  "whatToFix": "क्या ठीक करना है:",
+  "noteFromTeam": "टीम का नोट",
+  "fixLink": "ठीक करें ›",
+  "fixAria": "ठीक करें: {reason}",
+  "reasonSHOP_FRONT_PHOTO": "सैलून के सामने की फ़ोटो नहीं है या साफ़ नहीं है",
+  "reasonBOARD_NOT_VISIBLE": "फ़ोटो में सैलून का नाम वाला बोर्ड नहीं दिख रहा",
+  "reasonINSIDE_PHOTOS": "अंदर की फ़ोटो नहीं हैं या साफ़ नहीं हैं",
+  "reasonLICENCE_UNREADABLE": "ट्रेड लाइसेंस पढ़ा नहीं जा रहा",
+  "reasonLICENCE_NAME_MISMATCH": "ट्रेड लाइसेंस पर लिखा नाम सैलून से नहीं मिलता",
+  "reasonLICENCE_EXPIRED": "ट्रेड लाइसेंस की तारीख़ निकल चुकी है",
+  "reasonLICENCE_WRONG_TYPE": "यह नगर निगम/नगरपालिका का ट्रेड लाइसेंस नहीं है",
+  "reasonADDRESS_WRONG": "पता ग़लत है",
+  "reasonPIN_WRONG_PLACE": "नक्शे पर पिन आपके सैलून के दरवाज़े पर नहीं है",
+  "reasonSERVICES_MISSING": "सर्विस या दाम नहीं लिखे हैं",
+  "reasonHOURS_MISSING": "खुलने का समय नहीं लिखा है",
+  "reasonVIDEO_UNCLEAR": "सैलून का वीडियो साफ़ नहीं है",
+  "reasonOWNER_NAME": "ओनर का नाम ठीक करना है",
+  "reasonOTHER": "कुछ और (नोट देखें)"
+}
