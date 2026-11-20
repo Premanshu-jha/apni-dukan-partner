@@ -1,0 +1,13 @@
+{
+  "legalNavAria": "Clozest के बारे में",
+  "legalAbout": "हमारे बारे में",
+  "legalContact": "संपर्क",
+  "legalTerms": "शर्तें",
+  "legalPrivacy": "प्राइवेसी",
+  "legalRefunds": "रिफ़ंड के नियम",
+  "legalDelivery": "डिलीवरी",
+  "legalUpdated": "पिछली बार बदला गया: {date}",
+  "uploadLinkExpired": "अपलोड लिंक का समय ख़त्म हो गया।",
+  "videoDidntGoThrough": "वीडियो नहीं जा पाया। फिर कोशिश करें।",
+  "uploadLinkExpiredAddAgain": "अपलोड लिंक का समय ख़त्म हो गया। वीडियो फिर से जोड़ें।"
+}

@@ -6,12 +6,14 @@ import { dayApi, salonKeys, refreshSalonWork } from '../../api/salon'
 import type { InTheWay } from '../../api/types'
 import { AHEAD_DAYS } from './Today'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
+import { useT } from '../../i18n'
 import { addDays, dateOfIst, dateTimeIst, dayLabel, timeIst, todayIst } from '../../lib/ist'
 
 /** Close the whole salon for a day (a festival, a family function). Owner only. */
 export function Closures() {
+  const t = useT()
   return (
-    <Page back="/more" title="Closed days">
+    <Page back="/more" title={t('day.closedDays')}>
       <ClosedDaysEditor />
     </Page>
   )
@@ -22,6 +24,7 @@ export function Closures() {
  * (the registration review step uses it too). The weekly off is set in the opening hours; leave is per barber.
  */
 export function ClosedDaysEditor({ optional = false }: { optional?: boolean }) {
+  const t = useT()
   const qc = useQueryClient()
   const list = useQuery({ queryKey: salonKeys.closures, queryFn: dayApi.closures })
   const today = todayIst()
@@ -52,10 +55,9 @@ export function ClosedDaysEditor({ optional = false }: { optional?: boolean }) {
   return (
     <>
       <Card className="flex flex-col gap-3">
-        <Field id="closed-date" label="Close the salon on" type="date" min={today} max={addDays(today, AHEAD_DAYS)} value={date} onChange={(e) => setDate(e.target.value)} />
+        <Field id="closed-date" label={t('day.closeSalonOn')} type="date" min={today} max={addDays(today, AHEAD_DAYS)} value={date} onChange={(e) => setDate(e.target.value)} />
         <p className="text-sm text-muted">
-          The whole salon is closed: every barber, including ones you add later. Anything already booked must be moved or
-          cancelled first.
+          {t('day.closeExplain')}
         </p>
         <Button
           variant={optional ? 'secondary' : 'primary'}
@@ -63,18 +65,18 @@ export function ClosedDaysEditor({ optional = false }: { optional?: boolean }) {
           disabled={!date || date < today}
           onClick={() => act('add', () => dayApi.addClosure(date).then(() => setDate('')))}
         >
-          {date ? `Close ${dayLabel(date)}` : 'Pick a day to close'}
+          {date ? t('day.closeDay', { day: dayLabel(date) }) : t('day.pickDayToClose')}
         </Button>
       </Card>
       {error && <Banner tone="bad">{error}</Banner>}
       {inTheWay && inTheWay.length > 0 && (
         <Card className="flex flex-col gap-2 border-warn/50">
-          <p className="font-semibold">{inTheWay.length} already on that day</p>
+          <p className="font-semibold">{t('day.alreadyOnDay', { count: inTheWay.length })}</p>
           <ul className="flex flex-col gap-1 text-sm">
             {inTheWay.map((a) => (
               <li key={a.id}>
                 <Link className="text-link underline" to={`/salon/day?date=${dateOfIst(a.startsAt)}`}>
-                  {dateTimeIst(a.startsAt)}–{timeIst(a.endsAt)} ({a.kind === 'BLOCK' ? 'a break' : a.kind === 'WALK_IN' ? 'walk-in' : 'booking'})
+                  {t(a.kind === 'BLOCK' ? 'day.inWayBreak' : a.kind === 'WALK_IN' ? 'day.inWayWalkIn' : 'day.inWayBooking', { from: dateTimeIst(a.startsAt), to: timeIst(a.endsAt) })}
                 </Link>
               </li>
             ))}
@@ -82,13 +84,13 @@ export function ClosedDaysEditor({ optional = false }: { optional?: boolean }) {
         </Card>
       )}
 
-      <Heading className="text-sm font-semibold text-muted">Coming closed days</Heading>
+      <Heading className="text-sm font-semibold text-muted">{t('day.comingClosedDays')}</Heading>
       {list.isPending ? (
         <Loading />
       ) : list.isError ? (
         <ErrorState message={messageOf(list.error)} onRetry={() => list.refetch()} />
       ) : list.data.length === 0 ? (
-        <p className="text-muted">None.</p>
+        <p className="text-muted">{t('day.noClosedDays')}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {list.data.map((c) => (
@@ -96,7 +98,7 @@ export function ClosedDaysEditor({ optional = false }: { optional?: boolean }) {
               <Card className="flex items-center justify-between gap-3">
                 <span>{dayLabel(c.date)}</span>
                 <Button variant="secondary" busy={busy === c.closureId} onClick={() => act(c.closureId, () => dayApi.removeClosure(c.closureId))}>
-                  Open again
+                  {t('day.openAgain')}
                 </Button>
               </Card>
             </li>

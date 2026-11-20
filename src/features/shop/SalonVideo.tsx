@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useVideoLink, videoApi } from '../../api/shop'
 import { isApiError } from '../../api/errors'
 import { Banner, Button, Card } from '../../components/ui'
+import { useT } from '../../i18n'
 import {
   afterCompleteFailure,
   afterSendFailure,
   hold,
-  LENGTH_UNKNOWN,
+  lengthUnknown,
   linkUsable,
   readVideoSeconds,
   refusedForGood,
@@ -39,9 +40,6 @@ interface Progress {
 
 type Phase = 'idle' | 'checking' | 'unknown-length' | 'sending' | 'saving' | 'failed' | 'blocked'
 
-const leaveWarning = (kirana: boolean) =>
-  `The ${kirana ? 'shop' : 'salon'} video is still uploading. Leave anyway? It will have to be sent again.`
-
 /**
  * Registration step 2's "Salon video" card: how to film it, Record video / Choose from gallery, then the upload
  * straight to R2 with a progress bar, Cancel and Try again; afterwards a small player with "Replace video".
@@ -60,6 +58,7 @@ export function SalonVideo({
   /** A kirana's shop video: the same upload, its own words (the shelves and the counter). */
   kirana?: boolean
 }) {
+  const t = useT()
   const recordInput = useRef<HTMLInputElement>(null)
   const galleryInput = useRef<HTMLInputElement>(null)
   const [picked, setPicked] = useState<Picked | null>(null)
@@ -81,12 +80,12 @@ export function SalonVideo({
     if (!uploading) return
     const warn = (e: BeforeUnloadEvent) => {
       e.preventDefault()
-      e.returnValue = leaveWarning(kirana)
+      e.returnValue = t(kirana ? 'shop.videoLeaveWarningKirana' : 'shop.videoLeaveWarning')
     }
     const link = (e: MouseEvent) => {
       const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
       if (!a || a.target === '_blank' || new URL(a.href, location.href).origin !== location.origin) return
-      if (!window.confirm(leaveWarning(kirana))) {
+      if (!window.confirm(t(kirana ? 'shop.videoLeaveWarningKirana' : 'shop.videoLeaveWarning'))) {
         e.preventDefault()
         e.stopPropagation()
       }
@@ -97,7 +96,7 @@ export function SalonVideo({
       window.removeEventListener('beforeunload', warn)
       document.removeEventListener('click', link, true)
     }
-  }, [uploading])
+  }, [uploading, t, kirana])
 
   function reset() {
     abort.current?.abort()
@@ -179,10 +178,10 @@ export function SalonVideo({
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') {
         setPhase('failed')
-        setMessage('Upload cancelled. Tap Try again to send it, or pick another video.')
+        setMessage(t('shop.videoUploadCancelled'))
         return
       }
-      setMessage(kirana ? videoErrorText(e).replace(/salon/g, 'shop') : videoErrorText(e))
+      setMessage(videoErrorText(e, kirana))
       if (isApiError(e, 'UPLOAD_GONE')) {
         // The completed video expired before it was saved on the salon: Try again sends it again from the start
         state.current = { held: null, sent: false, fileId: null }
@@ -192,7 +191,7 @@ export function SalonVideo({
         setPhase('blocked')
       } else if (refusedForGood(e) || afterCompleteFailure(e) === 'pick-again') {
         reset()
-        setMessage(kirana ? videoErrorText(e).replace(/salon/g, 'shop') : videoErrorText(e))
+        setMessage(videoErrorText(e, kirana))
       } else {
         setPhase('failed')
       }
@@ -205,56 +204,47 @@ export function SalonVideo({
   const percent = Math.round(progress * 100)
   const spoken =
     phase === 'checking'
-      ? 'Checking the video…'
+      ? t('shop.videoChecking')
       : phase === 'sending'
-        ? `Uploading the video, ${Math.floor(percent / 10) * 10}%`
+        ? t('shop.videoUploadingSpoken', { percent: Math.floor(percent / 10) * 10 })
         : phase === 'saving'
-          ? 'Saving the video…'
+          ? t('shop.videoSaving')
           : ''
   return (
     <Card className="flex flex-col gap-3">
       <div>
-        <p className="font-medium">{kirana ? 'Shop video' : 'Salon video'}</p>
+        <p className="font-medium">{t(kirana ? 'shop.videoTitleKirana' : 'shop.videoTitle')}</p>
         <p className="text-sm text-muted">
-          {VIDEO_MIN_SECONDS}–{VIDEO_MAX_SECONDS} seconds. Only our field team sees it, before the visit.
+          {t('shop.videoLengthNote', { min: VIDEO_MIN_SECONDS, max: VIDEO_MAX_SECONDS })}
         </p>
       </div>
       {fileId && !replacing && (
         <>
           <Preview fileId={fileId} kirana={kirana} />
           <Button variant="secondary" onClick={() => setReplacing(true)}>
-            Replace video
+            {t('shop.videoReplace')}
           </Button>
         </>
       )}
       {showPickers && (
         <>
           <ol className="list-decimal space-y-1 pl-5 text-sm">
-            <li>Hold the phone sideways. If your camera is set to 4K, switch it to 1080p (HD) first.</li>
-            {kirana ? (
-              <>
-                <li>Start outside: show the board with the shop's name and the entrance (about 5 seconds).</li>
-                <li>Walk in, stand near the counter, turn slowly from left to right showing the shelves and the counter.</li>
-              </>
-            ) : (
-              <>
-                <li>Start outside: show the board with the salon's name and the entrance (about 5 seconds).</li>
-                <li>Walk in, stand near the door, turn slowly from left to right showing the chairs, mirrors and waiting area.</li>
-              </>
-            )}
-            <li>Lights on, keep the phone steady, no need to talk.</li>
-            <li>Avoid customers' faces where you can.</li>
+            <li>{t('shop.videoHowSideways')}</li>
+            <li>{t(kirana ? 'shop.videoHowOutsideKirana' : 'shop.videoHowOutside')}</li>
+            <li>{t(kirana ? 'shop.videoHowInsideKirana' : 'shop.videoHowInside')}</li>
+            <li>{t('shop.videoHowSteady')}</li>
+            <li>{t('shop.videoHowFaces')}</li>
           </ol>
           <div className="grid grid-cols-2 gap-2">
             <Button disabled={busy} onClick={() => recordInput.current?.click()}>
-              Record video
+              {t('shop.videoRecord')}
             </Button>
             <Button variant="secondary" disabled={busy} onClick={() => galleryInput.current?.click()}>
-              Choose from gallery
+              {t('shop.videoChooseFromGallery')}
             </Button>
           </div>
-          <input ref={recordInput} type="file" accept="video/*" capture="environment" className="hidden" tabIndex={-1} aria-label="Record video" onChange={pickedFile} disabled={busy} />
-          <input ref={galleryInput} type="file" accept="video/*" className="hidden" tabIndex={-1} aria-label="Choose video from gallery" onChange={pickedFile} disabled={busy} />
+          <input ref={recordInput} type="file" accept="video/*" capture="environment" className="hidden" tabIndex={-1} aria-label={t('shop.videoRecord')} onChange={pickedFile} disabled={busy} />
+          <input ref={galleryInput} type="file" accept="video/*" className="hidden" tabIndex={-1} aria-label={t('shop.videoChooseFromGalleryLabel')} onChange={pickedFile} disabled={busy} />
           {fileId && (
             <Button
               variant="ghost"
@@ -264,7 +254,7 @@ export function SalonVideo({
                 setReplacing(false)
               }}
             >
-              Keep the current video
+              {t('shop.videoKeepCurrent')}
             </Button>
           )}
         </>
@@ -272,18 +262,18 @@ export function SalonVideo({
       <p role="status" aria-live="polite" className="sr-only">
         {spoken}
       </p>
-      {phase === 'checking' && <p aria-hidden className="text-sm text-muted">Checking the video…</p>}
+      {phase === 'checking' && <p aria-hidden className="text-sm text-muted">{t('shop.videoChecking')}</p>}
       {phase === 'unknown-length' && picked && (
         <div className="flex flex-col gap-2">
-          <Banner tone="warn">{LENGTH_UNKNOWN}</Banner>
-          <Button onClick={() => void send(picked)}>Upload anyway</Button>
+          <Banner tone="warn">{lengthUnknown()}</Banner>
+          <Button onClick={() => void send(picked)}>{t('shop.videoUploadAnyway')}</Button>
         </div>
       )}
       {phase === 'sending' && (
         <div className="flex flex-col gap-2">
           <div
             role="progressbar"
-            aria-label="Uploading the video"
+            aria-label={t('shop.videoUploadingLabel')}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={percent}
@@ -291,15 +281,15 @@ export function SalonVideo({
           >
             <div className="h-full bg-brand transition-[width]" style={{ width: `${percent}%` }} />
           </div>
-          <p aria-hidden className="text-sm text-muted">Uploading… {percent}%. Keep the app open.</p>
+          <p aria-hidden className="text-sm text-muted">{t('shop.videoUploadingProgress', { percent })}</p>
           <Button variant="secondary" onClick={() => abort.current?.abort()}>
-            Cancel
+            {t('common.cancel')}
           </Button>
         </div>
       )}
-      {phase === 'saving' && <p aria-hidden className="text-sm text-muted">Saving the video…</p>}
+      {phase === 'saving' && <p aria-hidden className="text-sm text-muted">{t('shop.videoSaving')}</p>}
       {message && <Banner tone={phase === 'blocked' ? 'warn' : 'bad'}>{message}</Banner>}
-      {phase === 'failed' && picked && <Button onClick={() => void send(picked)}>Try again</Button>}
+      {phase === 'failed' && picked && <Button onClick={() => void send(picked)}>{t('common.retry')}</Button>}
     </Card>
   )
 }
@@ -310,6 +300,7 @@ export function SalonVideo({
  * error (a link that ran out), then says to reload.
  */
 function Preview({ fileId, kirana = false }: { fileId: string; kirana?: boolean }) {
+  const t = useT()
   const link = useVideoLink(fileId)
   const [src, setSrc] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
@@ -333,8 +324,8 @@ function Preview({ fileId, kirana = false }: { fileId: string; kirana?: boolean 
     else setBroken(true)
   }
 
-  if (broken) return <Banner tone="bad">Couldn't play the video. Reload the page.</Banner>
-  if (!src) return <p className="text-sm text-muted">Video saved.</p>
+  if (broken) return <Banner tone="bad">{t('shop.videoCantPlay')}</Banner>
+  if (!src) return <p className="text-sm text-muted">{t('shop.videoSaved')}</p>
   return (
     <video
       key={retried ? 'retry' : 'first'}
@@ -342,7 +333,7 @@ function Preview({ fileId, kirana = false }: { fileId: string; kirana?: boolean 
       controls
       playsInline
       preload="metadata"
-      aria-label={kirana ? 'Your shop video' : 'Your salon video'}
+      aria-label={t(kirana ? 'shop.videoYoursKirana' : 'shop.videoYours')}
       className="aspect-video w-full rounded-xl bg-scrim/20"
       onLoadedMetadata={() => setLoaded(true)}
       onError={() => void failed()}

@@ -4,12 +4,14 @@ import { authApi } from '../../api/auth'
 import { messageOf } from '../../api/errors'
 import { CodeInput } from '../../components/CodeInput'
 import { Banner, Button, Field, Page } from '../../components/ui'
+import { useT } from '../../i18n'
 import { looksLikeEmail } from '../../lib/phone'
 import { useSession } from '../../store/session'
 import { nextAfterSignIn } from './flow'
 
 /** Sign-up step 2: an email we can reach, for receipts and for getting the account back if the phone is lost. */
 export function EmailStep() {
+  const t = useT()
   const navigate = useNavigate()
   const setUser = useSession((s) => s.setUser)
   const current = useSession((s) => s.user?.email) ?? ''
@@ -22,8 +24,8 @@ export function EmailStep() {
 
   useEffect(() => {
     if (wait <= 0) return
-    const t = setTimeout(() => setWait((w) => w - 1), 1000)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setWait((w) => w - 1), 1000)
+    return () => clearTimeout(timer)
   }, [wait])
 
   async function send(e?: React.FormEvent) {
@@ -31,7 +33,7 @@ export function EmailStep() {
     if (busy) return
     const address = email.trim()
     if (!looksLikeEmail(address)) {
-      setError('Enter a valid email address')
+      setError(t('auth.emailInvalid'))
       return
     }
     setBusy(true)
@@ -65,33 +67,33 @@ export function EmailStep() {
   }
 
   return (
-    <Page title="Your email">
-      <p className="text-muted">Step 2 of 3. If you ever lose your phone number, this email is how you get your account back.</p>
+    <Page title={t('auth.emailTitle')}>
+      <p className="text-muted">{t('auth.emailIntro')}</p>
       {!sentTo ? (
         <form onSubmit={send} className="flex flex-col gap-4" noValidate>
           <Field
             id="email"
-            label="Email"
+            label={t('auth.emailLabel')}
             type="email"
             inputMode="email"
             autoComplete="email"
-            placeholder="you@example.com"
+            placeholder={t('auth.emailPlaceholder')}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
           {error && <Banner tone="bad">{error}</Banner>}
           <Button type="submit" busy={busy} disabled={!looksLikeEmail(email)}>
-            Send code
+            {t('auth.emailSendCode')}
           </Button>
         </form>
       ) : (
         <div className="flex flex-col gap-4">
           <p className="text-muted">
-            We sent a code to <span className="text-ink">{sentTo}</span>. Check spam if you don't see it.
+            {t('auth.emailSentBefore')}<span className="text-ink">{sentTo}</span>{t('auth.emailSentAfter')}
           </p>
           <CodeInput
             id="email-code"
-            label="Code"
+            label={t('auth.codeLabel')}
             value={code}
             onChange={(v) => {
               setCode(v)
@@ -100,14 +102,14 @@ export function EmailStep() {
           />
           {error && <Banner tone="bad">{error}</Banner>}
           <Button busy={busy} disabled={code.length !== 6} onClick={() => verify(code)}>
-            Verify
+            {t('auth.verify')}
           </Button>
           <div className="flex justify-between">
             <Button variant="ghost" onClick={() => send()} disabled={busy || wait > 0}>
-              {wait > 0 ? `Send again in ${wait} s` : 'Send again'}
+              {wait > 0 ? t('auth.emailSendAgainIn', { seconds: wait }) : t('auth.emailSendAgain')}
             </Button>
             <Button variant="ghost" onClick={() => setSentTo(null)}>
-              Change email
+              {t('auth.emailChange')}
             </Button>
           </div>
         </div>

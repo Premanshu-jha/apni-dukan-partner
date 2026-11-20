@@ -1,0 +1,63 @@
+{
+  "spinnerLoading": "Loading",
+
+  "errorTitle": "Something went wrong on this screen",
+  "errorBody": "Your salon's data is safe. Start again to carry on.",
+  "errorStartAgain": "Start again",
+
+  "mapLoadFailed": "The map couldn't load (no internet?). Reload the page to try again.",
+
+  "updateAvailable": "New version available",
+  "updateReload": "Reload",
+
+  "copyCodeAria": "Copy shop code {code}",
+  "copyCopied": "Copied",
+  "copyCopy": "Copy",
+
+  "photoFormat": "This photo's format can't be used (often an iPhone or Samsung HEIC photo). Take it with Take photo, or pick a JPG.",
+  "photoNotImage": "Pick a photo.",
+  "photoSaved": "Photo saved",
+  "photoEmpty": "Take or choose a photo",
+  "photoUploading": "Uploading…",
+  "photoTake": "Take photo",
+  "photoRetake": "Retake photo",
+  "photoTakeAria": "Take {name}",
+  "photoRetakeAria": "Retake {name}",
+  "photoGallery": "Choose from gallery",
+  "photoGalleryAnother": "Choose another",
+  "photoGalleryAria": "Choose {name} from gallery",
+  "photoGalleryAnotherAria": "Choose another {name} from gallery",
+  "photoCameraInputAdd": "Add {name}",
+  "photoCameraInputChange": "Change {name}",
+  "photoGalleryInput": "Pick {name} from gallery",
+  "photoRetryAria": "Try sending {name} again",
+
+  "locationOffTitle": "Location is turned off",
+  "locationOffBody": "Customers find your salon by its location. Here's how to turn it on:",
+  "locationIosSettings": "Open the Settings app on your iPhone.",
+  "locationIosServices": "Tap Privacy & Security, then Location Services, and make sure it is on.",
+  "locationIosBrowser": "Scroll down to Safari Websites (or your browser) and choose \"While Using the App\".",
+  "locationIosReturn": "Come back here and reload the page, then tap Try again.",
+  "locationAndroidIcon": "Tap the icon at the left of the address bar (a lock or two sliders).",
+  "locationAndroidAllow": "Tap Permissions, then Location, and choose Allow.",
+  "locationAndroidQuickSettings": "Check that Location is on in your phone’s quick settings (swipe down from the top).",
+  "locationAndroidReturn": "Come back here and tap Try again.",
+  "locationDesktopIcon": "Click the icon at the left of the address bar.",
+  "locationDesktopAllow": "Find Location and set it to Allow.",
+  "locationDesktopReload": "Reload the page and click Try again.",
+  "locationDesktopUsePhone": "A computer can only guess where it is: register from your phone, standing in the salon.",
+
+  "mapAttribution": "© OpenStreetMap contributors",
+  "mapPinTitle": "Salon location",
+  "mapPinMovedNorth": "Pin moved north.",
+  "mapPinMovedSouth": "Pin moved south.",
+  "mapPinMovedWest": "Pin moved west.",
+  "mapPinMovedEast": "Pin moved east.",
+  "mapMovableAria": "Map: drag the pin to your salon's door, or tab to the pin and use the arrow keys",
+  "mapFixedAria": "Map: your salon's pin, where customers find you",
+
+  "moreOffline": "You're offline. Connect to the internet and tap {label} again.",
+  "moreNetwork": "You're offline or the server can't be reached. Connect and tap {label} again.",
+  "moreFailed": "Couldn't load more. Tap {label} to try again.",
+  "moreRefreshFailed": "Couldn't refresh the list. It may be a little out of date."
+}

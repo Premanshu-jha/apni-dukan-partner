@@ -1,5 +1,6 @@
 import { useShop } from '../../api/shop'
 import { Card } from '../../components/ui'
+import { t, useT } from '../../i18n'
 import { dateOfIst } from '../../lib/ist'
 
 /**
@@ -7,30 +8,31 @@ import { dateOfIst } from '../../lib/ist'
  * since when, any fix the team asked for, and that the salon stays live. Nothing otherwise.
  */
 export function RecheckWaiting() {
+  const t = useT()
   const shop = useShop()
   if (!shop.recheckSince || shop.status !== 'APPROVED') return null
   const fix = shop.statusReason
   return (
     <Card className={`flex flex-col gap-1 ${fix ? 'border-warn/60' : 'border-brand/40'}`}>
       <p className="font-semibold">
-        {fix ? 'Our field team asked you to fix something' : `Our field team is checking your changes since ${dayMonth(shop.recheckSince)}`}
+        {fix ? t('shop.recheckFixAsked') : t('shop.recheckCheckingSince', { date: dayMonth(shop.recheckSince) })}
       </p>
       {fix && (
         <p className="text-sm break-words">
-          {shop.type === 'KIRANA'
-            ? `“${fix}” Fix it in More → Edit (shop details), Photos or UPI ID (for the address: Request address change).`
-            : `“${fix}” Fix it in the Salon tab → Salon details or Photos and video (for the address: Salon details → Request address change).`}
+          {t(shop.type === 'KIRANA' ? 'shop.recheckFixWhereKirana' : 'shop.recheckFixWhere', { fix })}
         </p>
       )}
       <p className="text-sm text-muted">
-        {shop.type === 'KIRANA' ? 'Your shop stays open and customers can order as usual.' : 'Your salon stays live and customers can book as usual.'}
+        {t(shop.type === 'KIRANA' ? 'shop.recheckStaysOpenKirana' : 'shop.recheckStaysLive')}
       </p>
     </Card>
   )
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
 /** "12 Nov" in India time. */
 function dayMonth(iso: string): string {
   const [, m, d] = dateOfIst(iso).split('-').map(Number)
-  return `${d} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1]}`
+  return t('shop.dayMonth', { day: d, month: t(`shop.monthShort${MONTHS[m - 1]}`) })
 }

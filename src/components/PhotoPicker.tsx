@@ -1,13 +1,15 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { messageOf } from '../api/errors'
 import { usePhotoLink } from '../api/shop'
+import { t, useT } from '../i18n'
 import { shrinkPhoto } from '../lib/image'
 import { Banner, Button, Spinner } from './ui'
 
 /** What the backend takes for photos (FileService): anything else the phone can't turn into a JPEG is refused. */
 const USABLE = ['image/jpeg', 'image/png']
-export const PHOTO_FORMAT_TEXT =
-  "This photo's format can't be used (often an iPhone or Samsung HEIC photo). Take it with Take photo, or pick a JPG."
+export function photoFormatText() {
+  return t('ui.photoFormat')
+}
 
 /**
  * One photo: shows the current one (from its file id) or the one just picked, and uploads a new pick with
@@ -33,6 +35,7 @@ export function PhotoPicker({
   /** Told when an upload starts and ends (the page asks before leaving meanwhile). */
   onBusy?: (busy: boolean) => void
 }) {
+  const t = useT()
   const id = useId()
   const gallery = useRef<HTMLInputElement>(null)
   const camera = useRef<HTMLInputElement>(null)
@@ -80,7 +83,7 @@ export function PhotoPicker({
     e.target.value = ''
     if (!file) return
     if (file.type && !file.type.startsWith('image/')) {
-      setError('Pick a photo.')
+      setError(t('ui.photoNotImage'))
       setFailed(null)
       return
     }
@@ -92,7 +95,7 @@ export function PhotoPicker({
       const small = await shrinkPhoto(file)
       // The phone couldn't redraw it as a JPEG (shrinkPhoto gave the file back) and it isn't one the backend takes
       if (small === file && !USABLE.includes(file.type)) {
-        setError(PHOTO_FORMAT_TEXT)
+        setError(photoFormatText())
         setFailed(null)
         return
       }
@@ -116,16 +119,16 @@ export function PhotoPicker({
         {src ? (
           <img src={src} alt={label} className="h-full w-full object-cover" />
         ) : has ? (
-          <span className="text-sm text-muted">Photo saved</span>
+          <span className="text-sm text-muted">{t('ui.photoSaved')}</span>
         ) : (
           <span className="flex flex-col items-center gap-1 text-sm text-link">
             <span aria-hidden className="text-3xl">＋</span>
-            Take or choose a photo
+            {t('ui.photoEmpty')}
           </span>
         )}
         {busy && (
           <span className="absolute inset-0 flex items-center justify-center bg-scrim/50">
-            <Spinner label="Uploading…" />
+            <Spinner label={t('ui.photoUploading')} />
           </span>
         )}
       </label>
@@ -133,18 +136,18 @@ export function PhotoPicker({
         <Button
           variant={has ? 'secondary' : 'primary'}
           disabled={off}
-          aria-label={`${has ? 'Retake' : 'Take'} ${name}`}
+          aria-label={has ? t('ui.photoRetakeAria', { name }) : t('ui.photoTakeAria', { name })}
           onClick={() => camera.current?.click()}
         >
-          {has ? 'Retake photo' : 'Take photo'}
+          {has ? t('ui.photoRetake') : t('ui.photoTake')}
         </Button>
         <Button
           variant="secondary"
           disabled={off}
-          aria-label={`${has ? 'Choose another' : 'Choose'} ${name} from gallery`}
+          aria-label={has ? t('ui.photoGalleryAnotherAria', { name }) : t('ui.photoGalleryAria', { name })}
           onClick={() => gallery.current?.click()}
         >
-          {has ? 'Choose another' : 'Choose from gallery'}
+          {has ? t('ui.photoGalleryAnother') : t('ui.photoGallery')}
         </Button>
       </div>
       {/* The camera (the tile and Take photo); the label is what tests and screen readers use */}
@@ -156,7 +159,7 @@ export function PhotoPicker({
         capture={capture}
         className="sr-only"
         tabIndex={-1}
-        aria-label={has ? `Change ${name}` : `Add ${name}`}
+        aria-label={has ? t('ui.photoCameraInputChange', { name }) : t('ui.photoCameraInputAdd', { name })}
         onChange={picked}
         disabled={off}
       />
@@ -166,15 +169,15 @@ export function PhotoPicker({
         accept="image/*"
         className="sr-only"
         tabIndex={-1}
-        aria-label={`Pick ${name} from gallery`}
+        aria-label={t('ui.photoGalleryInput', { name })}
         onChange={picked}
         disabled={off}
       />
       {hint && !error && <p className="text-sm text-muted">{hint}</p>}
       {error && <Banner tone="bad">{error}</Banner>}
       {error && failed && (
-        <Button variant="secondary" disabled={off} aria-label={`Try sending ${name} again`} onClick={() => void retry(failed)}>
-          Try again
+        <Button variant="secondary" disabled={off} aria-label={t('ui.photoRetryAria', { name })} onClick={() => void retry(failed)}>
+          {t('common.retry')}
         </Button>
       )}
     </div>

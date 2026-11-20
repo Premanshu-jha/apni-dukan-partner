@@ -6,6 +6,7 @@ import { refreshSalonWork, salonKeys, setupApi, SETUP_KEYS, useSalonHours } from
 import { useShop } from '../../api/shop'
 import type { InTheWay, SalonHours } from '../../api/types'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page, Switch } from '../../components/ui'
+import { useT } from '../../i18n'
 import { clock12, weekdayName } from '../../lib/ist'
 import { can } from '../../lib/roles'
 import {
@@ -42,6 +43,7 @@ export function SalonHoursEditor({
   /** A save starts (a "Saved." shown for an earlier one goes) */
   onSaving?: () => void
 }) {
+  const t = useT()
   const qc = useQueryClient()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -99,7 +101,7 @@ export function SalonHoursEditor({
       } else {
         setError(
           isApiError(e, 'HOURS_CHANGED')
-            ? 'Someone changed the hours meanwhile. The page now shows the latest; check and save again.'
+            ? t('setup.hoursChanged')
             : explain(e),
         )
         if (isApiError(e, 'HOURS_CHANGED')) await qc.invalidateQueries({ queryKey: salonKeys.hours })
@@ -112,14 +114,14 @@ export function SalonHoursEditor({
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="font-medium">Opening hours</p>
+        <p className="font-medium">{t('setup.hoursTitle')}</p>
         {firstOpen && (
           <button type="button" className="text-sm text-link underline" onClick={copyFirst}>
-            Same times every open day
+            {t('setup.sameTimes')}
           </button>
         )}
       </div>
-      <p className="text-sm text-muted">Switch off your weekly off day. Barbers' hours must fit inside these.</p>
+      <p className="text-sm text-muted">{t('setup.hoursHint')}</p>
       <ul className="flex flex-col gap-3">
         {WEEKDAYS.map((d) => {
           const h = week[d]
@@ -128,9 +130,9 @@ export function SalonHoursEditor({
               <div className="flex items-center justify-between">
                 <span className="font-medium">{weekdayName(d)}</span>
                 <span className="flex items-center gap-2 text-sm text-muted">
-                  {h ? 'Open' : 'Closed'}
+                  {h ? t('setup.dayOpen') : t('setup.dayClosed')}
                   <Switch
-                    label={`${weekdayName(d)} open`}
+                    label={t('setup.dayOpenSwitch', { day: weekdayName(d) })}
                     checked={Boolean(h)}
                     onChange={(on) => change({ ...week, [d]: on ? { open: '10:00', close: '21:00' } : null })}
                   />
@@ -139,11 +141,11 @@ export function SalonHoursEditor({
               {h && (
                 <>
                   <div className="grid grid-cols-2 gap-2">
-                    <Field id={`open-${d}`} label="Opens" type="time" step={900} value={h.open} onChange={(e) => setDay(d, 'open', e.target.value)} />
+                    <Field id={`open-${d}`} label={t('setup.opens')} type="time" step={900} value={h.open} onChange={(e) => setDay(d, 'open', e.target.value)} />
                     {h.close === '24:00' ? (
-                      <p className="flex min-h-12 items-end pb-3 text-sm">Closes at midnight</p>
+                      <p className="flex min-h-12 items-end pb-3 text-sm">{t('setup.closesMidnight')}</p>
                     ) : (
-                      <Field id={`close-${d}`} label="Closes" type="time" step={900} value={h.close} onChange={(e) => setDay(d, 'close', e.target.value)} />
+                      <Field id={`close-${d}`} label={t('setup.closes')} type="time" step={900} value={h.close} onChange={(e) => setDay(d, 'close', e.target.value)} />
                     )}
                   </div>
                   {/* A time box can't say 24:00, so midnight is its own choice */}
@@ -154,7 +156,7 @@ export function SalonHoursEditor({
                       checked={h.close === '24:00'}
                       onChange={(e) => setDay(d, 'close', e.target.checked ? '24:00' : '23:45')}
                     />
-                    Open till midnight
+                    {t('setup.openTillMidnight')}
                   </label>
                 </>
               )}
@@ -165,10 +167,10 @@ export function SalonHoursEditor({
       {problem && <Banner tone="warn">{problem}</Banner>}
       {outside && (
         <div className="flex flex-col gap-2 rounded-xl border border-warn/50 p-3">
-          <p className="font-semibold">Some barbers work outside these hours</p>
+          <p className="font-semibold">{t('setup.barbersOutside')}</p>
           <p className="text-sm text-muted">{outside.map((o) => o.name).join(', ')}</p>
           <Button variant="secondary" busy={busy} disabled={Boolean(problem)} onClick={() => save(true)}>
-            Cut their hours to fit and save
+            {t('setup.cutAndSave')}
           </Button>
         </div>
       )}
@@ -183,12 +185,13 @@ export function SalonHoursEditor({
 
 /** Setup → Opening hours: the owner changes them; helpers see them. */
 export function SalonHoursPage() {
+  const t = useT()
   const shop = useShop()
   const edit = can(shop.myRole).editSetup
   const hours = useSalonHours()
   const [saved, setSaved] = useState(false)
   return (
-    <Page back="/setup" title="Opening hours">
+    <Page back="/setup" title={t('setup.hoursTitle')}>
       {hours.isPending ? (
         <Loading />
       ) : hours.isError && !hours.data ? (
@@ -196,10 +199,10 @@ export function SalonHoursPage() {
         <ErrorState message={messageOf(hours.error)} onRetry={() => hours.refetch()} />
       ) : edit ? (
         <>
-          {saved && <Banner tone="good">Saved.</Banner>}
+          {saved && <Banner tone="good">{t('setup.saved')}</Banner>}
           <SalonHoursEditor
             hours={hours.data}
-            saveLabel="Save hours"
+            saveLabel={t('setup.saveSalonHours')}
             onSaved={() => setSaved(true)}
             onSaving={() => setSaved(false)}
           />
@@ -207,7 +210,7 @@ export function SalonHoursPage() {
       ) : (
         <Card className="flex flex-col gap-1">
           {hours.data.days.length === 0 ? (
-            <p className="text-sm text-muted">The owner hasn't set the opening hours yet.</p>
+            <p className="text-sm text-muted">{t('setup.hoursNotSetByOwner')}</p>
           ) : (
             weekLines(hours.data.days, clock12).map((l) => (
               <p key={l} className="text-sm">
@@ -218,15 +221,15 @@ export function SalonHoursPage() {
         </Card>
       )}
       <p className="text-sm text-muted">
-        For festival holidays and other days the whole salon is closed, use{' '}
+        {t('setup.closedDaysBefore')}{' '}
         {can(shop.myRole).closures ? (
           <Link to="/salon/closures" className="text-link underline">
-            Closed days
+            {t('setup.closedDays')}
           </Link>
         ) : (
-          'Closed days (the owner sets them)'
+          t('setup.closedDaysOwnerSets')
         )}
-        .
+        {t('setup.closedDaysAfter')}
       </p>
     </Page>
   )

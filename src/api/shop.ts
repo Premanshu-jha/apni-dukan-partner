@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react'
 import { useSession } from '../store/session'
 import { api, refreshSession } from './client'
 import { ApiError, isApiError } from './errors'
+import { t } from '../i18n'
 import type {
   AddressIn,
   AddressRequest,
@@ -254,7 +255,7 @@ export class VideoSendError extends Error {
   readonly status: number
   readonly linkExpired: boolean
   constructor(status: number) {
-    super(status === 403 ? 'The upload link ran out.' : "The video didn't go through. Try again.")
+    super(status === 403 ? t('misc.uploadLinkExpired') : t('misc.videoDidntGoThrough'))
     this.name = 'VideoSendError'
     this.status = status
     this.linkExpired = status === 403

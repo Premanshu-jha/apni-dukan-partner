@@ -1,4 +1,5 @@
 import type { OpenDay, Shift } from '../api/types'
+import { t } from '../i18n'
 import { weekdayName } from './ist'
 
 /** One day of the salon's week as the editor holds it: open with its times, or closed (null). */
@@ -31,13 +32,13 @@ export function fromSalonWeek(week: SalonWeek): OpenDay[] {
 /** Problems before sending: at least one open day, close after open, 15-minute steps. */
 export function checkSalonWeek(week: SalonWeek): string | null {
   const open = WEEKDAYS.filter((d) => week[d])
-  if (open.length === 0) return 'Open at least one day a week.'
+  if (open.length === 0) return t('setup.openAtLeastOne')
   for (const d of open) {
     const h = week[d]!
-    if (!h.open || !h.close) return `${weekdayName(d)}: fill in both times.`
-    if (h.close <= h.open) return `${weekdayName(d)}: closing must be after opening.`
-    if (![h.open, h.close].every((t) => Number(t.split(':')[1]) % 15 === 0)) {
-      return `${weekdayName(d)}: use 15-minute steps (10:00, 10:15, …).`
+    if (!h.open || !h.close) return t('setup.dayFillBothTimes', { day: weekdayName(d) })
+    if (h.close <= h.open) return t('setup.dayCloseAfterOpen', { day: weekdayName(d) })
+    if (![h.open, h.close].every((x) => Number(x.split(':')[1]) % 15 === 0)) {
+      return t('setup.dayUse15Steps', { day: weekdayName(d) })
     }
   }
   return null
@@ -48,7 +49,7 @@ export function weekLines(days: OpenDay[], clock: (t: string) => string): string
   const week = toSalonWeek(days)
   return WEEKDAYS.map((d) => {
     const h = week[d]
-    return `${weekdayName(d)}: ${h ? `${clock(h.open)} – ${clock(h.close)}` : 'Closed'}`
+    return `${weekdayName(d)}: ${h ? `${clock(h.open)} – ${clock(h.close)}` : t('setup.dayClosed')}`
   })
 }
 

@@ -59,7 +59,7 @@ test('hand over: the neutral answer, the waiting request with Cancel, and the er
 
   await field.fill('+91 98111 00000')
   await page.getByRole('button', { name: 'Send request' }).click()
-  await expect(page.getByText("If that number has an Apni Dukan account, they'll see your request.")).toBeVisible()
+  await expect(page.getByText("Request sent. If that number has a Clozest account, they'll see it when they open the app.")).toBeVisible()
   await expect(page.getByText('Waiting for an answer')).toBeVisible()
   await expect(page.getByText('+91 98111 00000')).toBeVisible()
   expect(api.calls.filter((c) => c.method === 'POST' && c.path === '/api/v1/shops/me/handover').at(-1)!.body).toEqual({ phone: '9811100000', version: 3 })

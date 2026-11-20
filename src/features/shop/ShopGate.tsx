@@ -3,18 +3,20 @@ import { Navigate, Outlet } from 'react-router'
 import { messageOf } from '../../api/errors'
 import { ShopContext, shopKeys, useMyShop } from '../../api/shop'
 import { ErrorState, Loading, Page } from '../../components/ui'
+import { useT } from '../../i18n'
 
 /**
  * Every screen after sign-in goes through here: GET /shops/me decides what this person sees. No shop → the start
  * screen. A kirana's people see only kirana screens and a salon's only salon screens (KindOnly in the routes).
  */
 export function ShopGate() {
+  const t = useT()
   const shop = useMyShop()
-  if (shop.isPending) return <Loading label="Opening your shop…" />
+  if (shop.isPending) return <Loading label={t('register.openingShop')} />
   // A failed re-check keeps the shop it already had (and whatever is on screen); only a first load shows the error.
   if (shop.isError && shop.data === undefined) {
     return (
-      <Page title="Clozest Partner">
+      <Page title={t('register.appName')}>
         <ErrorState message={messageOf(shop.error)} onRetry={() => shop.refetch()} />
       </Page>
     )

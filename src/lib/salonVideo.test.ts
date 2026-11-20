@@ -206,3 +206,13 @@ describe('sending the video', () => {
     await expect(refused).rejects.toMatchObject({ status: 503, linkExpired: false })
   })
 })
+
+describe("a kirana's video errors", () => {
+  it('say shop, not salon', () => {
+    const owner = new ApiError(403, { code: 'OWNER_ONLY', message: 'Only the shop owner can add the salon video.', details: {} })
+    expect(videoErrorText(owner, true)).toBe('Only the shop owner can add the shop video.')
+    expect(videoErrorText(owner)).toBe('Only the shop owner can add the salon video.')
+    const changed = new ApiError(409, { code: 'SHOP_CHANGED', message: 'x', details: {} })
+    expect(videoErrorText(changed, true)).toContain('Your shop was changed')
+  })
+})

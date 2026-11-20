@@ -8,6 +8,7 @@ import { fileApi, useShop } from '../../api/shop'
 import type { InTheWay, Shift, Staff } from '../../api/types'
 import { PhotoPicker } from '../../components/PhotoPicker'
 import { Banner, Button, Card, EmptyState, ErrorState, Field, Loading, Page, Switch } from '../../components/ui'
+import { t, useT } from '../../i18n'
 import { clock12, dateTimeIst, timeIst, weekdayName } from '../../lib/ist'
 import { formatPhone, normalizePhone } from '../../lib/phone'
 import { can } from '../../lib/roles'
@@ -23,6 +24,7 @@ function useAfterChange() {
 
 /** One barber: name and on/off, photo, his sign-in, the services he does and his weekly hours. */
 export function StaffDetail() {
+  const t = useT()
   const { id } = useParams()
   const staff = useStaff()
   const shop = useShop()
@@ -32,8 +34,8 @@ export function StaffDetail() {
   const s = staff.data.find((x) => x.id === id)
   if (!s) {
     return (
-      <Page back="/setup/staff" title="Barber">
-        <EmptyState title="This barber isn't here any more" />
+      <Page back="/setup/staff" title={t('setup.barberTitle')}>
+        <EmptyState title={t('setup.barberGone')} />
       </Page>
     )
   }
@@ -54,13 +56,14 @@ export function StaffDetail() {
 }
 
 function useSaver() {
+  const t = useT()
   const after = useAfterChange()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
   // New hours or services that would strand upcoming bookings (409 BOOKINGS_IN_THE_WAY lists them)
   const [inTheWay, setInTheWay] = useState<InTheWay[] | null>(null)
-  async function run(call: () => Promise<unknown>, message = 'Saved.') {
+  async function run(call: () => Promise<unknown>, message = t('setup.saved')) {
     setBusy(true)
     setError(null)
     setSaved(null)
@@ -70,7 +73,7 @@ function useSaver() {
       setSaved(message)
     } catch (e) {
       setError(
-        isApiError(e, 'STAFF_CHANGED') ? 'Someone changed this barber meanwhile. The page now shows the latest; try again.' : explain(e),
+        isApiError(e, 'STAFF_CHANGED') ? t('setup.barberChanged') : explain(e),
       )
       if (isApiError(e, 'BOOKINGS_IN_THE_WAY')) {
         const list = e.details.appointments
@@ -86,11 +89,12 @@ function useSaver() {
 
 /** The bookings a change would strand, each a link that opens it on its day's board (to give to another barber or cancel). */
 export function BookingsInTheWay({ list }: { list: InTheWay[] | null }) {
+  const t = useT()
   if (!list || list.length === 0) return null
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-warn/50 p-3">
-      <p className="font-semibold">{list.length === 1 ? '1 booking is in the way' : `${list.length} bookings are in the way`}</p>
-      <p className="text-sm text-muted">Give these to another barber or cancel them on the day board, then save again.</p>
+      <p className="font-semibold">{t('setup.bookingsInTheWay', { count: list.length })}</p>
+      <p className="text-sm text-muted">{t('setup.bookingsInTheWayHint')}</p>
       <ul className="flex flex-col gap-1 text-sm">
         {list.map((a) => (
           <li key={a.id}>
@@ -109,6 +113,7 @@ export function BookingsInTheWay({ list }: { list: InTheWay[] | null }) {
  * bookings keep his name. Switching him off above keeps him for when he returns. The owner only.
  */
 function RemoveBarber({ s }: { s: Staff }) {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const [asking, setAsking] = useState(false)
@@ -128,24 +133,23 @@ function RemoveBarber({ s }: { s: Staff }) {
   }
   return (
     <Card className="flex flex-col gap-2">
-      <p className="font-medium">Remove {s.name}</p>
+      <p className="font-medium">{t('setup.removeNameTitle', { name: s.name })}</p>
       <p className="text-sm text-muted">
-        For a barber who won't come back. To pause one who comes and goes (a contract barber), switch off "Working
-        here" instead: his services and hours are kept for when he returns.
+        {t('setup.removeHint')}
       </p>
       {asking ? (
         <>
-          <p className="text-sm">Remove {s.name} for good? His past bookings keep his name.</p>
+          <p className="text-sm">{t('setup.removeConfirm', { name: s.name })}</p>
           <Button variant="danger" busy={busy} onClick={remove}>
-            Remove {s.name}
+            {t('setup.removeNameButton', { name: s.name })}
           </Button>
           <Button variant="secondary" disabled={busy} onClick={() => setAsking(false)}>
-            Keep him
+            {t('setup.keepHim')}
           </Button>
         </>
       ) : (
         <Button variant="secondary" onClick={() => setAsking(true)}>
-          Remove barber
+          {t('setup.removeBarber')}
         </Button>
       )}
       {error && <Banner tone="bad">{error}</Banner>}
@@ -154,24 +158,25 @@ function RemoveBarber({ s }: { s: Staff }) {
 }
 
 function NameAndActive({ s, edit }: { s: Staff; edit: boolean }) {
+  const t = useT()
   const [name, setName] = useState(s.name)
   const { busy, error, saved, run } = useSaver()
   const changed = name.trim() !== s.name
   return (
     <Card className="flex flex-col gap-3">
-      <Field id="staff-edit-name" label="Name" value={name} maxLength={60} disabled={!edit} onChange={(e) => setName(e.target.value)} />
+      <Field id="staff-edit-name" label={t('setup.barberName')} value={name} maxLength={60} disabled={!edit} onChange={(e) => setName(e.target.value)} />
       {edit && changed && (
         <Button busy={busy} disabled={name.trim().length < 2} onClick={() => run(() => setupApi.updateStaff(s.id, s.version, { name: name.trim() }))}>
-          Save name
+          {t('setup.saveName')}
         </Button>
       )}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="font-medium">Working here</p>
-          <p className="text-sm text-muted">Switched off, he can't be booked. His bookings must be moved first.</p>
+          <p className="font-medium">{t('setup.workingHere')}</p>
+          <p className="text-sm text-muted">{t('setup.workingHereHint')}</p>
         </div>
         <Switch
-          label="Working here"
+          label={t('setup.workingHere')}
           checked={s.active}
           disabled={!edit || busy}
           onChange={(on) => run(() => setupApi.updateStaff(s.id, s.version, { active: on }))}
@@ -184,12 +189,13 @@ function NameAndActive({ s, edit }: { s: Staff; edit: boolean }) {
 }
 
 function StaffPhoto({ s }: { s: Staff }) {
+  const t = useT()
   const after = useAfterChange()
   return (
     <Card>
       <PhotoPicker
-        label="Photo (optional)"
-        hint="Customers may see it when choosing a barber."
+        label={t('setup.photoLabel')}
+        hint={t('setup.photoHint')}
         capture="environment"
         fileId={s.photoFileId}
         upload={async (photo) => {
@@ -203,6 +209,7 @@ function StaffPhoto({ s }: { s: Staff }) {
 }
 
 function Login({ s, edit }: { s: Staff; edit: boolean }) {
+  const t = useT()
   const [phone, setPhone] = useState('')
   const { busy, error, saved, run } = useSaver()
   const myPhone = useSession((x) => x.user?.phone ?? null)
@@ -211,9 +218,9 @@ function Login({ s, edit }: { s: Staff; edit: boolean }) {
     // The owner's own profile: his sign-in stays on it (he couldn't invite his own number back)
     return (
       <Card>
-        <p className="font-medium">Your own profile</p>
+        <p className="font-medium">{t('setup.ownProfile')}</p>
         <p className="text-sm text-muted">
-          This is you, signed in as the owner. If you stop cutting hair, switch this profile off, or remove it.
+          {t('setup.ownProfileHint')}
         </p>
       </Card>
     )
@@ -221,30 +228,29 @@ function Login({ s, edit }: { s: Staff; edit: boolean }) {
   return (
     <Card className="flex flex-col gap-3">
       <div>
-        <p className="font-medium">His own sign-in</p>
+        <p className="font-medium">{t('setup.hisSignIn')}</p>
         <p className="text-sm text-muted">
-          With a sign-in he opens this app with his phone number and sees his own bookings. You invite his number; he
-          accepts in Clozest. {s.invitedPhone ? `Invited: +91 ${formatPhone(s.invitedPhone)}, waiting for him to accept` : loginText(s.loginPhone)}.
+          {t('setup.signInHint')} {s.invitedPhone ? t('setup.invitedWaiting', { phone: formatPhone(s.invitedPhone) }) : loginText(s.loginPhone)}.
         </p>
       </div>
       {edit &&
         (s.loginPhone ? (
-          <Button variant="secondary" busy={busy} onClick={() => run(() => setupApi.unlinkLogin(s.id), 'Sign-in removed. He is signed out.')}>
-            Remove his sign-in
+          <Button variant="secondary" busy={busy} onClick={() => run(() => setupApi.unlinkLogin(s.id), t('setup.signInRemoved'))}>
+            {t('setup.removeSignIn')}
           </Button>
         ) : s.invitedPhone ? (
-          <Button variant="secondary" busy={busy} onClick={() => run(() => setupApi.unlinkLogin(s.id), 'Invitation cancelled.')}>
-            Cancel the invitation
+          <Button variant="secondary" busy={busy} onClick={() => run(() => setupApi.unlinkLogin(s.id), t('setup.invitationCancelled'))}>
+            {t('setup.cancelInvitation')}
           </Button>
         ) : (
           <>
-            <Field id="staff-phone" label="His mobile number" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <Field id="staff-phone" label={t('setup.hisMobile')} type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
             <Button
               busy={busy}
               disabled={!normalized}
-              onClick={() => run(() => setupApi.linkLogin(s.id, normalized!), "Invitation sent. He'll see it in Clozest when he signs in with this number.")}
+              onClick={() => run(() => setupApi.linkLogin(s.id, normalized!), t('setup.invitationSent'))}
             >
-              Invite him to sign in
+              {t('setup.inviteHim')}
             </Button>
           </>
         ))}
@@ -255,6 +261,7 @@ function Login({ s, edit }: { s: Staff; edit: boolean }) {
 }
 
 function Skills({ s, edit }: { s: Staff; edit: boolean }) {
+  const t = useT()
   const services = useServices()
   const [picked, setPicked] = useState<string[]>(s.serviceIds)
   const { busy, error, saved, inTheWay, run } = useSaver()
@@ -262,11 +269,11 @@ function Skills({ s, edit }: { s: Staff; edit: boolean }) {
   const list = services.data?.filter((v) => v.active || s.serviceIds.includes(v.id)) ?? []
   return (
     <Card className="flex flex-col gap-3">
-      <p className="font-medium">Services he does</p>
+      <p className="font-medium">{t('setup.servicesHeDoes')}</p>
       {services.isPending ? (
         <Loading />
       ) : list.length === 0 ? (
-        <p className="text-sm text-muted">Add services first.</p>
+        <p className="text-sm text-muted">{t('setup.addServicesFirst')}</p>
       ) : (
         <ul className="flex flex-col gap-1">
           {list.map((v) => (
@@ -280,7 +287,7 @@ function Skills({ s, edit }: { s: Staff; edit: boolean }) {
                   onChange={() => setPicked((p) => (p.includes(v.id) ? p.filter((x) => x !== v.id) : [...p, v.id]))}
                 />
                 {v.name}
-                {!v.active && <span className="text-xs text-muted">(switched off)</span>}
+                {!v.active && <span className="text-xs text-muted">{t('setup.switchedOff')}</span>}
               </label>
             </li>
           ))}
@@ -288,7 +295,7 @@ function Skills({ s, edit }: { s: Staff; edit: boolean }) {
       )}
       {edit && changed && (
         <Button busy={busy} onClick={() => run(() => setupApi.setServices(s.id, s.version, picked))}>
-          Save services
+          {t('setup.saveServices')}
         </Button>
       )}
       {error && <Banner tone="bad">{error}</Banner>}
@@ -353,17 +360,18 @@ export function checkWeek(w: Week): string | null {
     const day = weekdayName(Number(d))
     const sorted = [...shifts].sort((a, b) => a.start.localeCompare(b.start))
     for (const [i, x] of sorted.entries()) {
-      if (!x.start || !x.end) return `${day}: fill in both times.`
-      if (x.end <= x.start) return `${day}: the end must be after the start.`
-      if (![x.start, x.end].every((t) => Number(t.split(':')[1]) % 15 === 0)) return `${day}: use 15-minute steps (10:00, 10:15, …).`
+      if (!x.start || !x.end) return t('setup.dayFillBothTimes', { day })
+      if (x.end <= x.start) return t('setup.dayEndAfterStart', { day })
+      if (![x.start, x.end].every((v) => Number(v.split(':')[1]) % 15 === 0)) return t('setup.dayUse15Steps', { day })
       const next = sorted.at(i + 1)
-      if (next && next.start < x.end) return `${day}: two shifts overlap.`
+      if (next && next.start < x.end) return t('setup.dayShiftsOverlap', { day })
     }
   }
   return null
 }
 
 function Hours({ s, edit }: { s: Staff; edit: boolean }) {
+  const t = useT()
   const [week, setWeek] = useState<Week>(() => toWeek(s.hours))
   const salonHours = useSalonHours()
   const salonDays = salonHours.data?.days ?? []
@@ -379,19 +387,19 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <p className="font-medium">Weekly hours</p>
+        <p className="font-medium">{t('setup.weeklyHours')}</p>
         {edit && week[1].length > 0 && (
           <button type="button" className="text-sm text-link underline" onClick={copyMonday}>
-            Copy Monday to Tue–Sat
+            {t('setup.copyMonday')}
           </button>
         )}
       </div>
       {salonDays.length > 0 && (
         <div className="flex flex-col gap-1">
-          <p className="text-sm text-muted">They must fit inside the salon's opening hours.</p>
+          <p className="text-sm text-muted">{t('setup.fitInside')}</p>
           {edit && (
             <button type="button" className="self-start text-sm text-link underline" onClick={() => setWeek(toWeek(salonShifts(salonDays)))}>
-              Use the salon's hours
+              {t('setup.useSalonHours')}
             </button>
           )}
         </div>
@@ -401,14 +409,14 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
           <li key={d} className="flex flex-col gap-2 border-b border-line pb-3 last:border-0">
             <div className="flex items-center justify-between">
               <span className="w-12 font-medium">{weekdayName(d)}</span>
-              {week[d].length === 0 && <span className="flex-1 text-sm text-muted">Off</span>}
+              {week[d].length === 0 && <span className="flex-1 text-sm text-muted">{t('setup.dayOff')}</span>}
               {edit && week[d].length < 2 && (
                 <button
                   type="button"
                   className="text-sm text-link underline"
                   onClick={() => setWeek({ ...week, [d]: withSecondShift(week[d]) })}
                 >
-                  {week[d].length ? 'Add a second shift' : 'Add hours'}
+                  {week[d].length ? t('setup.addSecondShift') : t('setup.addHours')}
                 </button>
               )}
             </div>
@@ -417,13 +425,13 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
                 {edit ? (
                   <>
                     <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
-                      <Field id={`h-${d}-${i}-s`} label="From" type="time" step={900} value={x.start} onChange={(e) => setShift(d, i, 'start', e.target.value)} />
+                      <Field id={`h-${d}-${i}-s`} label={t('setup.shiftFrom')} type="time" step={900} value={x.start} onChange={(e) => setShift(d, i, 'start', e.target.value)} />
                       {x.end === '24:00' ? (
-                        <p className="flex min-h-12 items-center text-sm">To midnight</p>
+                        <p className="flex min-h-12 items-center text-sm">{t('setup.toMidnight')}</p>
                       ) : (
-                        <Field id={`h-${d}-${i}-e`} label="To" type="time" step={900} value={x.end} onChange={(e) => setShift(d, i, 'end', e.target.value)} />
+                        <Field id={`h-${d}-${i}-e`} label={t('setup.shiftTo')} type="time" step={900} value={x.end} onChange={(e) => setShift(d, i, 'end', e.target.value)} />
                       )}
-                      <Button variant="ghost" aria-label={`Remove ${weekdayName(d)} shift`} onClick={() => setWeek({ ...week, [d]: week[d].filter((_, j) => j !== i) })}>
+                      <Button variant="ghost" aria-label={t('setup.removeShift', { day: weekdayName(d) })} onClick={() => setWeek({ ...week, [d]: week[d].filter((_, j) => j !== i) })}>
                         ✕
                       </Button>
                     </div>
@@ -435,7 +443,7 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
                         checked={x.end === '24:00'}
                         onChange={(e) => setShift(d, i, 'end', e.target.checked ? '24:00' : '23:45')}
                       />
-                      Till midnight
+                      {t('setup.tillMidnight')}
                     </label>
                   </>
                 ) : (
@@ -451,7 +459,7 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
       {edit && changed && problem && <Banner tone="warn">{problem}</Banner>}
       {edit && changed && (
         <Button busy={busy} disabled={Boolean(problem)} onClick={() => run(() => setupApi.setStaffHours(s.id, s.version, fromWeek(week)))}>
-          Save hours
+          {t('setup.saveBarberHours')}
         </Button>
       )}
       {error && <Banner tone="bad">{error}</Banner>}

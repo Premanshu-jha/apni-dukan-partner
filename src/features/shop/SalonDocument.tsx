@@ -4,6 +4,7 @@ import { explain, isApiError } from '../../api/errors'
 import { shopApi, shopKeys, useShop } from '../../api/shop'
 import type { RegistrationDocType, Shop } from '../../api/types'
 import { Banner, Button, Card, Page } from '../../components/ui'
+import { useT } from '../../i18n'
 import { useLocation } from 'react-router'
 import { cameFrom } from './Register'
 import { RegistrationDocCard } from './RegistrationDoc'
@@ -13,6 +14,7 @@ import { RegistrationDocCard } from './RegistrationDoc'
  * is checked automatically, and customers see "Licensed" once it passed (until its last valid day).
  */
 export function SalonDocumentPage() {
+  const t = useT()
   const qc = useQueryClient()
   const shop = useShop()
   const location = useLocation()
@@ -56,10 +58,10 @@ export function SalonDocumentPage() {
   return (
     <Page
       back={cameFrom(location, '/setup')}
-      title="Trade licence"
-      leaveWarning={docBusy ? 'The licence is still uploading. Leave anyway? It may not be saved.' : null}
+      title={t('shop.licencePageTitle')}
+      leaveWarning={docBusy ? t('shop.licenceLeaveWarning') : null}
     >
-      {!has && <p className="text-sm text-muted">No trade licence added: your salon shows no "Licensed" badge. It stays open for bookings either way.</p>}
+      {!has && <p className="text-sm text-muted">{t('shop.licenceNoneNote')}</p>}
       <RegistrationDocCard
         shop={shop}
         save={(type: RegistrationDocType, fileId: string) =>
@@ -72,19 +74,18 @@ export function SalonDocumentPage() {
           {asking ? (
             <>
               <p className="text-sm">
-                Remove the trade licence? Customers will no longer see "Licensed" on your salon. Your salon stays open for
-                bookings.
+                {t('shop.licenceRemoveAsk')}
               </p>
               <Button variant="danger" busy={busy} disabled={docBusy} onClick={remove}>
-                Remove it
+                {t('shop.licenceRemoveIt')}
               </Button>
               <Button variant="secondary" disabled={busy} onClick={() => setAsking(false)}>
-                Keep it
+                {t('shop.licenceKeepIt')}
               </Button>
             </>
           ) : (
             <Button variant="secondary" disabled={docBusy} onClick={() => setAsking(true)}>
-              Remove the trade licence
+              {t('shop.licenceRemove')}
             </Button>
           )}
         </Card>

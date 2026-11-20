@@ -1,11 +1,16 @@
 import type { OfferView } from '../../api/offers'
+import { t } from '../../i18n'
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** The keys of the months' short names (translated when asked for, so they follow the language). */
+const MONTHS = [
+  'offers.monthJan', 'offers.monthFeb', 'offers.monthMar', 'offers.monthApr', 'offers.monthMay', 'offers.monthJun',
+  'offers.monthJul', 'offers.monthAug', 'offers.monthSep', 'offers.monthOct', 'offers.monthNov', 'offers.monthDec',
+]
 
 /** "12 Nov" for a yyyy-MM-dd date. */
 export function shortDate(date: string): string {
   const [, m, d] = date.split('-').map(Number)
-  return `${d} ${MONTHS[m - 1]}`
+  return t('offers.shortDate', { day: d, month: t(MONTHS[m - 1]) })
 }
 
 /** "12 Nov – 14 Nov, 12:00–16:00", "12 Nov" for one day; the hours only when set. The same text as the message. */
@@ -16,9 +21,9 @@ export function offerWhen(o: Pick<OfferView, 'startsOn' | 'endsOn' | 'from' | 'u
 
 /** "All services", or the names it covers (from the salon's services; unknown ids are skipped). */
 export function offerWhat(o: Pick<OfferView, 'allServices' | 'serviceIds'>, names: Map<string, string>): string {
-  if (o.allServices) return 'All services'
+  if (o.allServices) return t('offers.whatAllServices')
   const known = o.serviceIds.map((id) => names.get(id)).filter((n): n is string => !!n)
-  return known.length ? known.join(', ') : 'Some services'
+  return known.length ? known.join(', ') : t('offers.whatSomeServices')
 }
 
 /** The offer price of a list price, as the backend works it out (SalonOffer.priceOf): to the rupee, half up. */
@@ -52,16 +57,16 @@ export function checkOffer(f: {
   /** The last day it can start on: customers can book only so far ahead (the salon's booking window) */
   lastStart: string
 }): string | null {
-  if (!Number.isInteger(f.percentOff) || f.percentOff < 5 || f.percentOff > 50) return 'The discount must be 5% to 50%.'
-  if (!f.allServices && f.serviceIds.length === 0) return 'Pick at least one service, or choose all services.'
-  if (!f.startsOn || !f.endsOn) return 'Pick the first and last day.'
-  if (f.startsOn < f.today) return 'The first day must be today or later.'
-  if (f.endsOn < f.startsOn) return 'The last day must be on or after the first day.'
-  if (f.startsOn > f.lastStart) return `Customers can book only so far ahead: start the offer by ${shortDate(f.lastStart)}.`
-  if (f.endsOn > f.lastEnd) return `The last day can be at most ${MAX_DAYS_AHEAD} days from today.`
+  if (!Number.isInteger(f.percentOff) || f.percentOff < 5 || f.percentOff > 50) return t('offers.checkPercent')
+  if (!f.allServices && f.serviceIds.length === 0) return t('offers.checkServices')
+  if (!f.startsOn || !f.endsOn) return t('offers.checkDays')
+  if (f.startsOn < f.today) return t('offers.checkFirstDay')
+  if (f.endsOn < f.startsOn) return t('offers.checkLastDay')
+  if (f.startsOn > f.lastStart) return t('offers.checkStartBy', { date: shortDate(f.lastStart) })
+  if (f.endsOn > f.lastEnd) return t('offers.checkTooFar', { days: MAX_DAYS_AHEAD })
   if (f.someHours) {
-    if (!f.from || !f.until) return 'Pick both times, or turn off "Only some hours".'
-    if (endTime(f.until) <= f.from) return 'The end time must be after the start time.'
+    if (!f.from || !f.until) return t('offers.checkBothTimes')
+    if (endTime(f.until) <= f.from) return t('offers.checkEndAfterStart')
   }
   return null
 }

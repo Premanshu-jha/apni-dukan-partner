@@ -1,0 +1,13 @@
+{
+  "legalNavAria": "About Clozest",
+  "legalAbout": "About",
+  "legalContact": "Contact",
+  "legalTerms": "Terms",
+  "legalPrivacy": "Privacy",
+  "legalRefunds": "Refund policy",
+  "legalDelivery": "Delivery",
+  "legalUpdated": "Last updated: {date}",
+  "uploadLinkExpired": "The upload link ran out.",
+  "videoDidntGoThrough": "The video didn't go through. Try again.",
+  "uploadLinkExpiredAddAgain": "The upload link ran out. Add the video again."
+}

@@ -1,0 +1,8 @@
+{
+  "NETWORK": "You're offline or the server can't be reached. Try again.",
+  "UNKNOWN": "Something went wrong. Please try again.",
+  "TRY_LATER": {
+    "one": "Too many tries from this network. Try again in {count} minute.",
+    "other": "Too many tries from this network. Try again in {count} minutes."
+  }
+}

@@ -10,6 +10,7 @@ import { storage } from '../../lib/storage'
 import { useSession } from '../../store/session'
 import { AttachmentPicker, MessageFiles, useAttachments } from './Attach'
 import { cleanedLength, sendError } from './text'
+import { useT } from '../../i18n'
 
 /** The backend's limits for adding to a request (TicketService.addToMine). */
 const ADD_MIN = 2
@@ -17,26 +18,29 @@ const ADD_MAX = 5000
 /** What this person typed on one request, kept until it's sent (never shown to another person on this phone). */
 const draftKey = (userId: string, ticketId: string) => `ad.requestDraft.${userId}.${ticketId}`
 
-const statusText: Record<MyRequest['status'], string> = {
-  OPEN: 'With our support team',
-  WAITING: 'We replied',
-  RESOLVED: 'Resolved',
+/** The language keys of each status (translated where shown). */
+const statusKey: Record<MyRequest['status'], string> = {
+  OPEN: 'help.statusOpen',
+  WAITING: 'help.statusWaiting',
+  RESOLVED: 'help.statusResolved',
 }
 
 function StatusPill({ status }: { status: MyRequest['status'] }) {
+  const t = useT()
   const tone = status === 'WAITING' ? 'bg-brand/15 text-link' : status === 'OPEN' ? 'bg-raised text-ink' : 'bg-raised text-muted'
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}>{statusText[status]}</span>
+  return <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}>{t(statusKey[status])}</span>
 }
 
 /** /help/requests: what I've asked support, newest activity first. Opened from More, Need help and after sending. */
 export function MyRequests() {
+  const t = useT()
   const list = useMyRequests()
   // ← goes back where they came from (Profile, More, Need help); opened from a link or after sending, to Home
   const cameFrom = (useLocation().state as { from?: unknown } | null)?.from === true
   return (
-    <Page title="My requests" back={cameFrom ? true : '/'}>
+    <Page title={t('help.myRequests')} back={cameFrom ? true : '/'}>
       {list.isError && list.data && (
-        <Banner tone="warn">Couldn't refresh: {messageOf(list.error)} This is what we had.</Banner>
+        <Banner tone="warn">{t('help.couldntRefresh', { message: messageOf(list.error) })}</Banner>
       )}
       {list.isPending ? (
         <Loading />
@@ -44,37 +48,37 @@ export function MyRequests() {
         <ErrorState message={messageOf(list.error)} onRetry={() => list.refetch()} />
       ) : list.data!.length === 0 ? (
         <EmptyState
-          title="No requests yet"
-          body="When you write to support, your question and our replies show here."
+          title={t('help.noRequests')}
+          body={t('help.noRequestsBody')}
           action={
             <Link to="/help" className="text-link underline">
-              Write to support
+              {t('help.writeToSupport')}
             </Link>
           }
         />
       ) : (
         <>
           <ul className="flex flex-col gap-3">
-            {list.data!.map((t) => (
-              <li key={t.id}>
+            {list.data!.map((r) => (
+              <li key={r.id}>
                 <Link
-                  to={`/help/requests/${t.id}`}
+                  to={`/help/requests/${r.id}`}
                   state={{ fromList: true }}
                   className="flex flex-col gap-1 rounded-2xl border border-line bg-surface p-4 hover:bg-raised"
                 >
                   <span className="flex items-center justify-between gap-2">
-                    <span className="text-sm text-muted">{t.number}</span>
-                    <StatusPill status={t.status} />
+                    <span className="text-sm text-muted">{r.number}</span>
+                    <StatusPill status={r.status} />
                   </span>
-                  <span className="font-medium [overflow-wrap:anywhere]">{t.subject || 'Your question'}</span>
-                  <span className="text-sm text-muted">Last message {dateTimeIst(t.lastMessageAt)}</span>
+                  <span className="font-medium [overflow-wrap:anywhere]">{r.subject || t('help.yourQuestion')}</span>
+                  <span className="text-sm text-muted">{t('help.lastMessage', { when: dateTimeIst(r.lastMessageAt) })}</span>
                 </Link>
               </li>
             ))}
           </ul>
-          {list.data!.length >= 30 && <p className="text-center text-sm text-muted">Showing your latest 30 requests.</p>}
+          {list.data!.length >= 30 && <p className="text-center text-sm text-muted">{t('help.latest30')}</p>}
           <Link to="/help" className="text-center text-link underline">
-            Ask something new
+            {t('help.askNew')}
           </Link>
         </>
       )}
@@ -83,16 +87,17 @@ export function MyRequests() {
 }
 
 function Message({ m }: { m: MyRequestMessage }) {
+  const t = useT()
   return (
     <li className={`flex flex-col gap-1 rounded-2xl p-3 ${m.fromSupport ? 'mr-6 bg-raised' : 'ml-6 border border-line bg-surface'}`}>
       <span className="text-xs font-semibold text-muted">
-        {m.fromSupport ? `Clozest support${m.supportName ? ` · ${m.supportName}` : ''}` : 'You'} · {dateTimeIst(m.at)}
+        {m.fromSupport ? `${t('help.fromSupport')}${m.supportName ? ` · ${m.supportName}` : ''}` : t('help.fromYou')} · {dateTimeIst(m.at)}
       </span>
       {m.body && <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{m.body}</p>}
       <MessageFiles files={m.files ?? []} />
       {m.attachments > 0 && (
         <p className="text-xs text-muted">
-          📎 {m.attachments} {(m.files ?? []).length > 0 ? 'more ' : ''}{m.attachments === 1 ? 'file' : 'files'} sent by email (only in that email: we see {m.attachments === 1 ? 'it' : 'them'} there)
+          {t((m.files ?? []).length > 0 ? 'help.emailFilesMore' : 'help.emailFiles', { count: m.attachments })}
         </p>
       )}
     </li>
@@ -101,6 +106,7 @@ function Message({ m }: { m: MyRequestMessage }) {
 
 /** /help/requests/:id: the conversation with support, and a box to add to it (reopens a resolved request). */
 export function RequestDetail() {
+  const t = useT()
   const { id = '' } = useParams()
   // ← back to the list it was opened from; opened another way, to the list (never round in a loop)
   const fromList = (useLocation().state as { fromList?: unknown } | null)?.fromList === true
@@ -123,7 +129,7 @@ export function RequestDetail() {
 
   if (detail.isPending) {
     return (
-      <Page title="My request" back={backTo}>
+      <Page title={t('help.myRequest')} back={backTo}>
         <Loading />
       </Page>
     )
@@ -131,14 +137,14 @@ export function RequestDetail() {
   if (detail.isError && !detail.data) {
     const missing = isApiError(detail.error, 'NOT_FOUND') || (isApiError(detail.error) && detail.error.status === 400)
     return (
-      <Page title="My request" back={backTo}>
+      <Page title={t('help.myRequest')} back={backTo}>
         {missing ? (
           <EmptyState
-            title="Request not found"
-            body="It may belong to another account."
+            title={t('help.notFound')}
+            body={t('help.notFoundBody')}
             action={
               <Link to="/help/requests" className="text-link underline">
-                See my requests
+                {t('help.seeMyRequests')}
               </Link>
             }
           />
@@ -176,7 +182,7 @@ export function RequestDetail() {
           ? sendError(err.details, messageOf(err))
           : isApiError(err, 'FILE_NOT_FOUND') || isApiError(err, 'FILE_ALREADY_SENT')
             ? messageOf(err)   // says which file, and to remove it and add it again
-            : `${messageOf(err)} What you wrote is kept here.`,
+            : t('help.errorKept', { message: messageOf(err) }),
       )
     } finally {
       sending.current = false
@@ -187,18 +193,18 @@ export function RequestDetail() {
     <Page title={ticket.number} back={backTo}>
       <div className="flex flex-col gap-1">
         <StatusPill status={ticket.status} />
-        <h2 className="text-lg font-semibold [overflow-wrap:anywhere]">{ticket.subject || 'Your question'}</h2>
-        <p className="text-sm text-muted">Asked {dateTimeIst(ticket.createdAt)}. Our replies also come by email.</p>
+        <h2 className="text-lg font-semibold [overflow-wrap:anywhere]">{ticket.subject || t('help.yourQuestion')}</h2>
+        <p className="text-sm text-muted">{t('help.asked', { when: dateTimeIst(ticket.createdAt) })}</p>
       </div>
-      {detail.isError && <Banner tone="warn">Couldn't refresh: {messageOf(detail.error)} This is what we had.</Banner>}
-      <ul className="flex flex-col gap-3" aria-label="Conversation">
+      {detail.isError && <Banner tone="warn">{t('help.couldntRefresh', { message: messageOf(detail.error) })}</Banner>}
+      <ul className="flex flex-col gap-3" aria-label={t('help.conversation')}>
         {messages.map((m) => (
           <Message key={m.seq} m={m} />
         ))}
       </ul>
       <form onSubmit={send} className="flex flex-col gap-2" noValidate>
         <label htmlFor="request-add" className="text-sm font-medium text-muted">
-          {resolved ? 'Write again (opens it again)' : 'Add to your request'}
+          {resolved ? t('help.writeAgain') : t('help.addToRequest')}
         </label>
         <textarea
           id="request-add"
@@ -215,30 +221,30 @@ export function RequestDetail() {
         />
         <p id="request-add-hint" className={`text-sm ${tooLong ? 'text-bad' : 'text-muted'}`}>
           {tooLong
-            ? `At most ${ADD_MAX} characters (now ${length}).`
+            ? t('help.atMost', { max: String(ADD_MAX), length: String(length) })
             : length === 1 && !withFiles
-              ? `At least ${ADD_MIN} characters, or add a file.`
+              ? t('help.atLeastOrFile', { min: ADD_MIN })
               : length > 0
                 ? `${length} / ${ADD_MAX}`
                 : withFiles
-                  ? 'Words are optional with a file.'
-                  : `At least ${ADD_MIN} characters, or add a file.`}
+                  ? t('help.wordsOptional')
+                  : t('help.atLeastOrFile', { min: ADD_MIN })}
         </p>
         <AttachmentPicker a={files} id="request-files" disabled={add.isPending} />
-        {files.sending && <p className="text-sm text-muted">Send works once your files have finished uploading.</p>}
-        {files.failed && <p className="text-sm text-bad">A file didn't go up: try it again or remove it.</p>}
+        {files.sending && <p className="text-sm text-muted">{t('help.filesStillUploading')}</p>}
+        {files.failed && <p className="text-sm text-bad">{t('help.fileFailed')}</p>}
         {error && <Banner tone="bad">{error}</Banner>}
-        {sent && <Banner tone="good">Sent. Our support team will read it and reply.</Banner>}
+        {sent && <Banner tone="good">{t('help.sentReply')}</Banner>}
         <Button type="submit" busy={add.isPending} disabled={!ready}>
-          Send
+          {t('common.send')}
         </Button>
       </form>
       <p className="text-center text-sm text-muted">
-        Or email{' '}
+        {t('help.orEmailBefore')}{' '}
         <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(ticket.number)}`} className="text-link underline [overflow-wrap:anywhere]">
           {SUPPORT_EMAIL}
         </a>{' '}
-        with {ticket.number} in the subject.
+        {t('help.orEmailAfter', { number: ticket.number })}
       </p>
     </Page>
   )

@@ -1,10 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { explain, isApiError } from '../../api/errors'
+import { explain, isApiError, serverText } from '../../api/errors'
 import { salonKeys, setupApi, useCatalog, useServices } from '../../api/salon'
 import type { CatalogService, ServiceItem } from '../../api/types'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
+import { t, useT } from '../../i18n'
 import { duration, rupees } from '../../lib/money'
 import { checkService, comeBackText, IconPicker, pickedIcon, serviceIn, ServiceSheet, type ServiceForm } from '../setup/Services'
 import { ServiceIcon } from '../../components/ServiceIcon'
@@ -46,18 +47,18 @@ const nameKey = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase()
 export function checkRows(rows: Row[], have: ServiceItem[]): string | null {
   const ticked = rows.filter((r) => r.ticked)
   if (ticked.length > MAX_AT_ONCE) {
-    return `Save at most ${MAX_AT_ONCE} services at a time: untick ${ticked.length - MAX_AT_ONCE}, save, then add the rest.`
+    return t('register.tooManyAtOnce', { max: MAX_AT_ONCE, extra: ticked.length - MAX_AT_ONCE })
   }
   const names = new Set(have.filter((s) => s.active).map((s) => nameKey(s.name)))
   for (const r of ticked) {
     const p = checkService(r.form)
-    const label = r.form.name.trim() || 'A new service'
-    if (p.name) return `${label}: ${p.name.toLowerCase()}.`
-    if (p.rupees) return `${label}: enter the price.`
-    if (p.minutes) return `${label}: ${p.minutes.toLowerCase()}.`
-    if (p.returnDays) return `${label}: come-back reminder ${p.returnDays.toLowerCase()}.`
+    const label = r.form.name.trim() || t('register.newServiceLabel')
+    if (p.name) return t('register.rowProblem', { label, problem: p.name.toLowerCase() })
+    if (p.rupees) return t('register.rowNeedsPrice', { label })
+    if (p.minutes) return t('register.rowProblem', { label, problem: p.minutes.toLowerCase() })
+    if (p.returnDays) return t('register.rowComeBackProblem', { label, problem: p.returnDays.toLowerCase() })
     const n = nameKey(r.form.name)
-    if (names.has(n)) return `${label} is in the list twice.`
+    if (names.has(n)) return t('register.rowTwice', { label })
     names.add(n)
   }
   return null
@@ -74,9 +75,10 @@ export function batchMessage(e: unknown, names: string[]): string {
     for (const [key, value] of Object.entries(e.details)) {
       const m = /^services\[(\d+)\]\.(\w+)$/.exec(key)
       if (m && typeof value === 'string') {
-        const name = names[Number(m[1])] || 'A new service'
-        const what = { name: 'name', pricePaise: 'price', durationMinutes: 'minutes', returnAfterDays: 'come-back days' }[m[2]] ?? m[2]
-        return `${name}: the ${what} ${value}.`
+        const name = names[Number(m[1])] || t('register.newServiceLabel')
+        const whatKey = { name: 'batchFieldName', pricePaise: 'batchFieldPrice', durationMinutes: 'batchFieldMinutes', returnAfterDays: 'batchFieldComeBack' }[m[2]]
+        const what = whatKey ? t(`register.${whatKey}`) : m[2]
+        return t('register.batchFieldProblem', { name, what, problem: serverText(value) })
       }
     }
   }
@@ -89,6 +91,7 @@ export function batchMessage(e: unknown, names: string[]): string {
  * saved are listed above and can be edited.
  */
 export function RegisterServices() {
+  const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const shop = useShop()
@@ -105,7 +108,7 @@ export function RegisterServices() {
   if ((services.isError && !services.data) || (catalog.isError && !catalog.data)) {
     const failed = services.isError && !services.data ? services : catalog
     return (
-      <Page back="/register/photos" title="Services">
+      <Page back="/register/photos" title={t('register.servicesTitle')}>
         <ErrorState message={explain(failed.error)} onRetry={() => failed.refetch()} />
       </Page>
     )
@@ -126,7 +129,7 @@ export function RegisterServices() {
     setError(null)
     if (ticked.length === 0) {
       if (have.length > 0) navigate('/register/hours')
-      else setError('Tick at least one service, or add your own.')
+      else setError(t('register.tickAtLeastOne'))
       return
     }
     if (problem) return
@@ -165,12 +168,12 @@ export function RegisterServices() {
   }
 
   return (
-    <Page back="/register/photos" title="Services">
+    <Page back="/register/photos" title={t('register.servicesTitle')}>
       <Steps at={3} />
       {shop.statusReason && <SentBack reason={shop.statusReason} />}
       {have.length > 0 && (
         <Card className="flex flex-col gap-2">
-          <p className="font-medium">Your services</p>
+          <p className="font-medium">{t('register.yourServices')}</p>
           <ul className="flex flex-col gap-1">
             {have.map((s) => (
               <li key={s.id} className="flex items-center gap-2">
@@ -182,8 +185,8 @@ export function RegisterServices() {
                     {comeBackText(s.returnAfterDays) && ` · ${comeBackText(s.returnAfterDays)}`}
                   </span>
                 </button>
-                <Button variant="ghost" aria-label={`Remove ${s.name}`} disabled={busy} onClick={() => remove(s)}>
-                  Remove
+                <Button variant="ghost" aria-label={t('register.removeNamed', { name: s.name })} disabled={busy} onClick={() => remove(s)}>
+                  {t('common.remove')}
                 </Button>
               </li>
             ))}
@@ -191,16 +194,15 @@ export function RegisterServices() {
         </Card>
       )}
       <p className="text-sm text-muted">
-        Tick what you offer and enter your price. The time is how long to keep the barber's chair for it. Customers who
-        booked it get a reminder to come back after the days shown (0 = never).
+        {t('register.servicesIntro')}
       </p>
       <ul className="flex flex-col gap-2">
         {list.map((r) => (
           <li key={r.key} className={`rounded-2xl border p-3 ${r.ticked ? 'border-brand bg-surface' : 'border-line bg-surface'}`}>
             {r.custom ? (
               <div className="flex items-end gap-2">
-                <Field id={`${r.key}-name`} label="Service name" value={r.form.name} maxLength={60} onChange={(e) => setField(r.key, 'name', e.target.value)} />
-                <Button variant="ghost" aria-label={`Remove ${r.form.name.trim() || 'this service'}`} onClick={() => setRows(list.filter((x) => x.key !== r.key))}>
+                <Field id={`${r.key}-name`} label={t('register.serviceName')} value={r.form.name} maxLength={60} onChange={(e) => setField(r.key, 'name', e.target.value)} />
+                <Button variant="ghost" aria-label={r.form.name.trim() ? t('register.removeNamed', { name: r.form.name.trim() }) : t('register.removeThisService')} onClick={() => setRows(list.filter((x) => x.key !== r.key))}>
                   ✕
                 </Button>
               </div>
@@ -225,9 +227,9 @@ export function RegisterServices() {
             )}
             {(r.ticked || r.custom) && (
               <div className="mt-2 grid grid-cols-3 gap-2">
-                <Field id={`${r.key}-price`} label="Price (₹)" aria-label={`${r.form.name.trim() || 'New service'} price (₹)`} inputMode="decimal" value={r.form.rupees} onChange={(e) => setField(r.key, 'rupees', e.target.value)} />
-                <Field id={`${r.key}-min`} label="Minutes" aria-label={`${r.form.name.trim() || 'New service'} minutes`} inputMode="numeric" value={r.form.minutes} onChange={(e) => setField(r.key, 'minutes', e.target.value.replace(/\D/g, ''))} />
-                <Field id={`${r.key}-back`} label="Back in (days)" aria-label={`${r.form.name.trim() || 'New service'} back in (days)`} inputMode="numeric" value={r.form.returnDays} onChange={(e) => setField(r.key, 'returnDays', e.target.value.replace(/\D/g, ''))} />
+                <Field id={`${r.key}-price`} label={t('register.priceLabel')} aria-label={r.form.name.trim() ? t('register.priceOf', { name: r.form.name.trim() }) : t('register.priceOfNew')} inputMode="decimal" value={r.form.rupees} onChange={(e) => setField(r.key, 'rupees', e.target.value)} />
+                <Field id={`${r.key}-min`} label={t('register.minutesLabel')} aria-label={r.form.name.trim() ? t('register.minutesOf', { name: r.form.name.trim() }) : t('register.minutesOfNew')} inputMode="numeric" value={r.form.minutes} onChange={(e) => setField(r.key, 'minutes', e.target.value.replace(/\D/g, ''))} />
+                <Field id={`${r.key}-back`} label={t('register.backInLabel')} aria-label={r.form.name.trim() ? t('register.backInOf', { name: r.form.name.trim() }) : t('register.backInOfNew')} inputMode="numeric" value={r.form.returnDays} onChange={(e) => setField(r.key, 'returnDays', e.target.value.replace(/\D/g, ''))} />
               </div>
             )}
           </li>
@@ -247,12 +249,12 @@ export function RegisterServices() {
           ])
         }
       >
-        + Add your own service
+        {t('register.addOwnService')}
       </Button>
       {touched && problem && <Banner tone="warn">{problem}</Banner>}
       {error && <Banner tone="bad">{error}</Banner>}
       <Button busy={busy} onClick={save}>
-        {ticked.length ? `Save ${ticked.length} service${ticked.length === 1 ? '' : 's'} and continue` : 'Continue'}
+        {ticked.length ? t('register.saveServices', { count: ticked.length }) : t('common.continue')}
       </Button>
       {editing && <ServiceSheet service={services.data.find((x) => x.id === editing.id) ?? editing} onClose={() => setEditing(null)} />}
     </Page>

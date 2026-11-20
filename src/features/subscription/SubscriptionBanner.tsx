@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { useSubscription } from '../../api/subscription'
 import { useShop } from '../../api/shop'
 import { Banner } from '../../components/ui'
+import { useT } from '../../i18n'
 import { dayIst, daysLeft, payByDay, whatEnded } from './text'
 
 /**
@@ -9,12 +10,15 @@ import { dayIst, daysLeft, payByDay, whatEnded } from './text'
  * AutoPay payment, and once it has ended. Helpers and barbers see it once it has ended (they can remind the owner).
  */
 export function SubscriptionBanner() {
+  const t = useT()
   const shop = useShop()
   const sub = useSubscription()
   const s = sub.data
   if (!s || s.state === 'NONE' || s.state === 'AUTOPAY') return null
   const owner = shop.myRole === 'OWNER'
-  const who = shop.ownerName || 'the owner'
+  const who = shop.ownerName
+  // Printed as it is ("₹1500"), not grouped
+  const price = String(s.pricePerMonth)
   const link = (label: string) => (
     <Link to="/subscription" className="font-medium underline">
       {label}
@@ -24,9 +28,11 @@ export function SubscriptionBanner() {
     return (
       <Banner tone="bad" live={false}>
         {owner
-          ? "Customers can't find your salon on Clozest until you pay. "
-          : `Customers can't find ${shop.name} until ${who} pays the Clozest subscription. `}
-        {link(owner ? 'Pay now' : 'Details')}
+          ? t('subscription.bannerHiddenOwner')
+          : who
+            ? t('subscription.bannerHiddenStaffNamed', { shop: shop.name, name: who })
+            : t('subscription.bannerHiddenStaff', { shop: shop.name })}{' '}
+        {link(owner ? t('subscription.payNow') : t('subscription.details'))}
       </Banner>
     )
   }
@@ -34,16 +40,16 @@ export function SubscriptionBanner() {
     if (!owner) {
       return s.enforced ? (
         <Banner tone="warn" live={false}>
-          Ask {who} to pay the Clozest subscription by {payByDay(s)}, or customers won't find the salon. {link('Details')}
+          {who ? t('subscription.bannerAskNamed', { name: who, day: payByDay(s) }) : t('subscription.bannerAskOwner', { day: payByDay(s) })} {link(t('subscription.details'))}
         </Banner>
       ) : null
     }
     return (
       <Banner tone={s.enforced ? 'warn' : 'info'} live={false}>
         {s.enforced
-          ? `${whatEnded(s)}: pay by ${payByDay(s)} to stay visible to customers. `
-          : `${whatEnded(s)}. Pay ₹${s.pricePerMonth} to keep your salon on Clozest. `}
-        {link(s.paymentsReady ? 'Pay now' : 'Details')}
+          ? t('subscription.bannerEndedPayBy', { what: whatEnded(s), day: payByDay(s) })
+          : t('subscription.bannerEndedPay', { what: whatEnded(s), price })}{' '}
+        {link(s.paymentsReady ? t('subscription.payNow') : t('subscription.details'))}
       </Banner>
     )
   }
@@ -52,16 +58,15 @@ export function SubscriptionBanner() {
   if (s.autoPayFailed) {
     return (
       <Banner tone="warn" live={false}>
-        Your AutoPay payment didn't go through. Check your bank or UPI app, or pay another way. {link('Details')}
+        {t('subscription.bannerAutoPayFailed')} {link(t('subscription.details'))}
       </Banner>
     )
   }
   if (daysLeft(s.accessUntil!) > 7) return null
   return (
     <Banner tone="info" live={false}>
-      Your {s.state === 'TRIAL' ? 'free trial' : 'paid month'} ends on {dayIst(s.accessUntil!)}. Set up AutoPay
-      (₹{s.pricePerMonth} a month, nothing taken before then) so customers can keep booking you.{' '}
-      {link(s.paymentsReady ? 'Set up AutoPay' : 'Details')}
+      {t(s.state === 'TRIAL' ? 'subscription.bannerTrialEnds' : 'subscription.bannerPaidEnds', { day: dayIst(s.accessUntil!), price })}{' '}
+      {link(s.paymentsReady ? t('subscription.setUpAutoPay') : t('subscription.details'))}
     </Banner>
   )
 }

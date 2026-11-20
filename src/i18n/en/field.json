@@ -1,0 +1,16 @@
+{
+  "staffId": "The barber:",
+  "serviceIds": "The services:",
+  "name": "The name",
+  "reason": "The reason",
+  "endAt": "The end",
+  "startAt": "The start",
+  "until": "The pause",
+  "date": "The date",
+  "durationMinutes": "The duration",
+  "pricePaise": "The price",
+  "phone": "That number",
+  "hours": "The hours:",
+  "returnAfterDays": "The come-back reminder",
+  "fileId": "The file"
+}
