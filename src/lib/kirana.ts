@@ -1,4 +1,5 @@
 import type { NewLine, Product, Unit } from '../api/kirana'
+import { t } from '../i18n'
 
 /**
  * The counter's arithmetic and wording, in one place so the screens and the tests agree with the backend's
@@ -40,15 +41,15 @@ export function toMilli(q: number): number {
   return Math.round(q * 1000)
 }
 
-/** "2 pcs", "1 pc", "0.25 kg". */
+/** "2 pcs", "1 pc", "0.25 kg" (pieces in the app's language: one or many, as the language counts them). */
 export function qtyWithUnit(milli: number, unit: Unit): string {
   if (unit === 'KG') return `${qtyText(milli)} kg`
-  return `${qtyText(milli)} ${Math.abs(milli) === 1000 ? 'pc' : 'pcs'}`
+  return t('kiranaProducts.qtyPieces', { count: Number(qtyText(milli)) })
 }
 
 /** "₹48/kg" or "₹20 each". */
 export function priceUnit(unit: Unit): string {
-  return unit === 'KG' ? '/kg' : ' each'
+  return unit === 'KG' ? '/kg' : ` ${t('kiranaProducts.each')}`
 }
 
 /**
@@ -56,28 +57,28 @@ export function priceUnit(unit: Unit): string {
  * (or 0 itself when `zeroAllowed`, a count by hand), at most `max`.
  */
 export function parseQty(typed: string, unit: Unit, opts: { zeroAllowed?: boolean; max?: number } = {}): { milli: number } | { error: string } {
-  const t = typed.trim().replace(',', '.')
-  if (!t) return { error: 'Enter how many' }
-  if (!/^\d+(\.\d+)?$/.test(t)) return { error: unit === 'KG' ? 'Enter the weight in kg, like 0.5' : 'Enter a whole number' }
-  const [whole, frac = ''] = t.split('.')
-  if (unit === 'PIECE' && frac.replace(/0+$/, '')) return { error: 'Pieces are whole numbers' }
-  if (frac.replace(/0+$/, '').length > 3) return { error: 'At most 3 decimals (grams)' }
+  const typedQty = typed.trim().replace(',', '.')
+  if (!typedQty) return { error: t('kiranaProducts.enterHowMany') }
+  if (!/^\d+(\.\d+)?$/.test(typedQty)) return { error: unit === 'KG' ? t('kiranaProducts.enterWeightKg') : t('kiranaProducts.enterWholeNumber') }
+  const [whole, frac = ''] = typedQty.split('.')
+  if (unit === 'PIECE' && frac.replace(/0+$/, '')) return { error: t('kiranaProducts.piecesWhole') }
+  if (frac.replace(/0+$/, '').length > 3) return { error: t('kiranaProducts.atMostDecimals') }
   const milli = Number(whole) * 1000 + Number((frac + '000').slice(0, 3))
   const max = (opts.max ?? (opts.zeroAllowed ? MAX_STOCK : MAX_QTY)) * 1000
-  if (opts.zeroAllowed ? milli < 0 : milli <= 0) return { error: 'Must be more than 0' }
-  if (milli > max) return { error: `At most ${qtyText(max)}` }
+  if (opts.zeroAllowed ? milli < 0 : milli <= 0) return { error: t('kiranaProducts.moreThanZero') }
+  if (milli > max) return { error: t('kiranaProducts.atMostQty', { max: qtyText(max) }) }
   return { milli }
 }
 
 /** Rupees typed by a person ("45", "45.5", "1,250") in paise, or the reason it can't be used. */
 export function parseRupees(typed: string, opts: { zeroAllowed?: boolean; maxPaise?: number } = {}): { paise: number } | { error: string } {
-  const t = typed.trim().replace(/[₹,\s]/g, '')
-  if (!t) return { error: 'Enter the amount' }
-  if (!/^\d+(\.\d{1,2})?$/.test(t)) return { error: 'Enter rupees, like 45 or 45.50' }
-  const [whole, frac = ''] = t.split('.')
+  const typedRupees = typed.trim().replace(/[₹,\s]/g, '')
+  if (!typedRupees) return { error: t('kiranaProducts.enterAmount') }
+  if (!/^\d+(\.\d{1,2})?$/.test(typedRupees)) return { error: t('kiranaProducts.enterRupees') }
+  const [whole, frac = ''] = typedRupees.split('.')
   const paise = Number(whole) * 100 + Number((frac + '00').slice(0, 2))
-  if (!opts.zeroAllowed && paise <= 0) return { error: 'Must be more than ₹0' }
-  if (opts.maxPaise !== undefined && paise > opts.maxPaise) return { error: `At most ₹${(opts.maxPaise / 100).toLocaleString('en-IN')}` }
+  if (!opts.zeroAllowed && paise <= 0) return { error: t('kiranaProducts.moreThanZeroRupees') }
+  if (opts.maxPaise !== undefined && paise > opts.maxPaise) return { error: t('kiranaProducts.atMostRupees', { max: `₹${(opts.maxPaise / 100).toLocaleString('en-IN')}` }) }
   return { paise }
 }
 
@@ -215,6 +216,6 @@ export function linesToSend(cart: Cart): NewLine[] {
  * the owner presses send in WhatsApp).
  */
 export function whatsAppReminder(phone: string, name: string, owesPaise: number, shopName: string, rupees: (p: number) => string): string {
-  const text = `Namaste ${name}, a gentle reminder from ${shopName}: ${rupees(owesPaise)} is due on your khata. Please pay at your convenience. Thank you!`
+  const text = t('kiranaProducts.khataReminderMessage', { name, shop: shopName, amount: rupees(owesPaise) })
   return `https://wa.me/91${phone}?text=${encodeURIComponent(text)}`
 }
