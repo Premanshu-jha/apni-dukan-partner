@@ -13,6 +13,7 @@ import {
   type Product,
 } from '../../api/kirana'
 import { useShop } from '../../api/shop'
+import { t, useT } from '../../i18n'
 import { Banner, Button, Card, Chip, Field, Loading, Page, Sheet } from '../../components/ui'
 import {
   addLoose,
@@ -50,6 +51,7 @@ import { UpiQrCode } from './UpiQrCode'
  * stays on this phone until it is saved; its clientRef makes a retried Save bill once.
  */
 export function Counter() {
+  const t = useT()
   const qc = useQueryClient()
   const shop = useShop()
   const userId = useSession((s) => s.user?.id ?? '')
@@ -94,7 +96,7 @@ export function Counter() {
 
   function pickProduct(p: Product) {
     setError(null)
-    if (billFull(p.unit === 'KG' ? undefined : p.id)) return setError(FULL)
+    if (billFull(p.unit === 'KG' ? undefined : p.id)) return setError(full())
     if (p.unit === 'KG') {
       setLoose(p)
       return
@@ -140,7 +142,7 @@ export function Counter() {
         set((c) => ({ ...c, unsure: true, pending: { payment, ...extra } }))
         // The khata sheet closes: the page's "Try again" is the one way on, with the same customer and amounts
         setKhata(false)
-        setError(`${messageOf(e)} We couldn't tell if the bill was saved. Try again: it is never billed twice.`)
+        setError(t('kiranaCounter.unsureSaved', { message: messageOf(e) }))
       } else {
         // A clear answer (4xx): the backend finds a clientRef already used before checking anything else, so a refusal
         // means no bill was made. The bill can be changed again; the same clientRef stays (nothing was saved with it)
@@ -157,7 +159,7 @@ export function Counter() {
   }
 
   return (
-    <Page title="Counter">
+    <Page title={t('kiranaCounter.title')}>
       {owner && shop.status === 'PENDING_VISIT' && !waitingSeen && (
         <div className="flex flex-col gap-1">
           <WaitingForVisit />
@@ -169,19 +171,19 @@ export function Counter() {
               setWaitingSeen(true)
             }}
           >
-            Got it, hide this
+            {t('kiranaCounter.hideWaiting')}
           </button>
         </div>
       )}
       <div className="flex gap-2">
         <Button className="flex-1" onClick={() => setScanning(true)} disabled={locked}>
-          Scan
+          {t('kiranaCounter.scan')}
         </Button>
         <Button variant="secondary" className="flex-1" onClick={() => setOther({ name: '' })} disabled={locked}>
-          Item not in list
+          {t('kiranaCounter.itemNotInList')}
         </Button>
       </div>
-      <SearchBox id="counter-search" label="Search your products" placeholder="Search by name or barcode" value={search} onChange={setSearch} />
+      <SearchBox id="counter-search" label={t('kiranaCounter.searchLabel')} placeholder={t('kiranaCounter.searchPlaceholder')} value={search} onChange={setSearch} />
       {settled.trim() && (
         <div aria-live="polite">
           {results.isPending ? (
@@ -190,20 +192,20 @@ export function Counter() {
             <Banner tone="bad">{messageOf(results.error)}</Banner>
           ) : found.length === 0 ? (
             <Card className="flex flex-col gap-2">
-              <p className="text-sm text-muted">Nothing called “{settled.trim()}” in your products.</p>
+              <p className="text-sm text-muted">{t('kiranaCounter.nothingCalled', { name: settled.trim() })}</p>
               <div className="flex flex-wrap gap-2">
                 <Button variant="secondary" disabled={locked} onClick={() => setOther({ name: settled.trim() })}>
-                  Bill “{settled.trim()}” without a product
+                  {t('kiranaCounter.billNamedWithoutProduct', { name: settled.trim() })}
                 </Button>
                 {!locked && (
                   <Link to={`/kirana/products/new?${new URLSearchParams({ name: settled.trim(), from: '/kirana/counter' })}`} className="self-center text-sm text-link underline">
-                    Add it as a product
+                    {t('kiranaCounter.addAsProduct')}
                   </Link>
                 )}
               </div>
             </Card>
           ) : (
-            <ul className="flex flex-col gap-2" aria-label="Products found">
+            <ul className="flex flex-col gap-2" aria-label={t('kiranaCounter.productsFound')}>
               {found.map((p) => (
                 <li key={p.id}>
                   <button
@@ -228,17 +230,17 @@ export function Counter() {
       <section aria-labelledby="bill-heading" className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <h2 id="bill-heading" className="font-semibold">
-            {cart.lines.length ? `This bill (${cart.lines.length} ${cart.lines.length === 1 ? 'item' : 'items'})` : 'This bill'}
+            {cart.lines.length ? t('kiranaCounter.billHeadingCount', { count: cart.lines.length }) : t('kiranaCounter.billHeading')}
           </h2>
           {cart.lines.length > 0 && !locked && (
             <button type="button" className="min-h-11 px-2 text-sm text-bad underline" onClick={() => setClearing(true)}>
-              Clear bill
+              {t('kiranaCounter.clearBill')}
             </button>
           )}
         </div>
-        {cart.lines.length >= MAX_LINES && <Banner tone="warn">{FULL}</Banner>}
+        {cart.lines.length >= MAX_LINES && <Banner tone="warn">{full()}</Banner>}
         {cart.lines.length === 0 ? (
-          <p className="text-sm text-muted">Scan a pack, or search for a product above, to start a bill.</p>
+          <p className="text-sm text-muted">{t('kiranaCounter.emptyBill')}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {cart.lines.map((l) => (
@@ -257,51 +259,51 @@ export function Counter() {
 
       {cart.lines.length > 0 && (
         <Card className="flex flex-col gap-1">
-          <SumRow label="Items" value={rupees(subtotal)} />
+          <SumRow label={t('kiranaCounter.items')} value={rupees(subtotal)} />
           <SumRow
             label={
               <button type="button" className="text-link underline disabled:opacity-50" disabled={locked} onClick={() => setDiscounting(true)}>
-                {cart.discountPaise ? 'Discount (change)' : 'Add a discount'}
+                {cart.discountPaise ? t('kiranaCounter.discountChange') : t('kiranaCounter.addDiscount')}
               </button>
             }
             value={cart.discountPaise ? `−${rupees(cart.discountPaise)}` : '—'}
           />
-          <SumRow strong label="Total" value={rupees(total)} />
+          <SumRow strong label={t('kiranaCounter.total')} value={rupees(total)} />
         </Card>
       )}
 
       {error && !khata && <Banner tone={cart.unsure ? 'warn' : 'bad'}>{error}</Banner>}
       {cart.unsure && cart.pending && (
         <Button busy={busy} onClick={() => save(cart.pending!.payment, { ...cart.pending! })}>
-          Try again: {pendingLabel(cart.pending)} {rupees(total)}
+          {t('kiranaCounter.tryAgainPay', { payment: pendingLabel(cart.pending), amount: rupees(total) })}
         </Button>
       )}
       {cart.unsure && (
         <div className="flex flex-col gap-2">
           <Link to="/kirana/bills" className="text-sm text-link underline">
-            Check the bills list
+            {t('kiranaCounter.checkBills')}
           </Link>
           <Button variant="ghost" onClick={() => setConfirmEdit(true)}>
-            Change this bill anyway
+            {t('kiranaCounter.changeAnyway')}
           </Button>
         </div>
       )}
 
       {cart.lines.length > 0 && !cart.unsure && (
         <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] -mx-4 grid grid-cols-3 gap-2 border-t border-line bg-bg/95 px-4 py-3 backdrop-blur">
-          <Button busy={busy} onClick={() => save('CASH')} aria-label={`Cash ${rupees(total)}`}>
-            Cash
+          <Button busy={busy} onClick={() => save('CASH')} aria-label={t('kiranaCounter.cashAria', { amount: rupees(total) })}>
+            {t('kiranaCounter.cash')}
           </Button>
-          <Button busy={busy} onClick={() => save('UPI')} aria-label={`UPI ${rupees(total)}`}>
-            UPI
+          <Button busy={busy} onClick={() => save('UPI')} aria-label={t('kiranaCounter.upiAria', { amount: rupees(total) })}>
+            {t('kiranaCounter.upi')}
           </Button>
-          <Button variant="secondary" disabled={busy} onClick={() => setKhata(true)} aria-label={`Khata ${rupees(total)}`}>
-            Khata
+          <Button variant="secondary" disabled={busy} onClick={() => setKhata(true)} aria-label={t('kiranaCounter.khataAria', { amount: rupees(total) })}>
+            {t('kiranaCounter.khata')}
           </Button>
         </div>
       )}
 
-      <Sheet open={scanning} title="Scan" onClose={() => setScanning(false)}>
+      <Sheet open={scanning} title={t('kiranaCounter.scanSheetTitle')} onClose={() => setScanning(false)}>
         <ScanPanel
           onProduct={(p, pack) => {
             if (billFull(p.id)) return false
@@ -311,12 +313,12 @@ export function Counter() {
           }}
           onLoose={(p) => {
             setScanning(false)
-            if (billFull()) return setError(FULL)
+            if (billFull()) return setError(full())
             setLoose(p)
           }}
           onOther={(name) => {
             setScanning(false)
-            if (billFull()) return setError(FULL)
+            if (billFull()) return setError(full())
             setOther({ name })
           }}
           onDone={() => setScanning(false)}
@@ -337,7 +339,7 @@ export function Counter() {
         )}
       </Sheet>
 
-      <Sheet open={other !== null} title="Item not in your list" onClose={() => setOther(null)}>
+      <Sheet open={other !== null} title={t('kiranaCounter.otherSheetTitle')} onClose={() => setOther(null)}>
         {other && (
           <OtherForm
             start={other.name}
@@ -362,7 +364,7 @@ export function Counter() {
         )}
       </Sheet>
 
-      <Sheet open={discounting} title="Discount on this bill" onClose={() => setDiscounting(false)}>
+      <Sheet open={discounting} title={t('kiranaCounter.discountSheetTitle')} onClose={() => setDiscounting(false)}>
         <DiscountForm
           owner={owner}
           subtotal={subtotal}
@@ -374,22 +376,19 @@ export function Counter() {
         />
       </Sheet>
 
-      <Sheet open={khata} title={`On khata · ${rupees(total)}`} onClose={() => !busy && setKhata(false)}>
+      <Sheet open={khata} title={t('kiranaCounter.khataSheetTitle', { amount: rupees(total) })} onClose={() => !busy && setKhata(false)}>
         <KhataPay total={total} busy={busy} owner={owner} limitHit={limitHit} error={khata ? error : null} onPay={(c, paid) => save('KHATA', { khataCustomerId: c.id, khataName: c.name, ...paid })} />
       </Sheet>
 
-      <Sheet open={done !== null} title={done ? `Bill ${done.bill.billNo} saved` : ''} onClose={() => setDone(null)}>
+      <Sheet open={done !== null} title={done ? t('kiranaCounter.billSavedTitle', { billNo: String(done.bill.billNo) }) : ''} onClose={() => setDone(null)}>
         {done && <Receipt result={done} owner={owner} shownTotal={shownTotal} onChange={setDone} onNext={() => setDone(null)} />}
       </Sheet>
 
-      <Sheet open={confirmEdit} title="Change the bill anyway?" onClose={() => setConfirmEdit(false)}>
+      <Sheet open={confirmEdit} title={t('kiranaCounter.confirmEditTitle')} onClose={() => setConfirmEdit(false)}>
         <div className="flex flex-col gap-3">
-          <p className="text-muted">
-            The last try may have been saved. Look in Bills first: if it's there, don't bill it again, start a new bill
-            instead. Changing it now and saving makes a new bill.
-          </p>
+          <p className="text-muted">{t('kiranaCounter.confirmEditBody')}</p>
           <Button variant="secondary" onClick={() => setConfirmEdit(false)}>
-            Keep it as it is
+            {t('kiranaCounter.keepAsIs')}
           </Button>
           <Button
             onClick={() => {
@@ -398,7 +397,7 @@ export function Counter() {
               setConfirmEdit(false)
             }}
           >
-            Yes, change it
+            {t('kiranaCounter.yesChange')}
           </Button>
           <Button
             variant="ghost"
@@ -408,16 +407,16 @@ export function Counter() {
               setConfirmEdit(false)
             }}
           >
-            It was saved: start a new bill
+            {t('kiranaCounter.savedStartNew')}
           </Button>
         </div>
       </Sheet>
 
-      <Sheet open={clearing} title="Clear this bill?" onClose={() => setClearing(false)}>
+      <Sheet open={clearing} title={t('kiranaCounter.clearTitle')} onClose={() => setClearing(false)}>
         <div className="flex flex-col gap-3">
-          <p className="text-muted">All {cart.lines.length} items come off. Nothing was saved yet, so nothing else changes.</p>
+          <p className="text-muted">{t('kiranaCounter.clearBody', { count: cart.lines.length })}</p>
           <Button variant="secondary" onClick={() => setClearing(false)}>
-            Keep it
+            {t('kiranaCounter.keepIt')}
           </Button>
           <Button
             variant="danger"
@@ -428,7 +427,7 @@ export function Counter() {
               setClearing(false)
             }}
           >
-            Clear the bill
+            {t('kiranaCounter.clearTheBill')}
           </Button>
         </div>
       </Sheet>
@@ -436,11 +435,14 @@ export function Counter() {
   )
 }
 
-const FULL = `A bill takes up to ${MAX_LINES} items: save this one and start another.`
+/** Shown when the bill already has {@link MAX_LINES} lines. */
+function full(): string {
+  return t('kiranaCounter.billFull', { max: MAX_LINES })
+}
 
 function pendingLabel(p: PendingPayment): string {
   if (p.payment !== 'KHATA') return paymentText(p.payment)
-  return `Khata${p.khataName ? ` (${p.khataName})` : ''}`
+  return p.khataName ? t('kiranaCounter.khataNamed', { name: p.khataName }) : t('kiranaCounter.khata')
 }
 
 /** One line of the bill: what, how much, its amount; − and + for pieces, a tap to change the rest. */
@@ -457,12 +459,13 @@ function LineRow({
   onChange: (next: CartLine | null) => void
   onEdit: () => void
 }) {
+  const t = useT()
   const detail =
     line.kind === 'product'
-      ? `${qtyWithUnit(line.milli, line.unit)} × ${rupees(line.pricePaise)}${priceUnit(line.unit)}`
+      ? t('kiranaCounter.lineProduct', { qty: qtyWithUnit(line.milli, line.unit), price: rupees(line.pricePaise), per: priceUnit(line.unit) })
       : line.kind === 'loose'
-        ? `${rupees(line.amountPaise)} worth · about ${qtyText(weightFor(line.amountPaise, line.pricePaise))} kg`
-        : `${line.qty} × ${rupees(line.amountPaise)} · not in your list`
+        ? t('kiranaCounter.lineLoose', { amount: rupees(line.amountPaise), weight: qtyText(weightFor(line.amountPaise, line.pricePaise)) })
+        : t('kiranaCounter.lineOther', { qty: String(line.qty), amount: rupees(line.amountPaise) })
   const pieces = (line.kind === 'product' && line.unit === 'PIECE') || line.kind === 'other'
   const count = line.kind === 'product' ? line.milli / 1000 : line.kind === 'other' ? line.qty : 0
   function step(by: number) {
@@ -483,30 +486,30 @@ function LineRow({
         </button>
         <span className="shrink-0 font-semibold">{rupees(lineAmount(line))}</span>
       </div>
-      {gone && <p className="text-sm text-bad">Removed from your products meanwhile: take it off this bill.</p>}
+      {gone && <p className="text-sm text-bad">{t('kiranaCounter.lineGone')}</p>}
       <div className="flex items-center justify-between gap-2">
         {pieces ? (
           <div className="flex items-center gap-1">
-            <button type="button" aria-label={`One less ${line.name}`} disabled={disabled} onClick={() => step(-1)} className="h-11 w-11 rounded-full border border-line text-lg disabled:opacity-50">
+            <button type="button" aria-label={t('kiranaCounter.oneLess', { name: line.name })} disabled={disabled} onClick={() => step(-1)} className="h-11 w-11 rounded-full border border-line text-lg disabled:opacity-50">
               −
             </button>
             <span className="min-w-8 text-center">
               {count}
             </span>
-            <button type="button" aria-label={`One more ${line.name}`} disabled={disabled} onClick={() => step(1)} className="h-11 w-11 rounded-full border border-line text-lg disabled:opacity-50">
+            <button type="button" aria-label={t('kiranaCounter.oneMore', { name: line.name })} disabled={disabled} onClick={() => step(1)} className="h-11 w-11 rounded-full border border-line text-lg disabled:opacity-50">
               +
             </button>
             <button type="button" disabled={disabled} onClick={onEdit} className="ml-2 min-h-11 px-1 text-sm text-link underline disabled:opacity-50">
-              Change
+              {t('common.change')}
             </button>
           </div>
         ) : (
           <button type="button" disabled={disabled} onClick={onEdit} className="text-sm text-link underline disabled:opacity-50">
-            Change
+            {t('common.change')}
           </button>
         )}
-        <button type="button" disabled={disabled} onClick={() => onChange(null)} className="min-h-11 px-2 text-sm text-bad disabled:opacity-50" aria-label={`Remove ${line.name}`}>
-          Remove
+        <button type="button" disabled={disabled} onClick={() => onChange(null)} className="min-h-11 px-2 text-sm text-bad disabled:opacity-50" aria-label={t('kiranaCounter.removeItem', { name: line.name })}>
+          {t('common.remove')}
         </button>
       </div>
     </li>
@@ -515,6 +518,7 @@ function LineRow({
 
 /** Changing one line: how many (or the weight), or a loose item's amount, or an item not in the list's price. */
 function EditLineForm({ line, onSave }: { line: CartLine; onSave: (l: CartLine) => void }) {
+  const t = useT()
   const [value, setValue] = useState(() =>
     line.kind === 'product' ? qtyText(line.milli) : line.kind === 'loose' ? rupeesInput(line.amountPaise) : rupeesInput(line.amountPaise),
   )
@@ -522,7 +526,7 @@ function EditLineForm({ line, onSave }: { line: CartLine; onSave: (l: CartLine) 
   const [err, setErr] = useState<string | null>(null)
   const [nameErr, setNameErr] = useState<string | null>(null)
   function save() {
-    if (line.kind === 'other' && !name.trim()) return setNameErr("Enter what it is")
+    if (line.kind === 'other' && !name.trim()) return setNameErr(t('kiranaCounter.enterWhatItIs'))
     if (line.kind === 'product') {
       const q = parseQty(value, line.unit)
       if ('error' in q) return setErr(q.error)
@@ -530,11 +534,11 @@ function EditLineForm({ line, onSave }: { line: CartLine; onSave: (l: CartLine) 
     } else {
       const r = parseRupees(value, { maxPaise: 10_000_000 })
       if ('error' in r) return setErr(r.error)
-      if (line.kind === 'loose' && weightFor(r.paise, line.pricePaise) <= 0) return setErr(`That's less than a gram at ${rupees(line.pricePaise)}/kg`)
+      if (line.kind === 'loose' && weightFor(r.paise, line.pricePaise) <= 0) return setErr(t('kiranaCounter.lessThanGram', { price: rupees(line.pricePaise) }))
       onSave(line.kind === 'other' ? { ...line, amountPaise: r.paise, name: name.trim().slice(0, 100) } : { ...line, amountPaise: r.paise })
     }
   }
-  const label = line.kind === 'product' ? (line.unit === 'KG' ? 'Weight (kg)' : 'How many') : line.kind === 'loose' ? 'Amount (₹)' : 'Price of one (₹)'
+  const label = line.kind === 'product' ? (line.unit === 'KG' ? t('kiranaCounter.weightKg') : t('kiranaCounter.howMany')) : line.kind === 'loose' ? t('kiranaCounter.amountRupees') : t('kiranaCounter.priceOfOne')
   return (
     <form
       className="flex flex-col gap-3"
@@ -544,16 +548,17 @@ function EditLineForm({ line, onSave }: { line: CartLine; onSave: (l: CartLine) 
       }}
     >
       {line.kind === 'other' && (
-        <Field id="edit-line-name" label="What it is" value={name} maxLength={100} onChange={(e) => { setName(e.target.value); setNameErr(null) }} error={nameErr ?? undefined} />
+        <Field id="edit-line-name" label={t('kiranaCounter.whatItIs')} value={name} maxLength={100} onChange={(e) => { setName(e.target.value); setNameErr(null) }} error={nameErr ?? undefined} />
       )}
       <Field id="edit-line" label={label} inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} error={err ?? undefined} autoFocus />
-      <Button type="submit">Save</Button>
+      <Button type="submit">{t('common.save')}</Button>
     </form>
   )
 }
 
 /** A loose product (sold by kg): by weight, or by the amount the customer asks for ("₹30 of sugar"). */
 function LooseForm({ product, onAdd }: { product: Product; onAdd: (how: { milli: number } | { amountPaise: number }) => void }) {
+  const t = useT()
   const [by, setBy] = useState<'weight' | 'amount'>('weight')
   const [value, setValue] = useState('')
   const [err, setErr] = useState<string | null>(null)
@@ -563,15 +568,15 @@ function LooseForm({ product, onAdd }: { product: Product; onAdd: (how: { milli:
     weight && 'milli' in weight
       ? `${rupees(Math.floor((product.pricePaise * weight.milli + 500) / 1000))}`
       : amount && 'paise' in amount
-        ? `about ${qtyText(weightFor(amount.paise, product.pricePaise))} kg`
+        ? t('kiranaCounter.aboutKg', { weight: qtyText(weightFor(amount.paise, product.pricePaise)) })
         : null
   function add() {
     if (by === 'weight') {
-      if (!weight || 'error' in weight) return setErr(weight?.error ?? 'Enter the weight')
+      if (!weight || 'error' in weight) return setErr(weight?.error ?? t('kiranaCounter.enterWeight'))
       onAdd({ milli: weight.milli })
     } else {
-      if (!amount || 'error' in amount) return setErr(amount?.error ?? 'Enter the amount')
-      if (weightFor(amount.paise, product.pricePaise) <= 0) return setErr(`That's less than a gram at ${rupees(product.pricePaise)}/kg`)
+      if (!amount || 'error' in amount) return setErr(amount?.error ?? t('kiranaCounter.enterAmount'))
+      if (weightFor(amount.paise, product.pricePaise) <= 0) return setErr(t('kiranaCounter.lessThanGram', { price: rupees(product.pricePaise) }))
       onAdd({ amountPaise: amount.paise })
     }
   }
@@ -583,18 +588,18 @@ function LooseForm({ product, onAdd }: { product: Product; onAdd: (how: { milli:
         add()
       }}
     >
-      <p className="text-sm text-muted">{rupees(product.pricePaise)} a kg</p>
-      <div className="flex gap-2" role="group" aria-label="Sell by">
+      <p className="text-sm text-muted">{t('kiranaCounter.pricePerKg', { price: rupees(product.pricePaise) })}</p>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t('kiranaCounter.sellBy')}>
         <Chip selected={by === 'weight'} onClick={() => { setBy('weight'); setValue(''); setErr(null) }}>
-          By weight
+          {t('kiranaCounter.byWeight')}
         </Chip>
         <Chip selected={by === 'amount'} onClick={() => { setBy('amount'); setValue(''); setErr(null) }}>
-          By amount (₹)
+          {t('kiranaCounter.byAmount')}
         </Chip>
       </div>
       <Field
         id="loose-value"
-        label={by === 'weight' ? 'Weight in kg (0.5 for half a kilo)' : 'Amount in ₹ the customer asks for'}
+        label={by === 'weight' ? t('kiranaCounter.looseWeightLabel') : t('kiranaCounter.looseAmountLabel')}
         inputMode="decimal"
         value={value}
         onChange={(e) => {
@@ -605,18 +610,19 @@ function LooseForm({ product, onAdd }: { product: Product; onAdd: (how: { milli:
         autoFocus
       />
       {preview && !err && <p className="text-sm">= {preview}</p>}
-      <Button type="submit">Add to the bill</Button>
+      <Button type="submit">{t('kiranaCounter.addToBill')}</Button>
     </form>
   )
 }
 
 /** An item not in the list: its name and the price of one, and how many. No stock is kept for it. */
 function OtherForm({ start, onAdd }: { start: string; onAdd: (name: string, amountPaise: number, qty: number) => void }) {
+  const t = useT()
   const [name, setName] = useState(start)
   const [price, setPrice] = useState('')
   const [qty, setQty] = useState('1')
   const [touched, setTouched] = useState(false)
-  const nameErr = name.trim().length < 2 ? 'Enter what it is (2 to 100 letters)' : null
+  const nameErr = name.trim().length < 2 ? t('kiranaCounter.otherNameError') : null
   const p = parseRupees(price, { maxPaise: 10_000_000 })
   const q = parseQty(qty, 'PIECE')
   return (
@@ -629,19 +635,20 @@ function OtherForm({ start, onAdd }: { start: string; onAdd: (name: string, amou
         onAdd(name, p.paise, q.milli / 1000)
       }}
     >
-      <Field id="other-name" label="What is it?" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} error={(touched && nameErr) || undefined} autoFocus={!start} />
+      <Field id="other-name" label={t('kiranaCounter.whatIsIt')} value={name} maxLength={100} onChange={(e) => setName(e.target.value)} error={(touched && nameErr) || undefined} autoFocus={!start} />
       <div className="grid grid-cols-2 gap-3">
-        <Field id="other-price" label="Price of one (₹)" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} error={touched && 'error' in p ? p.error : undefined} autoFocus={Boolean(start)} />
-        <Field id="other-qty" label="How many" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} error={touched && 'error' in q ? q.error : undefined} />
+        <Field id="other-price" label={t('kiranaCounter.priceOfOne')} inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} error={touched && 'error' in p ? p.error : undefined} autoFocus={Boolean(start)} />
+        <Field id="other-qty" label={t('kiranaCounter.howMany')} inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} error={touched && 'error' in q ? q.error : undefined} />
       </div>
-      <p className="text-sm text-muted">Sold often? Add it to your products, so its stock is kept and it scans.</p>
-      <Button type="submit">Add to the bill</Button>
+      <p className="text-sm text-muted">{t('kiranaCounter.soldOften')}</p>
+      <Button type="submit">{t('kiranaCounter.addToBill')}</Button>
     </form>
   )
 }
 
 /** Off the whole bill. A helper up to ₹10 (a round-off); more is the owner's. */
 function DiscountForm({ owner, subtotal, current, onSave }: { owner: boolean; subtotal: number; current: number; onSave: (paise: number) => void }) {
+  const t = useT()
   const [value, setValue] = useState(current ? rupeesInput(current) : '')
   const [err, setErr] = useState<string | null>(null)
   const cap = owner ? subtotal : Math.min(subtotal, HELPER_DISCOUNT_PAISE)
@@ -653,15 +660,15 @@ function DiscountForm({ owner, subtotal, current, onSave }: { owner: boolean; su
         if (!value.trim()) return onSave(0)
         const r = parseRupees(value, { zeroAllowed: true })
         if ('error' in r) return setErr(r.error)
-        if (r.paise > subtotal) return setErr(`At most the bill's ${rupees(subtotal)}`)
-        if (!owner && r.paise > HELPER_DISCOUNT_PAISE) return setErr('A helper can take up to ₹10 off. Ask the owner for more.')
+        if (r.paise > subtotal) return setErr(t('kiranaCounter.discountOverBill', { amount: rupees(subtotal) }))
+        if (!owner && r.paise > HELPER_DISCOUNT_PAISE) return setErr(t('kiranaCounter.helperDiscountMax'))
         onSave(r.paise)
       }}
     >
       <Field
         id="discount"
-        label="Amount off (₹)"
-        hint={owner ? `Up to ${rupees(cap)}.` : 'Up to ₹10, to round off. The owner can give more.'}
+        label={t('kiranaCounter.amountOff')}
+        hint={owner ? t('kiranaCounter.discountUpTo', { amount: rupees(cap) }) : t('kiranaCounter.helperDiscountHint')}
         inputMode="decimal"
         value={value}
         onChange={(e) => {
@@ -671,10 +678,10 @@ function DiscountForm({ owner, subtotal, current, onSave }: { owner: boolean; su
         error={err ?? undefined}
         autoFocus
       />
-      <Button type="submit">Save</Button>
+      <Button type="submit">{t('common.save')}</Button>
       {current > 0 && (
         <Button variant="ghost" onClick={() => onSave(0)}>
-          No discount
+          {t('kiranaCounter.noDiscount')}
         </Button>
       )}
     </form>
@@ -697,6 +704,7 @@ function KhataPay({
   error: string | null
   onPay: (c: KhataCustomer, paid: { paidNowPaise?: number; paidNowBy?: PaidBy }) => void
 }) {
+  const t = useT()
   const [who, setWho] = useState<KhataCustomer | null>(null)
   const [paid, setPaid] = useState('')
   const [by, setBy] = useState<PaidBy>('CASH')
@@ -711,17 +719,17 @@ function KhataPay({
         <span className="min-w-0">
           <span className="block font-semibold break-words">{who.name}</span>
           <span className="block text-xs text-muted">
-            {who.availablePaise === null ? 'No limit' : `Can buy ${rupees(who.availablePaise)} more on khata`}
+            {who.availablePaise === null ? t('kiranaCounter.noLimit') : t('kiranaCounter.canBuyMoreOnKhata', { amount: rupees(who.availablePaise) })}
           </span>
         </span>
         <button type="button" className="shrink-0 text-sm text-link underline" onClick={() => setWho(null)}>
-          Change
+          {t('common.change')}
         </button>
       </Card>
       <Field
         id="paid-now"
-        label="Paid now (optional, ₹)"
-        hint="Part paid at the counter: only the rest goes on their khata."
+        label={t('kiranaCounter.paidNowLabel')}
+        hint={t('kiranaCounter.paidNowHint')}
         inputMode="decimal"
         value={paid}
         onChange={(e) => {
@@ -731,31 +739,31 @@ function KhataPay({
         error={err ?? undefined}
       />
       {paidNow > 0 && (
-        <div className="flex gap-2" role="group" aria-label="Paid now by">
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t('kiranaCounter.paidNowBy')}>
           <Chip selected={by === 'CASH'} onClick={() => setBy('CASH')}>
-            Cash
+            {t('kiranaCounter.cash')}
           </Chip>
           <Chip selected={by === 'UPI'} onClick={() => setBy('UPI')}>
-            UPI
+            {t('kiranaCounter.upi')}
           </Chip>
         </div>
       )}
-      <SumRow strong label="On khata" value={rupees(Math.max(0, onKhata))} />
+      <SumRow strong label={t('kiranaCounter.onKhata')} value={rupees(Math.max(0, onKhata))} />
       {error && <Banner tone="bad">{error}</Banner>}
       {error && limitHit && owner && (
         <Link to={`/kirana/khata/${who.id}`} className="text-sm text-link underline">
-          Change {who.name}'s khata limit
+          {t('kiranaCounter.changeKhataLimit', { name: who.name })}
         </Link>
       )}
       <Button
         busy={busy}
         onClick={() => {
           if (r && 'error' in r) return setErr(r.error)
-          if (paidNow >= total) return setErr(`Paid in full? Use Cash or UPI instead. Paid now must be less than ${rupees(total)}.`)
+          if (paidNow >= total) return setErr(t('kiranaCounter.paidInFull', { amount: rupees(total) }))
           onPay(who, paidNow ? { paidNowPaise: paidNow, paidNowBy: by } : {})
         }}
       >
-        Put {rupees(Math.max(0, onKhata))} on {who.name}'s khata
+        {t('kiranaCounter.putOnKhata', { amount: rupees(Math.max(0, onKhata)), name: who.name })}
       </Button>
     </div>
   )
@@ -775,6 +783,7 @@ function Receipt({
   onChange: (r: BillResult) => void
   onNext: () => void
 }) {
+  const t = useT()
   const qc = useQueryClient()
   const b = result.bill
   const low = result.stock.filter((s) => s.runningOut)
@@ -798,55 +807,54 @@ function Receipt({
 
   return (
     <div className="flex max-h-[80dvh] flex-col gap-3 overflow-y-auto">
-      {result.repeated && <Banner tone="info">This bill was already saved from your earlier try: it wasn't billed twice.</Banner>}
+      {result.repeated && <Banner tone="info">{t('kiranaCounter.repeatedBill')}</Banner>}
       {shownTotal !== null && shownTotal !== b.totalPaise && (
-        <Banner tone="warn">
-          The saved bill is {rupees(b.totalPaise)}, not the {rupees(shownTotal)} the screen showed (a price changed meanwhile). Charge{' '}
-          {rupees(b.totalPaise)}.
-        </Banner>
+        <Banner tone="warn">{t('kiranaCounter.totalChanged', { saved: rupees(b.totalPaise), shown: rupees(shownTotal) })}</Banner>
       )}
       <SumRow strong label={paymentTitle(b.payment, b.paidNowPaise, b.paidNowBy)} value={rupees(b.totalPaise)} />
       {b.payment === 'CASH' && <CashChange total={b.totalPaise} />}
       {result.upi && <UpiQrCode upi={result.upi} />}
       {b.payment === 'UPI' && (
         <Button variant="secondary" busy={busy} onClick={() => void paidByCash()}>
-          UPI didn't work: paid by cash instead
+          {t('kiranaCounter.upiFailedCash')}
         </Button>
       )}
       {error && <Banner tone="bad">{error}</Banner>}
       {result.upiIdMissing && (
         <Banner tone="warn">
-          No QR: the shop's UPI ID isn't set.{' '}
+          {t('kiranaCounter.noUpiId')}{' '}
           {owner ? (
             <Link to="/kirana/upi" className="underline">
-              Set it now
+              {t('kiranaCounter.setUpiNow')}
             </Link>
           ) : (
-            'Ask the owner to set it.'
+            t('kiranaCounter.askOwnerUpi')
           )}
         </Banner>
       )}
       {result.khata && (
         <p className="text-sm">
-          {result.khata.name}: owes {rupees(result.khata.owesPaise)} now
-          {result.khata.availablePaise !== null && ` · can buy ${rupees(result.khata.availablePaise)} more`}
+          {result.khata.availablePaise !== null
+            ? t('kiranaCounter.khataOwesCanBuy', { name: result.khata.name, owes: rupees(result.khata.owesPaise), available: rupees(result.khata.availablePaise) })
+            : t('kiranaCounter.khataOwes', { name: result.khata.name, owes: rupees(result.khata.owesPaise) })}
         </p>
       )}
       {low.length > 0 && (
         <Banner tone="warn">
-          Running out: {low.map((s) => `${s.name} (${qtyWithUnit(Math.round(s.after * 1000), s.unit)} left)`).join(', ')}
+          {t('kiranaCounter.runningOut', { items: low.map((s) => t('kiranaCounter.runningOutItem', { name: s.name, qty: qtyWithUnit(Math.round(s.after * 1000), s.unit) })).join(', ') })}
         </Banner>
       )}
       <Link to={`/kirana/bills/${b.id}`} className="text-sm text-link underline">
-        Open the bill (cancel, returns, change payment)
+        {t('kiranaCounter.openBill')}
       </Link>
-      <Button onClick={onNext}>Next bill</Button>
+      <Button onClick={onNext}>{t('kiranaCounter.nextBill')}</Button>
     </div>
   )
 }
 
 /** Cash handed over → the change to give back. */
 function CashChange({ total }: { total: number }) {
+  const t = useT()
   const [given, setGiven] = useState('')
   const r = given.trim() ? parseRupees(given) : null
   const paise = r && 'paise' in r ? r.paise : null
@@ -854,7 +862,7 @@ function CashChange({ total }: { total: number }) {
     <div className="flex flex-col gap-1">
       <Field
         id="cash-given"
-        label="Cash given (optional, ₹)"
+        label={t('kiranaCounter.cashGiven')}
         inputMode="decimal"
         value={given}
         onChange={(e) => setGiven(e.target.value)}
@@ -862,7 +870,7 @@ function CashChange({ total }: { total: number }) {
       />
       {paise !== null && (
         <p className="text-sm font-semibold" aria-live="polite">
-          {paise >= total ? `Give back ${rupees(paise - total)}` : `${rupees(total - paise)} short`}
+          {paise >= total ? t('kiranaCounter.giveBack', { amount: rupees(paise - total) }) : t('kiranaCounter.short', { amount: rupees(total - paise) })}
         </p>
       )}
     </div>
@@ -870,8 +878,8 @@ function CashChange({ total }: { total: number }) {
 }
 
 function paymentTitle(p: Payment, paidNow: number | null, paidBy: PaidBy | null): string {
-  if (p !== 'KHATA') return `Paid by ${paymentText(p)}`
-  return paidNow ? `On khata (${rupees(paidNow)} paid now by ${paidByText(paidBy)})` : 'On khata'
+  if (p !== 'KHATA') return t('kiranaCounter.paidBy', { payment: paymentText(p) })
+  return paidNow ? t('kiranaCounter.onKhataPaidNow', { amount: rupees(paidNow), by: paidByText(paidBy) }) : t('kiranaCounter.onKhata')
 }
 
 /**
@@ -892,6 +900,7 @@ function ScanPanel({
   onDone: () => void
   lines: number
 }) {
+  const t = useT()
   const navigate = useNavigate()
   const [last, setLast] = useState<string | null>(null)
   const [unknown, setUnknown] = useState<string | null>(null)
@@ -908,10 +917,10 @@ function ScanPanel({
       }
       if (!onProduct(product, Math.round(pack * 1000))) {
         setLast(null)
-        setError(FULL)
+        setError(full())
         return
       }
-      setLast(`${product.name}${pack !== 1 ? ` × ${qtyText(Math.round(pack * 1000))}` : ''} added`)
+      setLast(pack !== 1 ? t('kiranaCounter.scanAddedPack', { name: product.name, qty: qtyText(Math.round(pack * 1000)) }) : t('kiranaCounter.scanAdded', { name: product.name }))
       setUnknown(null)
     } catch (e) {
       if (isApiError(e, 'PRODUCT_NOT_FOUND')) setUnknown(code)
@@ -928,7 +937,7 @@ function ScanPanel({
           setUnknown(null)
           if (p.unit === 'KG') onLoose(p)
           else {
-            setLast(onProduct(p, packMilli) ? `${p.name} added (barcode saved)` : `Barcode saved. ${FULL}`)
+            setLast(onProduct(p, packMilli) ? t('kiranaCounter.addedBarcodeSaved', { name: p.name }) : t('kiranaCounter.barcodeSavedBillFull', { max: MAX_LINES }))
           }
         }}
         onBack={() => setLinking(false)}
@@ -944,23 +953,23 @@ function ScanPanel({
       </div>
       {unknown && (
         <Card className="flex flex-col gap-2">
-          <p className="font-semibold">Barcode {unknown} isn't in your products yet</p>
+          <p className="font-semibold">{t('kiranaCounter.unknownBarcode', { code: unknown })}</p>
           <Button onClick={() => navigate(`/kirana/products/new?${new URLSearchParams({ barcode: unknown, from: '/kirana/counter' })}`)}>
-            Add a new product
+            {t('kiranaCounter.addNewProduct')}
           </Button>
           <Button variant="secondary" onClick={() => setLinking(true)}>
-            It's a product I already have
+            {t('kiranaCounter.alreadyHaveProduct')}
           </Button>
           <Button variant="secondary" onClick={() => onOther('')}>
-            Bill it without a product
+            {t('kiranaCounter.billWithoutProduct')}
           </Button>
           <Button variant="ghost" onClick={() => setUnknown(null)}>
-            Scan again
+            {t('kiranaCounter.scanAgain')}
           </Button>
         </Card>
       )}
       <Button variant={lines ? 'primary' : 'secondary'} onClick={onDone}>
-        {lines ? `Done: back to the bill (${lines})` : 'Close'}
+        {lines ? t('kiranaCounter.doneBackToBill', { count: lines }) : t('common.close')}
       </Button>
     </div>
   )
@@ -968,6 +977,7 @@ function ScanPanel({
 
 /** A barcode for a product already in the list (a new pack design, another MRP batch): saved, then billed. */
 export function LinkBarcode({ code, onLinked, onBack }: { code: string; onLinked: (p: Product, packMilli: number) => void; onBack: () => void }) {
+  const t = useT()
   const qc = useQueryClient()
   const [pack, setPack] = useState('1')
   const [search, setSearch] = useState('')
@@ -978,7 +988,7 @@ export function LinkBarcode({ code, onLinked, onBack }: { code: string; onLinked
   const items = results.data?.pages[0]?.items.filter((p) => p.active).slice(0, 10) ?? []
   async function link(p: Product) {
     const k = parseQty(pack, p.unit)
-    if ('error' in k) return setError(`Pieces in one scan: ${k.error}`)
+    if ('error' in k) return setError(t('kiranaCounter.packError', { error: k.error }))
     setBusy(p.id)
     setError(null)
     try {
@@ -993,11 +1003,11 @@ export function LinkBarcode({ code, onLinked, onBack }: { code: string; onLinked
   }
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted">Which product has barcode {code}? It scans as that product from now on.</p>
+      <p className="text-sm text-muted">{t('kiranaCounter.whichProduct', { code })}</p>
       <Field
         id="link-pack"
-        label="Pieces in one scan"
-        hint="1 for a single pack; 12 if this barcode is on a carton of 12."
+        label={t('kiranaCounter.packLabel')}
+        hint={t('kiranaCounter.packHint')}
         inputMode="decimal"
         value={pack}
         onChange={(e) => {
@@ -1005,7 +1015,7 @@ export function LinkBarcode({ code, onLinked, onBack }: { code: string; onLinked
           setError(null)
         }}
       />
-      <SearchBox id="link-search" label="Search for the product" value={search} onChange={setSearch} />
+      <SearchBox id="link-search" label={t('kiranaCounter.searchForProduct')} value={search} onChange={setSearch} />
       {results.isPending ? (
         <Loading />
       ) : (
@@ -1018,12 +1028,12 @@ export function LinkBarcode({ code, onLinked, onBack }: { code: string; onLinked
               </Button>
             </li>
           ))}
-          {items.length === 0 && <li className="text-sm text-muted">No products found.</li>}
+          {items.length === 0 && <li className="text-sm text-muted">{t('kiranaCounter.noProductsFound')}</li>}
         </ul>
       )}
       {error && <Banner tone="bad">{error}</Banner>}
       <Button variant="ghost" onClick={onBack}>
-        Back
+        {t('common.back')}
       </Button>
     </div>
   )

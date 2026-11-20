@@ -6,8 +6,9 @@ import { kiranaApi, kiranaKeys, useBill, useBills, useDay, type Bill, type Chang
 import { useShop } from '../../api/shop'
 import { Banner, Button, Card, Chip, EmptyState, ErrorState, Field, Loading, Page, Pill, Sheet } from '../../components/ui'
 import { addDays, dateOfIst, dateTimeIst, dayLabel, timeIst, todayIst } from '../../lib/ist'
-import { HELPER_MINUTES, parseQty, parseRupees, qtyText, qtyWithUnit, toMilli } from '../../lib/kirana'
+import { HELPER_MINUTES, parseQty, parseRupees, priceUnit, qtyText, qtyWithUnit, toMilli } from '../../lib/kirana'
 import { rupees } from '../../lib/money'
+import { inEnglish, shownAs, t as tPlain, useT } from '../../i18n'
 import { useSession } from '../../store/session'
 import { minutesSince, MoreButton, outcomeUnknown, paidByText, paymentText, SumRow, UnsureNote, useRefreshOnStale, useUnsureSend } from './common'
 import { KhataPicker } from './KhataPicker'
@@ -15,25 +16,26 @@ import { UpiQrCode } from './UpiQrCode'
 
 /** Bills: today's totals at the top (the full day one tap away), then every bill, newest first. */
 export function Bills() {
+  const t = useT()
   const bills = useBills()
   const today = useDay(null)
   return (
-    <Page title="Bills">
+    <Page title={t('kiranaBills.billsTitle')}>
       <Link to="/kirana/day" className="block">
         <Card className="flex flex-col gap-1 hover:bg-raised">
-          <p className="font-semibold">Today</p>
+          <p className="font-semibold">{t('kiranaBills.today')}</p>
           {today.data ? (
             <>
-              <SumRow label={`${today.data.bills} ${today.data.bills === 1 ? 'bill' : 'bills'}`} value={rupees(today.data.salesPaise)} />
-              <SumRow label="Cash in the drawer should be up by" value={rupees(today.data.cashInPaise)} />
-              <SumRow label="UPI in" value={rupees(today.data.upiInPaise)} />
+              <SumRow label={t('kiranaBills.billCount', { count: today.data.bills })} value={rupees(today.data.salesPaise)} />
+              <SumRow label={t('kiranaBills.drawerShouldBeUp')} value={rupees(today.data.cashInPaise)} />
+              <SumRow label={t('kiranaBills.upiIn')} value={rupees(today.data.upiInPaise)} />
             </>
           ) : today.isError ? (
             <p className="text-sm text-bad">{messageOf(today.error)}</p>
           ) : (
             <p className="text-sm text-muted">…</p>
           )}
-          <span className="text-sm text-link">See the whole day ›</span>
+          <span className="text-sm text-link">{t('kiranaBills.seeWholeDay')}</span>
         </Card>
       </Link>
       {bills.isPending ? (
@@ -41,7 +43,7 @@ export function Bills() {
       ) : bills.isError && !bills.data ? (
         <ErrorState message={messageOf(bills.error)} onRetry={() => bills.refetch()} />
       ) : bills.data.pages[0].items.length === 0 ? (
-        <EmptyState title="No bills yet" body="Bills made at the counter show here." />
+        <EmptyState title={t('kiranaBills.noBillsTitle')} body={t('kiranaBills.noBillsBody')} />
       ) : (
         <ul className="flex flex-col gap-2">
           {bills.data.pages.flatMap((p) => p.items).map((b) => (
@@ -49,24 +51,27 @@ export function Bills() {
               <Link to={`/kirana/bills/${b.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-3 hover:bg-raised">
                 <span className="min-w-0">
                   <span className="block font-medium">
-                    Bill {b.billNo} · {timeIst(b.createdAt)}
+                    {t('kiranaBills.billRow', { billNo: String(b.billNo), time: timeIst(b.createdAt) })}
                     {dateOfIst(b.createdAt) !== todayIst() && <span className="text-muted"> · {dayLabel(dateOfIst(b.createdAt))}</span>}
                   </span>
                   <span className="block text-xs text-muted break-words">
                     {b.preview}
-                    {b.lines > 3 && ` +${b.lines - 3} more`}
+                    {b.lines > 3 && ` ${t('kiranaBills.moreLines', { count: b.lines - 3 })}`}
                   </span>
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-1">
                   <span className={`font-semibold ${b.voided ? 'line-through text-muted' : ''}`}>{rupees(b.totalPaise)}</span>
                   {b.voided ? (
-                    <Pill tone="bad">Cancelled</Pill>
+                    <Pill tone="bad">{t('kiranaBills.cancelled')}</Pill>
                   ) : (
                     <Pill tone={b.payment === 'KHATA' ? 'warn' : 'muted'}>
-                      {b.payment === 'KHATA' ? `Khata${b.khataCustomerName ? `: ${b.khataCustomerName}` : ''}` : paymentText(b.payment)}
+                      {/* A long customer name stays on one line, cut short: the amount beside it keeps its room */}
+                      <span className="max-w-[9rem] truncate" title={b.khataCustomerName ?? undefined}>
+                        {b.payment === 'KHATA' ? (b.khataCustomerName ? t('kiranaBills.khataWithName', { name: b.khataCustomerName }) : t('kiranaBills.khata')) : paymentText(b.payment)}
+                      </span>
                     </Pill>
                   )}
-                  {b.refundedPaise > 0 && !b.voided && <span className="text-xs text-muted">{rupees(b.refundedPaise)} returned</span>}
+                  {b.refundedPaise > 0 && !b.voided && <span className="text-xs text-muted">{t('kiranaBills.amountReturned', { amount: rupees(b.refundedPaise) })}</span>}
                 </span>
               </Link>
             </li>
@@ -85,6 +90,7 @@ export function Bills() {
  * take items back, or change how it was paid. A helper only on his own bill within 10 minutes; the owner always.
  */
 export function BillPage() {
+  const t = useT()
   const { id = '' } = useParams()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from
@@ -96,10 +102,10 @@ export function BillPage() {
   const [changed, setChanged] = useState<ChangeResult | null>(null)
   const [qrBusy, setQrBusy] = useState(false)
   const [qrError, setQrError] = useState<string | null>(null)
-  if (bill.isPending) return <Page back={back} title="Bill"><Loading /></Page>
+  if (bill.isPending) return <Page back={back} title={t('kiranaBills.billTitle')}><Loading /></Page>
   if (bill.isError && !bill.data) {
     return (
-      <Page back={back} title="Bill">
+      <Page back={back} title={t('kiranaBills.billTitle')}>
         <ErrorState message={messageOf(bill.error)} onRetry={() => bill.refetch()} />
       </Page>
     )
@@ -112,12 +118,12 @@ export function BillPage() {
   const mayChange = !b.voidedAt && (owner || (mine && inWindow))
   const returnsLeft = b.lines.some((l) => l.quantity > l.returnedQuantity)
   return (
-    <Page back={back} title={`Bill ${b.billNo}`}>
-      {b.voidedAt && <Banner tone="bad">Cancelled {dateTimeIst(b.voidedAt)}: {b.voidReason}</Banner>}
+    <Page back={back} title={t('kiranaBills.billNoTitle', { billNo: String(b.billNo) })}>
+      {b.voidedAt && <Banner tone="bad">{t('kiranaBills.cancelledBanner', { when: dateTimeIst(b.voidedAt), reason: shownAs(b.voidReason ?? '', CANCEL_REASONS) })}</Banner>}
       <Card className="flex flex-col gap-2">
         <p className="text-sm text-muted">
           {dateTimeIst(b.createdAt)}
-          {b.byName && ` · by ${b.byName}`}
+          {b.byName && ` · ${t('kiranaBills.byName', { name: b.byName })}`}
         </p>
         <ul className="flex flex-col gap-1">
           {b.lines.map((l) => (
@@ -126,9 +132,9 @@ export function BillPage() {
                 <span className="block break-words">{l.name}</span>
                 <span className="block text-xs text-muted">
                   {qtyWithUnit(toMilli(l.quantity), l.unit)} × {rupees(l.pricePaise)}
-                  {l.unit === 'KG' ? '/kg' : ''}
-                  {!l.productId && ' · not in your list'}
-                  {l.returnedQuantity > 0 && ` · ${qtyText(toMilli(l.returnedQuantity))} returned`}
+                  {priceUnit(l.unit)}
+                  {!l.productId && ` · ${t('kiranaBills.notInList')}`}
+                  {l.returnedQuantity > 0 && ` · ${t('kiranaBills.qtyReturned', { qty: qtyText(toMilli(l.returnedQuantity)) })}`}
                 </span>
               </span>
               <span className="shrink-0">{rupees(l.amountPaise)}</span>
@@ -138,33 +144,33 @@ export function BillPage() {
         <div className="border-t border-line pt-2">
           {b.discountPaise > 0 && (
             <>
-              <SumRow label="Items" value={rupees(b.subtotalPaise)} />
-              <SumRow label="Discount" value={`−${rupees(b.discountPaise)}`} />
+              <SumRow label={t('kiranaBills.items')} value={rupees(b.subtotalPaise)} />
+              <SumRow label={t('kiranaBills.discount')} value={`−${rupees(b.discountPaise)}`} />
             </>
           )}
-          <SumRow strong label="Total" value={rupees(b.totalPaise)} />
-          <SumRow label="Paid by" value={payText(b)} />
-          {b.refundedPaise > 0 && <SumRow label="Given back for returns" value={rupees(b.refundedPaise)} />}
+          <SumRow strong label={t('kiranaBills.total')} value={rupees(b.totalPaise)} />
+          <SumRow label={t('kiranaBills.paidBy')} value={payText(b)} />
+          {b.refundedPaise > 0 && <SumRow label={t('kiranaBills.givenBackForReturns')} value={rupees(b.refundedPaise)} />}
         </div>
       </Card>
 
       {b.returns.length > 0 && (
         <Card className="flex flex-col gap-1">
-          <p className="font-semibold">Returns</p>
+          <p className="font-semibold">{t('kiranaBills.returnsTitle')}</p>
           {b.returns.map((r) => (
             <p key={r.id} className="text-sm">
               {dateTimeIst(r.at)}: {rupees(r.refundPaise)}
-              {r.offKhataPaise > 0 && ` (${rupees(r.offKhataPaise)} off the khata)`}
-              {r.handBackPaise > 0 && ` (${rupees(r.handBackPaise)} handed back in ${paidByText(r.handBackBy)})`}
+              {r.offKhataPaise > 0 && ` ${t('kiranaBills.offTheKhata', { amount: rupees(r.offKhataPaise) })}`}
+              {r.handBackPaise > 0 && ` ${t('kiranaBills.handedBackIn', { amount: rupees(r.handBackPaise), by: paidByText(r.handBackBy) })}`}
               {r.byName && ` · ${r.byName}`}
-              {r.reason && ` · ${r.reason}`}
+              {r.reason && ` · ${shownAs(r.reason, RETURN_REASONS)}`}
             </p>
           ))}
         </Card>
       )}
       {b.changes.length > 0 && (
         <Card className="flex flex-col gap-1">
-          <p className="font-semibold">Payment changed</p>
+          <p className="font-semibold">{t('kiranaBills.paymentChangedTitle')}</p>
           {b.changes.map((c, i) => (
             <p key={i} className="text-sm">
               {dateTimeIst(c.at)}: {paymentText(c.fromPayment)}
@@ -203,42 +209,42 @@ export function BillPage() {
                   }
                 }}
               >
-                Show the UPI QR again
+                {t('kiranaBills.showQrAgain')}
               </Button>
             )}
             {qrError && <Banner tone="bad">{qrError}</Banner>}
             {b.returns.length === 0 && (
               <Button variant="secondary" onClick={() => setAction('payment')}>
-                Change how it was paid
+                {t('kiranaBills.changeHowPaid')}
               </Button>
             )}
             {returnsLeft && (
               <Button variant="secondary" onClick={() => setAction('return')}>
-                Items brought back
+                {t('kiranaBills.itemsBroughtBack')}
               </Button>
             )}
             {b.returns.length === 0 && (
               <Button variant="ghost" className="text-bad" onClick={() => setAction('cancel')}>
-                Cancel the bill
+                {t('kiranaBills.cancelBill')}
               </Button>
             )}
-            {b.returns.length > 0 && <p className="text-xs text-muted">Items came back on this bill, so how it was paid stays as it is.</p>}
-            {!owner && <p className="text-xs text-muted">You can change your own bill for {HELPER_MINUTES} minutes after making it.</p>}
+            {b.returns.length > 0 && <p className="text-xs text-muted">{t('kiranaBills.returnsLockPayment')}</p>}
+            {!owner && <p className="text-xs text-muted">{t('kiranaBills.helperWindow', { count: HELPER_MINUTES })}</p>}
           </div>
         ) : (
           <p className="text-sm text-muted">
-            Only the owner can change this bill now. A helper can change his own bill within {HELPER_MINUTES} minutes of making it.
+            {t('kiranaBills.onlyOwnerNow', { count: HELPER_MINUTES })}
           </p>
         )
       )}
 
-      <Sheet open={action === 'cancel'} title={`Cancel bill ${b.billNo}?`} onClose={() => setAction(null)}>
+      <Sheet open={action === 'cancel'} title={t('kiranaBills.cancelBillTitle', { billNo: String(b.billNo) })} onClose={() => setAction(null)}>
         {action === 'cancel' && <CancelForm b={b} onDone={() => setAction(null)} />}
       </Sheet>
-      <Sheet open={action === 'return'} title="Items brought back" onClose={() => setAction(null)}>
+      <Sheet open={action === 'return'} title={t('kiranaBills.itemsBroughtBack')} onClose={() => setAction(null)}>
         {action === 'return' && <ReturnForm b={b} onDone={() => setAction(null)} />}
       </Sheet>
-      <Sheet open={action === 'payment'} title="Change how it was paid" onClose={() => setAction(null)}>
+      <Sheet open={action === 'payment'} title={t('kiranaBills.changeHowPaid')} onClose={() => setAction(null)}>
         {action === 'payment' && (
           <ChangePaymentForm
             b={b}
@@ -249,11 +255,11 @@ export function BillPage() {
           />
         )}
       </Sheet>
-      <Sheet open={changed !== null} title="Show this QR" onClose={() => setChanged(null)}>
+      <Sheet open={changed !== null} title={t('kiranaBills.showThisQr')} onClose={() => setChanged(null)}>
         {changed?.upi && <UpiQrCode upi={changed.upi} />}
-        {changed?.upiIdMissing && <Banner tone="warn">No QR: the shop's UPI ID isn't set.</Banner>}
+        {changed?.upiIdMissing && <Banner tone="warn">{t('kiranaBills.noQrNoUpiId')}</Banner>}
         <Button className="mt-3 w-full" onClick={() => setChanged(null)}>
-          Done
+          {t('common.done')}
         </Button>
       </Sheet>
     </Page>
@@ -262,9 +268,12 @@ export function BillPage() {
 
 function payText(b: Bill): string {
   if (b.payment !== 'KHATA') return paymentText(b.payment)
-  const who = b.khataCustomer ? ` (${b.khataCustomer.name})` : ''
-  if (b.paidNowPaise) return `Khata${who}: ${rupees(b.onKhataPaise)}; ${rupees(b.paidNowPaise)} paid now by ${paidByText(b.paidNowBy)}`
-  return `Khata${who}`
+  const name = b.khataCustomer?.name
+  if (b.paidNowPaise) {
+    const vars = { onKhata: rupees(b.onKhataPaise), paidNow: rupees(b.paidNowPaise), by: paidByText(b.paidNowBy) }
+    return name ? tPlain('kiranaBills.payKhataPartFor', { ...vars, name }) : tPlain('kiranaBills.payKhataPart', vars)
+  }
+  return name ? tPlain('kiranaBills.payKhataFor', { name }) : tPlain('kiranaBills.khata')
 }
 
 function useAfterBillChange() {
@@ -276,16 +285,20 @@ function useAfterBillChange() {
 }
 
 function CancelForm({ b, onDone }: { b: Bill; onDone: () => void }) {
+  const t = useT()
   const stale = useRefreshOnStale()
   const after = useAfterBillChange()
   const [reason, setReason] = useState('')
+  // The tapped chip, kept as its key: saved in English and still highlighted if the language changes meanwhile
+  const [chip, setChip] = useState<(typeof CANCEL_REASONS)[number] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
   async function save() {
     setBusy(true)
     setError(null)
     try {
-      after((await kiranaApi.cancel(b.id, reason.trim())).bill)
+      // A tapped reason is saved in English (one form for everyone, shown in each person's language)
+      after((await kiranaApi.cancel(b.id, chip ? inEnglish(chip) : reason.trim())).bill)
       onDone()
     } catch (e) {
       stale(e)
@@ -297,21 +310,36 @@ function CancelForm({ b, onDone }: { b: Bill; onDone: () => void }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-muted">
-        Its items go back into stock
-        {b.payment === 'KHATA' ? ` and ${rupees(b.onKhataPaise)} comes off ${b.khataCustomer?.name ?? 'the'}'s khata` : ''}.
-        {b.payment !== 'KHATA' || b.paidNowPaise ? ' Hand back what they paid: it counts as given back today.' : ''}
+        {b.payment !== 'KHATA'
+          ? t('kiranaBills.cancelIntro')
+          : b.khataCustomer
+            ? t('kiranaBills.cancelIntroKhata', { amount: rupees(b.onKhataPaise), name: b.khataCustomer.name })
+            : t('kiranaBills.cancelIntroKhataNoName', { amount: rupees(b.onKhataPaise) })}
+        {b.payment !== 'KHATA' || b.paidNowPaise ? ` ${t('kiranaBills.cancelHandBack')}` : ''}
       </p>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Quick reasons">
-        {CANCEL_REASONS.map((r) => (
-          <Chip key={r} selected={reason === r} onClick={() => setReason(r)}>
-            {r}
-          </Chip>
-        ))}
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t('kiranaBills.quickReasons')}>
+        {CANCEL_REASONS.map((key) => {
+          return (
+            <Chip
+              key={key}
+              selected={chip === key}
+              onClick={() => {
+                setChip(key)
+                setReason(t(key))
+              }}
+            >
+              {t(key)}
+            </Chip>
+          )
+        })}
       </div>
-      <Field id="cancel-reason" label="Why?" hint="Tap one above or write your own." value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} error={fieldError(error, 'reason')} />
+      <Field id="cancel-reason" label={t('kiranaBills.why')} hint={t('kiranaBills.cancelReasonHint')} value={chip ? t(chip) : reason} maxLength={200} onChange={(e) => {
+          setChip(null)
+          setReason(e.target.value)
+        }} error={fieldError(error, 'reason')} />
       {error !== null && !fieldError(error, 'reason') && <Banner tone="bad">{messageOf(error)}</Banner>}
       <Button variant="danger" busy={busy} disabled={reason.trim().length < 2} onClick={save}>
-        Cancel the bill
+        {t('kiranaBills.cancelBill')}
       </Button>
     </div>
   )
@@ -319,6 +347,7 @@ function CancelForm({ b, onDone }: { b: Bill; onDone: () => void }) {
 
 /** Choose what came back and how much: listed products go back into stock; the refund goes back the way it was paid. */
 function ReturnForm({ b, onDone }: { b: Bill; onDone: () => void }) {
+  const t = useT()
   const stale = useRefreshOnStale()
   const after = useAfterBillChange()
   const send = useUnsureSend<{ lines: { lineNo: number; quantity: number }[]; reason?: string }>(`return:${b.id}`)
@@ -328,6 +357,10 @@ function ReturnForm({ b, onDone }: { b: Bill; onDone: () => void }) {
     Object.fromEntries((held?.lines ?? []).map((h) => [h.lineNo, qtyText(toMilli(h.quantity))])),
   )
   const [reason, setReason] = useState(held?.reason ?? '')
+  // The tapped chip, kept as its key (as when cancelling): saved in English; what was typed is saved as typed
+  const [chip, setChip] = useState<(typeof RETURN_REASONS)[number] | null>(
+    () => RETURN_REASONS.find((k) => held?.reason !== undefined && inEnglish(k) === held.reason) ?? null,
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   async function save() {
@@ -338,13 +371,13 @@ function ReturnForm({ b, onDone }: { b: Bill; onDone: () => void }) {
       const typed = qty[l.lineNo]?.trim()
       if (!typed) continue
       const q = parseQty(typed, l.unit)
-      if ('error' in q) return setError(`${l.name}: ${q.error}`)
+      if ('error' in q) return setError(t('kiranaBills.lineError', { name: l.name, error: q.error }))
       const most = toMilli(l.quantity - l.returnedQuantity)
-      if (q.milli > most) return setError(`${l.name}: at most ${qtyText(most)} can come back`)
+      if (q.milli > most) return setError(t('kiranaBills.returnAtMost', { name: l.name, qty: qtyText(most) }))
       lines.push({ lineNo: l.lineNo, quantity: q.milli / 1000 })
     }
-    if (!lines.length) return setError('Enter how much of an item came back')
-    return send2({ lines, reason: reason.trim() || undefined })
+    if (!lines.length) return setError(t('kiranaBills.returnNothing'))
+    return send2({ lines, reason: chip ? inEnglish(chip) : reason.trim() || undefined })
   }
   async function send2(values: { lines: { lineNo: number; quantity: number }[]; reason?: string }) {
     setBusy(true)
@@ -371,7 +404,7 @@ function ReturnForm({ b, onDone }: { b: Bill; onDone: () => void }) {
             <div className="flex-1">
               <Field
                 id={`return-${l.lineNo}`}
-                label={`${l.name} (up to ${qtyWithUnit(most, l.unit)})`}
+                label={t('kiranaBills.returnLineLabel', { name: l.name, qty: qtyWithUnit(most, l.unit) })}
                 inputMode="decimal"
                 value={qty[l.lineNo] ?? ''}
                 disabled={!!held}
@@ -379,18 +412,43 @@ function ReturnForm({ b, onDone }: { b: Bill; onDone: () => void }) {
               />
             </div>
             <Button variant="ghost" disabled={!!held} onClick={() => setQty((q) => ({ ...q, [l.lineNo]: qtyText(most) }))}>
-              All
+              {t('kiranaBills.returnAll')}
             </Button>
           </div>
         )
       })}
-      <Field id="return-reason" label="Reason (optional)" value={reason} disabled={!!held} maxLength={200} onChange={(e) => setReason(e.target.value)} />
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t('kiranaBills.quickReasons')}>
+        {RETURN_REASONS.map((key) => (
+          <Chip
+            key={key}
+            selected={chip === key}
+            disabled={!!held}
+            onClick={() => {
+              setChip(chip === key ? null : key)
+              setReason(chip === key ? '' : t(key))
+            }}
+          >
+            {t(key)}
+          </Chip>
+        ))}
+      </div>
+      <Field
+        id="return-reason"
+        label={t('kiranaBills.reasonOptional')}
+        value={chip ? t(chip) : reason}
+        disabled={!!held}
+        maxLength={200}
+        onChange={(e) => {
+          setChip(null)
+          setReason(e.target.value)
+        }}
+      />
       <p className="text-sm text-muted">
-        {b.payment === 'KHATA' ? 'It comes off their khata first; anything they paid now is handed back as they paid it.' : `Hand back the refund in ${paidByText(b.payment === 'UPI' ? 'UPI' : 'CASH')}.`}
+        {b.payment === 'KHATA' ? t('kiranaBills.returnKhataNote') : t('kiranaBills.returnHandBackIn', { by: paidByText(b.payment === 'UPI' ? 'UPI' : 'CASH') })}
       </p>
       {error && <Banner tone="bad">{error}</Banner>}
       <Button busy={busy} onClick={save}>
-        Save the return
+        {t('kiranaBills.saveReturn')}
       </Button>
     </div>
   )
@@ -398,6 +456,7 @@ function ReturnForm({ b, onDone }: { b: Bill; onDone: () => void }) {
 
 /** UPI failed and they paid cash, put on khata after all, or moved to another customer's khata. */
 function ChangePaymentForm({ b, onDone }: { b: Bill; onDone: (r: ChangeResult) => void }) {
+  const t = useT()
   const stale = useRefreshOnStale()
   const after = useAfterBillChange()
   const [payment, setPayment] = useState<Payment>(b.payment)
@@ -431,7 +490,7 @@ function ChangePaymentForm({ b, onDone }: { b: Bill; onDone: (r: ChangeResult) =
       stale(e)
       if (isApiError(e, 'KHATA_ALREADY_PAID')) setAdvanceAsk(Number(e.details.advanceAfterPaise ?? 0))
       else setError(messageOf(e))
-      if (isApiError(e, 'BILL_CHANGED')) setError(`${messageOf(e)} The bill above is up to date now.`)
+      if (isApiError(e, 'BILL_CHANGED')) setError(t('kiranaBills.billChangedNow', { message: messageOf(e) }))
     } finally {
       setBusy(false)
     }
@@ -440,13 +499,13 @@ function ChangePaymentForm({ b, onDone }: { b: Bill; onDone: (r: ChangeResult) =
   if (advanceAsk !== null) {
     return (
       <div className="flex flex-col gap-3">
-        <p>Their payments already cover this bill: moving it leaves them {rupees(advanceAsk)} as an advance. Keep it as their advance?</p>
+        <p>{t('kiranaBills.billAdvanceAsk', { amount: rupees(advanceAsk) })}</p>
         {error && <Banner tone="bad">{error}</Banner>}
         <Button busy={busy} onClick={() => void save(true)}>
-          Yes, keep it as advance
+          {t('kiranaBills.yesKeepAsAdvance')}
         </Button>
         <Button variant="secondary" onClick={() => setAdvanceAsk(null)}>
-          No
+          {t('kiranaBills.no')}
         </Button>
       </div>
     )
@@ -465,8 +524,8 @@ function ChangePaymentForm({ b, onDone }: { b: Bill; onDone: (r: ChangeResult) =
   const khataName = who?.name ?? b.khataCustomer?.name
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted">Now: {payText(b)}</p>
-      <div className="flex gap-2" role="group" aria-label="Paid by">
+      <p className="text-sm text-muted">{t('kiranaBills.nowPaid', { payment: payText(b) })}</p>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t('kiranaBills.paidBy')}>
         {(['CASH', 'UPI', 'KHATA'] as Payment[]).map((p) => (
           <Chip key={p} selected={payment === p} onClick={() => setPayment(p)}>
             {paymentText(p)}
@@ -476,16 +535,16 @@ function ChangePaymentForm({ b, onDone }: { b: Bill; onDone: (r: ChangeResult) =
       {payment === 'KHATA' && (
         <>
           <Card className="flex items-center justify-between gap-3">
-            <span className="min-w-0 break-words">{khataName ?? 'Whose khata?'}</span>
+            <span className="min-w-0 break-words">{khataName ?? t('kiranaBills.whoseKhata')}</span>
             <button type="button" className="shrink-0 text-sm text-link underline" onClick={() => setPicking(true)}>
-              {khataName ? 'Change' : 'Choose'}
+              {khataName ? t('common.change') : t('kiranaBills.choose')}
             </button>
           </Card>
-          <Field id="change-paid-now" label="Paid now (optional, ₹)" inputMode="decimal" value={paid} onChange={(e) => setPaid(e.target.value)} />
+          <Field id="change-paid-now" label={t('kiranaBills.paidNowOptional')} inputMode="decimal" value={paid} onChange={(e) => setPaid(e.target.value)} />
           {paid.trim() && (
-            <div className="flex gap-2" role="group" aria-label="Paid now by">
+            <div className="flex flex-wrap gap-2" role="group" aria-label={t('kiranaBills.paidNowBy')}>
               <Chip selected={by === 'CASH'} onClick={() => setBy('CASH')}>
-                Cash
+                {t('kiranaBills.cash')}
               </Chip>
               <Chip selected={by === 'UPI'} onClick={() => setBy('UPI')}>
                 UPI
@@ -496,7 +555,7 @@ function ChangePaymentForm({ b, onDone }: { b: Bill; onDone: (r: ChangeResult) =
       )}
       {error && <Banner tone="bad">{error}</Banner>}
       <Button busy={busy} onClick={() => void save()}>
-        Save
+        {t('common.save')}
       </Button>
     </div>
   )
@@ -504,6 +563,7 @@ function ChangePaymentForm({ b, onDone }: { b: Bill; onDone: (r: ChangeResult) =
 
 /** One India day at the counter: what was sold and how, what came in on khata, returns and cancellations, the drawer. */
 export function Day() {
+  const t = useT()
   const navigate = useNavigate()
   const params = new URLSearchParams(useLocation().search)
   const today = todayIst()
@@ -512,16 +572,16 @@ export function Day() {
   const day = useDay(date === today ? null : date)
   const go = (d: string) => navigate(d === today ? '/kirana/day' : `/kirana/day?date=${d}`, { replace: true })
   return (
-    <Page back="/kirana/bills" title="Day's totals">
+    <Page back="/kirana/bills" title={t('kiranaBills.dayTitle')}>
       <div className="flex items-center justify-between gap-2">
-        <Button variant="secondary" aria-label="Day before" onClick={() => go(addDays(date, -1))}>
+        <Button variant="secondary" aria-label={t('kiranaBills.dayBefore')} onClick={() => go(addDays(date, -1))}>
           ‹
         </Button>
         <label className="flex flex-col items-center text-sm">
-          <span className="font-semibold">{date === today ? 'Today' : dayLabel(date)}</span>
-          <input type="date" aria-label="Pick a day" max={today} value={date} onChange={(e) => e.target.value && go(e.target.value)} className="mt-1 min-h-11 rounded-lg border border-line bg-surface px-2 text-sm text-ink" />
+          <span className="font-semibold">{date === today ? t('kiranaBills.today') : dayLabel(date)}</span>
+          <input type="date" aria-label={t('kiranaBills.pickADay')} max={today} value={date} onChange={(e) => e.target.value && go(e.target.value)} className="mt-1 min-h-11 rounded-lg border border-line bg-surface px-2 text-sm text-ink" />
         </label>
-        <Button variant="secondary" aria-label="Next day" disabled={date >= today} onClick={() => go(addDays(date, 1))}>
+        <Button variant="secondary" aria-label={t('kiranaBills.nextDay')} disabled={date >= today} onClick={() => go(addDays(date, 1))}>
           ›
         </Button>
       </div>
@@ -532,54 +592,54 @@ export function Day() {
       ) : (
         <>
           <Card className="flex flex-col gap-1">
-            <p className="font-semibold">The drawer and UPI</p>
-            <SumRow strong label="Cash in" value={rupees(day.data.cashInPaise)} />
-            <SumRow strong label="UPI in" value={rupees(day.data.upiInPaise)} />
-            <p className="text-xs text-muted">What the drawer and the shop's UPI should have gained, after returns and cancellations.</p>
+            <p className="font-semibold">{t('kiranaBills.drawerAndUpi')}</p>
+            <SumRow strong label={t('kiranaBills.cashIn')} value={rupees(day.data.cashInPaise)} />
+            <SumRow strong label={t('kiranaBills.upiIn')} value={rupees(day.data.upiInPaise)} />
+            <p className="text-xs text-muted">{t('kiranaBills.drawerNote')}</p>
           </Card>
           <Card className="flex flex-col gap-1">
-            <p className="font-semibold">Sales</p>
-            <SumRow label="Bills" value={day.data.bills} />
-            <SumRow label="Sold (after discounts)" value={rupees(day.data.salesPaise)} />
-            {day.data.discountPaise > 0 && <SumRow label="Discounts given" value={rupees(day.data.discountPaise)} />}
-            <SumRow label="Cash" value={rupees(day.data.cashPaise)} />
+            <p className="font-semibold">{t('kiranaBills.sales')}</p>
+            <SumRow label={t('kiranaBills.dayBills')} value={day.data.bills} />
+            <SumRow label={t('kiranaBills.soldAfterDiscounts')} value={rupees(day.data.salesPaise)} />
+            {day.data.discountPaise > 0 && <SumRow label={t('kiranaBills.discountsGiven')} value={rupees(day.data.discountPaise)} />}
+            <SumRow label={t('kiranaBills.cash')} value={rupees(day.data.cashPaise)} />
             <SumRow label="UPI" value={rupees(day.data.upiPaise)} />
-            <SumRow label="On khata" value={rupees(day.data.khataPaise)} />
+            <SumRow label={t('kiranaBills.onKhata')} value={rupees(day.data.khataPaise)} />
           </Card>
           {day.data.paymentChanges > 0 && (
             <Card className="flex flex-col gap-1">
-              <p className="font-semibold">Payments changed ({day.data.paymentChanges})</p>
-              <SumRow label="Into cash" value={signedRupees(day.data.changedCashPaise)} />
-              <SumRow label="Into UPI" value={signedRupees(day.data.changedUpiPaise)} />
-              <SumRow label="Onto khata" value={signedRupees(day.data.changedKhataPaise)} />
+              <p className="font-semibold">{t('kiranaBills.paymentsChanged', { count: day.data.paymentChanges })}</p>
+              <SumRow label={t('kiranaBills.intoCash')} value={signedRupees(day.data.changedCashPaise)} />
+              <SumRow label={t('kiranaBills.intoUpi')} value={signedRupees(day.data.changedUpiPaise)} />
+              <SumRow label={t('kiranaBills.ontoKhata')} value={signedRupees(day.data.changedKhataPaise)} />
             </Card>
           )}
           <Card className="flex flex-col gap-1">
-            <p className="font-semibold">Khata payments received</p>
-            <SumRow label="Total" value={rupees(day.data.khataReceivedPaise)} />
-            <SumRow label="Cash" value={rupees(day.data.khataReceivedCashPaise)} />
+            <p className="font-semibold">{t('kiranaBills.khataPaymentsReceived')}</p>
+            <SumRow label={t('kiranaBills.total')} value={rupees(day.data.khataReceivedPaise)} />
+            <SumRow label={t('kiranaBills.cash')} value={rupees(day.data.khataReceivedCashPaise)} />
             <SumRow label="UPI" value={rupees(day.data.khataReceivedUpiPaise)} />
           </Card>
           {(day.data.returns > 0 || day.data.cancelledBills > 0) && (
             <Card className="flex flex-col gap-1">
-              <p className="font-semibold">Returns and cancellations</p>
+              <p className="font-semibold">{t('kiranaBills.returnsAndCancellations')}</p>
               {day.data.returns > 0 && (
                 <>
-                  <SumRow label={`Returns (${day.data.returns})`} value={rupees(day.data.returnedPaise)} />
-                  <SumRow label="Handed back: cash / UPI" value={`${rupees(day.data.returnedCashPaise)} / ${rupees(day.data.returnedUpiPaise)}`} />
-                  <SumRow label="Off khata" value={rupees(day.data.returnedKhataPaise)} />
+                  <SumRow label={t('kiranaBills.returnsCount', { count: day.data.returns })} value={rupees(day.data.returnedPaise)} />
+                  <SumRow label={t('kiranaBills.handedBackCashUpi')} value={`${rupees(day.data.returnedCashPaise)} / ${rupees(day.data.returnedUpiPaise)}`} />
+                  <SumRow label={t('kiranaBills.offKhata')} value={rupees(day.data.returnedKhataPaise)} />
                 </>
               )}
               {day.data.cancelledBills > 0 && (
                 <>
-                  <SumRow label={`Cancelled bills (${day.data.cancelledBills})`} value={rupees(day.data.cancelledPaise)} />
-                  <SumRow label="Handed back: cash / UPI" value={`${rupees(day.data.cancelledCashPaise)} / ${rupees(day.data.cancelledUpiPaise)}`} />
-                  <SumRow label="Off khata" value={rupees(day.data.cancelledKhataPaise)} />
+                  <SumRow label={t('kiranaBills.cancelledBillsCount', { count: day.data.cancelledBills })} value={rupees(day.data.cancelledPaise)} />
+                  <SumRow label={t('kiranaBills.handedBackCashUpi')} value={`${rupees(day.data.cancelledCashPaise)} / ${rupees(day.data.cancelledUpiPaise)}`} />
+                  <SumRow label={t('kiranaBills.offKhata')} value={rupees(day.data.cancelledKhataPaise)} />
                 </>
               )}
             </Card>
           )}
-          <p className="text-xs text-muted">Everything counts on the day it happened, so a day's figures never change after you counted the drawer.</p>
+          <p className="text-xs text-muted">{t('kiranaBills.dayFiguresNote')}</p>
         </>
       )}
     </Page>
@@ -590,5 +650,11 @@ function signedRupees(paise: number): string {
   return paise === 0 ? rupees(0) : `${paise < 0 ? '−' : '+'}${rupees(Math.abs(paise))}`
 }
 
-/** The usual reasons a bill is cancelled, one tap each. */
-const CANCEL_REASONS = ['Billed twice', 'Customer left', 'Wrong items billed', 'Wrong amount']
+/**
+ * The usual reasons a bill is cancelled, one tap each (keys: shown in the current language, saved in English with
+ * {@link inEnglish}, and shown again in each person's language with {@link shownAs}).
+ */
+const CANCEL_REASONS = ['kiranaBills.reasonBilledTwice', 'kiranaBills.reasonCustomerLeft', 'kiranaBills.reasonWrongItems', 'kiranaBills.reasonWrongAmount'] as const
+
+/** The usual reasons items come back, one tap each: like {@link CANCEL_REASONS}, saved in English. */
+const RETURN_REASONS = ['kiranaBills.returnReasonDamaged', 'kiranaBills.returnReasonWrongItem', 'kiranaBills.returnReasonExpired', 'kiranaBills.returnReasonChangedMind'] as const

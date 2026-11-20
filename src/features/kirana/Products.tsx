@@ -15,6 +15,7 @@ import {
 import { useShop } from '../../api/shop'
 import { cameFrom } from '../shop/Register'
 import { Banner, Button, Card, Chip, EmptyState, ErrorState, Field, Loading, Page, Pill, Sheet } from '../../components/ui'
+import { useT } from '../../i18n'
 import { dateTimeIst } from '../../lib/ist'
 import { addProduct, parseQty, parseRupees, priceUnit, qtyText, qtyWithUnit, rupeesInput, toMilli } from '../../lib/kirana'
 import { rupees } from '../../lib/money'
@@ -26,25 +27,26 @@ import { Scanner } from './Scanner'
 
 /** Products: the shop's catalogue, searched by name or barcode digits; and what is running out. */
 export function Products() {
+  const t = useT()
   const [tab, setTab] = useState<'all' | 'low'>('all')
   const [search, setSearch] = useState('')
   const settled = useDebounced(search)
   return (
-    <Page title="Products">
-      <div className="flex gap-2" role="group" aria-label="Show">
+    <Page title={t('kiranaProducts.productsTitle')}>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t('kiranaProducts.showLabel')}>
         <Chip selected={tab === 'all'} onClick={() => setTab('all')}>
-          All products
+          {t('kiranaProducts.tabAll')}
         </Chip>
         <Chip selected={tab === 'low'} onClick={() => setTab('low')}>
-          Running out
+          {t('kiranaProducts.tabRunningOut')}
         </Chip>
       </div>
       <Link to="/kirana/products/new" className="flex min-h-12 items-center justify-center rounded-xl border border-line bg-raised font-semibold hover:bg-line">
-        + Add a product
+        {t('kiranaProducts.addProductLink')}
       </Link>
       {tab === 'all' ? (
         <>
-          <SearchBox id="product-search" label="Search your products" placeholder="Name or barcode digits" value={search} onChange={setSearch} />
+          <SearchBox id="product-search" label={t('kiranaProducts.searchLabel')} placeholder={t('kiranaProducts.searchPlaceholder')} value={search} onChange={setSearch} />
           <AllProducts search={settled} />
         </>
       ) : (
@@ -55,15 +57,16 @@ export function Products() {
 }
 
 function AllProducts({ search }: { search: string }) {
+  const t = useT()
   const list = useProducts(search)
   if (list.isPending) return <Loading />
   if (list.isError && !list.data) return <ErrorState message={messageOf(list.error)} onRetry={() => list.refetch()} />
   const items = list.data.pages.flatMap((p) => p.items)
   if (!items.length) {
     return search.trim() ? (
-      <p className="text-sm text-muted">Nothing called “{search.trim()}”.</p>
+      <p className="text-sm text-muted">{t('kiranaProducts.nothingCalled', { query: search.trim() })}</p>
     ) : (
-      <EmptyState title="No products yet" body="Add what you sell, with its barcode, price and stock. Then the counter scans it." />
+      <EmptyState title={t('kiranaProducts.noProductsTitle')} body={t('kiranaProducts.noProductsBody')} />
     )
   }
   return (
@@ -79,10 +82,11 @@ function AllProducts({ search }: { search: string }) {
 }
 
 function RunningOut() {
+  const t = useT()
   const list = useRunningOut()
   if (list.isPending) return <Loading />
   if (list.isError && !list.data) return <ErrorState message={messageOf(list.error)} onRetry={() => list.refetch()} />
-  if (!list.data.length) return <EmptyState title="Nothing running out" body="Products at or below their alert show here." />
+  if (!list.data.length) return <EmptyState title={t('kiranaProducts.nothingRunningOutTitle')} body={t('kiranaProducts.nothingRunningOutBody')} />
   return (
     <ul className="flex flex-col gap-2">
       {list.data.map((p) => (
@@ -93,6 +97,7 @@ function RunningOut() {
 }
 
 function ProductRow({ p }: { p: Product }) {
+  const t = useT()
   const milli = toMilli(p.stock)
   return (
     <li>
@@ -102,12 +107,12 @@ function ProductRow({ p }: { p: Product }) {
           <span className="block text-xs text-muted">
             {rupees(p.pricePaise)}
             {priceUnit(p.unit)}
-            {p.barcodes.length === 0 && ' · no barcode'}
+            {p.barcodes.length === 0 && ` · ${t('kiranaProducts.noBarcode')}`}
           </span>
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1 text-sm">
           <span className={milli < 0 ? 'text-bad' : ''}>{qtyWithUnit(milli, p.unit)}</span>
-          {!p.active ? <Pill tone="muted">Removed</Pill> : p.runningOut ? <Pill tone="warn">Running out</Pill> : null}
+          {!p.active ? <Pill tone="muted">{t('kiranaProducts.removedPill')}</Pill> : p.runningOut ? <Pill tone="warn">{t('kiranaProducts.runningOutPill')}</Pill> : null}
         </span>
       </Link>
     </li>
@@ -119,6 +124,7 @@ function ProductRow({ p }: { p: Product }) {
  * stock on the shelf now. Back goes where it came from (the counter, or Products).
  */
 export function NewProduct() {
+  const t = useT()
   const stale = useRefreshOnStale()
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -156,7 +162,7 @@ export function NewProduct() {
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
 
-  const nameErr = name.trim().length < 2 ? 'Enter the product’s name (2 to 100 letters)' : null
+  const nameErr = name.trim().length < 2 ? t('kiranaProducts.nameErrNew') : null
   const p = parseRupees(price, { maxPaise: 10_000_000 })
   const s = stock.trim() ? parseQty(stock, unit, { zeroAllowed: true }) : null
   const a = alertAt.trim() ? parseQty(alertAt, unit, { zeroAllowed: true }) : null
@@ -221,36 +227,36 @@ export function NewProduct() {
 
   const fe = (f: string) => fieldError(error, f)
   return (
-    <Page back={from} title="Add a product">
+    <Page back={from} title={t('kiranaProducts.addProductTitle')}>
       <Card className="flex flex-col gap-4">
-        <Field id="product-name" label="Name" hint="As customers ask for it, with the size: Tata Salt 1 kg." value={name} maxLength={100} onChange={(e) => setName(e.target.value)} error={(touched && nameErr) || fe('name')} />
+        <Field id="product-name" label={t('kiranaProducts.nameLabel')} hint={t('kiranaProducts.nameHint')} value={name} maxLength={100} onChange={(e) => setName(e.target.value)} error={(touched && nameErr) || fe('name')} />
         <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-muted">Sold by</span>
-          <div className="flex gap-2" role="group" aria-label="Sold by">
+          <span className="text-sm font-medium text-muted">{t('kiranaProducts.soldBy')}</span>
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t('kiranaProducts.soldBy')}>
             <Chip selected={unit === 'PIECE'} onClick={() => setUnit('PIECE')}>
-              Piece / pack
+              {t('kiranaProducts.unitPiece')}
             </Chip>
             <Chip selected={unit === 'KG'} onClick={() => setUnit('KG')}>
-              Kg (loose)
+              {t('kiranaProducts.unitKg')}
             </Chip>
           </div>
         </div>
-        <Field id="product-price" label={unit === 'KG' ? 'Price of 1 kg (₹)' : 'Price of one (₹)'} inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} error={(touched && 'error' in p ? p.error : undefined) || fe('pricePaise')} />
+        <Field id="product-price" label={unit === 'KG' ? t('kiranaProducts.priceKgLabel') : t('kiranaProducts.priceOneLabel')} inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} error={(touched && 'error' in p ? p.error : undefined) || fe('pricePaise')} />
       </Card>
       <Card className="flex flex-col gap-3">
         <div className="flex items-end gap-2">
           <div className="flex-1">
-            <Field id="product-barcode" label="Barcode (optional)" inputMode="numeric" value={barcode} maxLength={32} onChange={(e) => setBarcode(e.target.value.trim())} error={fe('barcode')} />
+            <Field id="product-barcode" label={t('kiranaProducts.barcodeOptional')} inputMode="numeric" value={barcode} maxLength={32} onChange={(e) => setBarcode(e.target.value.trim())} error={fe('barcode')} />
           </div>
           <Button variant="secondary" onClick={() => setScanning(true)}>
-            Scan
+            {t('kiranaProducts.scan')}
           </Button>
         </div>
         {barcode.trim() && (
           <Field
             id="product-pack"
-            label={unit === 'KG' ? 'Kg in one scan' : 'Pieces in one scan'}
-            hint="1 for a single pack; 12 if this barcode is on a carton of 12."
+            label={unit === 'KG' ? t('kiranaProducts.packKgLabel') : t('kiranaProducts.packPiecesLabel')}
+            hint={t('kiranaProducts.packHintNew')}
             inputMode="decimal"
             value={pack}
             onChange={(e) => setPack(e.target.value)}
@@ -259,8 +265,8 @@ export function NewProduct() {
         )}
       </Card>
       <Card className="flex flex-col gap-3">
-        <Field id="product-stock" label={`Stock on the shelf now (optional, ${unit === 'KG' ? 'kg' : 'pieces'})`} inputMode="decimal" value={stock} onChange={(e) => setStock(e.target.value)} error={(touched && s && 'error' in s ? s.error : undefined) || fe('stock')} />
-        <Field id="product-alert" label="Tell me when it's down to (optional)" hint="It shows under Running out at or below this." inputMode="decimal" value={alertAt} onChange={(e) => setAlertAt(e.target.value)} error={(touched && a && 'error' in a ? a.error : undefined) || fe('lowStockAt')} />
+        <Field id="product-stock" label={unit === 'KG' ? t('kiranaProducts.stockNowKg') : t('kiranaProducts.stockNowPieces')} inputMode="decimal" value={stock} onChange={(e) => setStock(e.target.value)} error={(touched && s && 'error' in s ? s.error : undefined) || fe('stock')} />
+        <Field id="product-alert" label={t('kiranaProducts.alertLabelOptional')} hint={t('kiranaProducts.alertHint')} inputMode="decimal" value={alertAt} onChange={(e) => setAlertAt(e.target.value)} error={(touched && a && 'error' in a ? a.error : undefined) || fe('lowStockAt')} />
       </Card>
       {error !== null && !['name', 'pricePaise', 'barcode', 'pack', 'stock', 'lowStockAt'].some((f) => fe(f)) && (
         <Banner tone="bad">
@@ -269,7 +275,7 @@ export function NewProduct() {
             <>
               {' '}
               <Link to={`/kirana/products/${error.details.productId}`} className="underline">
-                Open it
+                {t('kiranaProducts.openIt')}
               </Link>
             </>
           )}
@@ -277,13 +283,13 @@ export function NewProduct() {
       )}
       {isApiError(error, 'NAME_TAKEN') && typeof error.details.productId === 'string' && barcode.trim() && (
         <Button variant="secondary" busy={linking} onClick={() => void linkToExisting(error.details.productId as string)}>
-          Add barcode {barcode.trim()} to {String(error.details.name ?? 'it')}
+          {error.details.name != null ? t('kiranaProducts.addBarcodeTo', { code: barcode.trim(), name: String(error.details.name) }) : t('kiranaProducts.addBarcodeToIt', { code: barcode.trim() })}
         </Button>
       )}
       <Button busy={busy} onClick={save}>
-        Save the product
+        {t('kiranaProducts.saveProduct')}
       </Button>
-      <Sheet open={scanning} title="Scan the barcode" onClose={() => setScanning(false)}>
+      <Sheet open={scanning} title={t('kiranaProducts.scanBarcodeTitle')} onClose={() => setScanning(false)}>
         <Scanner
           onCode={(c) => {
             setBarcode(c)
@@ -300,14 +306,15 @@ export function NewProduct() {
  * removing it), stock that came in, was damaged or was counted, and its latest stock changes with who and why.
  */
 export function ProductPage() {
+  const t = useT()
   const { id = '' } = useParams()
   const location = useLocation()
   const detail = useProduct(id)
   const back = cameFrom(location, '/kirana/products')
-  if (detail.isPending) return <Page back={back} title="Product"><Loading /></Page>
+  if (detail.isPending) return <Page back={back} title={t('kiranaProducts.productTitle')}><Loading /></Page>
   if (detail.isError && !detail.data) {
     return (
-      <Page back={back} title="Product">
+      <Page back={back} title={t('kiranaProducts.productTitle')}>
         <ErrorState message={messageOf(detail.error)} onRetry={() => detail.refetch()} />
       </Page>
     )
@@ -318,6 +325,7 @@ export function ProductPage() {
 }
 
 function ProductView({ back }: { back: string }) {
+  const t = useT()
   const stale = useRefreshOnStale()
   const { id = '' } = useParams()
   const qc = useQueryClient()
@@ -366,13 +374,13 @@ function ProductView({ back }: { back: string }) {
   }
 
   return (
-    <Page back={back} title="Product">
+    <Page back={back} title={t('kiranaProducts.productTitle')}>
       <Card className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-3">
           <h2 className="min-w-0 text-lg font-semibold break-words">{p.name}</h2>
           {owner && p.active && (
             <button type="button" className="shrink-0 text-sm text-link" onClick={() => setEditing(true)}>
-              Edit
+              {t('common.edit')}
             </button>
           )}
         </div>
@@ -380,30 +388,30 @@ function ProductView({ back }: { back: string }) {
           {rupees(p.pricePaise)}
           {priceUnit(p.unit)}
         </p>
-        {!owner && <p className="text-xs text-muted">Only the owner changes the name, price or alert.</p>}
+        {!owner && <p className="text-xs text-muted">{t('kiranaProducts.ownerOnly')}</p>}
         <p className={milli < 0 ? 'text-bad' : ''}>
-          In stock: <span className="font-semibold">{qtyWithUnit(milli, p.unit)}</span>
-          {milli < 0 && ' (sold more than the app knew of: count it)'}
+          {t('kiranaProducts.inStock')} <span className="font-semibold">{qtyWithUnit(milli, p.unit)}</span>
+          {milli < 0 && ` ${t('kiranaProducts.soldMoreThanKnown')}`}
         </p>
         <p className="text-sm text-muted">
-          {p.lowStockAt === null ? 'No running-out alert' : `Alert at ${qtyWithUnit(toMilli(p.lowStockAt), p.unit)}`}
-          {p.runningOut && ' · running out'}
+          {p.lowStockAt === null ? t('kiranaProducts.noAlert') : t('kiranaProducts.alertAt', { qty: qtyWithUnit(toMilli(p.lowStockAt), p.unit) })}
+          {p.runningOut && ` · ${t('kiranaProducts.runningOutSuffix')}`}
         </p>
-        {!p.active && <Banner tone="info">Removed from your products: it doesn't scan or show at the counter. Old bills keep it.</Banner>}
+        {!p.active && <Banner tone="info">{t('kiranaProducts.removedBanner')}</Banner>}
       </Card>
 
       {p.active && (
         <Card className="flex flex-col gap-2">
-          <p className="font-semibold">Stock</p>
+          <p className="font-semibold">{t('kiranaProducts.stockHeading')}</p>
           <div className="grid grid-cols-3 gap-2">
             <Button variant="secondary" onClick={() => setStockSheet('RESTOCK')}>
-              Came in
+              {t('kiranaProducts.cameIn')}
             </Button>
             <Button variant="secondary" onClick={() => setStockSheet('DAMAGED')}>
-              Damaged
+              {t('kiranaProducts.damaged')}
             </Button>
             <Button variant="secondary" onClick={() => setStockSheet('COUNT')}>
-              Count
+              {t('kiranaProducts.count')}
             </Button>
           </div>
         </Card>
@@ -411,26 +419,26 @@ function ProductView({ back }: { back: string }) {
 
       <Card className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <p className="font-semibold">Barcodes</p>
+          <p className="font-semibold">{t('kiranaProducts.barcodesHeading')}</p>
           {p.active && p.barcodes.length < 10 && (
             <button type="button" className="text-sm text-link" onClick={() => setAdding(true)}>
-              + Add
+              {t('kiranaProducts.addBarcodeLink')}
             </button>
           )}
         </div>
         {p.barcodes.length === 0 ? (
-          <p className="text-sm text-muted">None yet: add the one on its pack so it scans.</p>
+          <p className="text-sm text-muted">{t('kiranaProducts.noBarcodesYet')}</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {p.barcodes.map((b) => (
               <li key={b.code} className="flex items-center justify-between gap-2 text-sm">
                 <span className="break-all">
                   {b.code}
-                  {b.pack !== 1 && <span className="text-muted"> · {qtyWithUnit(toMilli(b.pack), p.unit)} a scan</span>}
+                  {b.pack !== 1 && <span className="text-muted"> · {t('kiranaProducts.perScan', { qty: qtyWithUnit(toMilli(b.pack), p.unit) })}</span>}
                 </span>
                 {owner && (
-                  <button type="button" disabled={busy} className="min-h-11 shrink-0 px-2 text-bad" aria-label={`Remove barcode ${b.code}`} onClick={() => void removeBarcode(b.code)}>
-                    Remove
+                  <button type="button" disabled={busy} className="min-h-11 shrink-0 px-2 text-bad" aria-label={t('kiranaProducts.removeBarcode', { code: b.code })} onClick={() => void removeBarcode(b.code)}>
+                    {t('common.remove')}
                   </button>
                 )}
               </li>
@@ -443,10 +451,10 @@ function ProductView({ back }: { back: string }) {
 
       <section aria-labelledby="moves" className="flex flex-col gap-2">
         <h2 id="moves" className="font-semibold">
-          Latest stock changes
+          {t('kiranaProducts.latestMoves')}
         </h2>
         {moves.length === 0 ? (
-          <p className="text-sm text-muted">None yet.</p>
+          <p className="text-sm text-muted">{t('kiranaProducts.noneYet')}</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {moves.map((m, i) => (
@@ -458,7 +466,7 @@ function ProductView({ back }: { back: string }) {
                       <>
                         {' · '}
                         <Link to={`/kirana/bills/${m.billId}`} className="text-link underline">
-                          Bill {m.billNo}
+                          {t('kiranaProducts.billLink', { billNo: String(m.billNo) })}
                         </Link>
                       </>
                     )}
@@ -481,11 +489,11 @@ function ProductView({ back }: { back: string }) {
 
       {owner && (
         <Button variant={p.active ? 'ghost' : 'secondary'} className={p.active ? 'text-bad' : ''} busy={busy} onClick={() => void setActive(!p.active)}>
-          {p.active ? 'Remove from my products' : 'Put it back in my products'}
+          {p.active ? t('kiranaProducts.removeProduct') : t('kiranaProducts.restoreProduct')}
         </Button>
       )}
 
-      <Sheet open={editing} title="Edit the product" onClose={() => setEditing(false)}>
+      <Sheet open={editing} title={t('kiranaProducts.editProductTitle')} onClose={() => setEditing(false)}>
         {editing && (
           <EditProduct
             p={p}
@@ -496,7 +504,7 @@ function ProductView({ back }: { back: string }) {
           />
         )}
       </Sheet>
-      <Sheet open={stockSheet !== null} title={stockSheet === 'RESTOCK' ? 'Stock came in' : stockSheet === 'DAMAGED' ? 'Damaged or expired' : 'Count on the shelf'} onClose={() => setStockSheet(null)}>
+      <Sheet open={stockSheet !== null} title={stockSheet === 'RESTOCK' ? t('kiranaProducts.sheetRestock') : stockSheet === 'DAMAGED' ? t('kiranaProducts.sheetDamaged') : t('kiranaProducts.sheetCount')} onClose={() => setStockSheet(null)}>
         {stockSheet && (
           <StockForm
             p={p}
@@ -508,7 +516,7 @@ function ProductView({ back }: { back: string }) {
           />
         )}
       </Sheet>
-      <Sheet open={adding} title="Add a barcode" onClose={() => setAdding(false)}>
+      <Sheet open={adding} title={t('kiranaProducts.addBarcodeTitle')} onClose={() => setAdding(false)}>
         {adding && (
           <AddBarcode
             p={p}
@@ -526,6 +534,7 @@ function ProductView({ back }: { back: string }) {
 
 /** The owner's changes: name, price, unit (only before its first sale), the running-out alert. */
 function EditProduct({ p, onSaved }: { p: Product; onSaved: (next: Product) => void }) {
+  const t = useT()
   const stale = useRefreshOnStale()
   const [name, setName] = useState(p.name)
   const [price, setPrice] = useState(rupeesInput(p.pricePaise))
@@ -536,7 +545,7 @@ function EditProduct({ p, onSaved }: { p: Product; onSaved: (next: Product) => v
   const [touched, setTouched] = useState(false)
   const r = parseRupees(price, { maxPaise: 10_000_000 })
   const a = alertAt.trim() ? parseQty(alertAt, unit, { zeroAllowed: true }) : null
-  const nameErr = name.trim().length < 2 ? 'Use 2 to 100 letters' : null
+  const nameErr = name.trim().length < 2 ? t('kiranaProducts.nameErrEdit') : null
 
   async function save() {
     setTouched(true)
@@ -566,22 +575,22 @@ function EditProduct({ p, onSaved }: { p: Product; onSaved: (next: Product) => v
   const fe = (f: string) => fieldError(error, f)
   return (
     <div className="flex flex-col gap-3">
-      <Field id="edit-name" label="Name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} error={(touched && nameErr) || fe('name')} />
-      <Field id="edit-price" label={unit === 'KG' ? 'Price of 1 kg (₹)' : 'Price of one (₹)'} inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} error={(touched && 'error' in r ? r.error : undefined) || fe('pricePaise')} />
-      <div className="flex gap-2" role="group" aria-label="Sold by">
+      <Field id="edit-name" label={t('kiranaProducts.nameLabel')} value={name} maxLength={100} onChange={(e) => setName(e.target.value)} error={(touched && nameErr) || fe('name')} />
+      <Field id="edit-price" label={unit === 'KG' ? t('kiranaProducts.priceKgLabel') : t('kiranaProducts.priceOneLabel')} inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} error={(touched && 'error' in r ? r.error : undefined) || fe('pricePaise')} />
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t('kiranaProducts.soldBy')}>
         <Chip selected={unit === 'PIECE'} onClick={() => setUnit('PIECE')}>
-          Piece / pack
+          {t('kiranaProducts.unitPiece')}
         </Chip>
         <Chip selected={unit === 'KG'} onClick={() => setUnit('KG')}>
-          Kg (loose)
+          {t('kiranaProducts.unitKg')}
         </Chip>
       </div>
       {fe('unit') && <p className="text-sm text-bad">{fe('unit')}</p>}
-      <Field id="edit-alert" label="Tell me when it's down to (empty: no alert)" inputMode="decimal" value={alertAt} onChange={(e) => setAlertAt(e.target.value)} error={(touched && a && 'error' in a ? a.error : undefined) || fe('lowStockAt')} />
-      <p className="text-sm text-muted">A new price counts from the next bill; old bills keep theirs.</p>
+      <Field id="edit-alert" label={t('kiranaProducts.alertLabelEdit')} inputMode="decimal" value={alertAt} onChange={(e) => setAlertAt(e.target.value)} error={(touched && a && 'error' in a ? a.error : undefined) || fe('lowStockAt')} />
+      <p className="text-sm text-muted">{t('kiranaProducts.newPriceNote')}</p>
       {error !== null && !['name', 'pricePaise', 'unit', 'lowStockAt'].some((f) => fe(f)) && <Banner tone="bad">{messageOf(error)}</Banner>}
       <Button busy={busy} onClick={save}>
-        Save
+        {t('common.save')}
       </Button>
     </div>
   )
@@ -589,6 +598,7 @@ function EditProduct({ p, onSaved }: { p: Product; onSaved: (next: Product) => v
 
 /** Stock that came in (added), was damaged (taken off), or counted by hand (set to the count). */
 function StockForm({ p, reason, onSaved }: { p: Product; reason: StockReason; onSaved: () => void }) {
+  const t = useT()
   const stale = useRefreshOnStale()
   // One change, one clientRef: a retried Save after a lost answer changes the stock once, even after closing the sheet
   const send = useUnsureSend<{ reason: StockReason; quantity: number; note?: string }>(`stock:${p.id}`)
@@ -620,14 +630,20 @@ function StockForm({ p, reason, onSaved }: { p: Product; reason: StockReason; on
       setBusy(false)
     }
   }
-  const unitWord = p.unit === 'KG' ? 'kg' : 'pieces'
+  const kg = p.unit === 'KG'
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted">Now: {qtyWithUnit(toMilli(p.stock), p.unit)}</p>
-      {held && <UnsureNote what={count ? 'count' : shown === 'RESTOCK' ? 'stock that came in' : 'stock taken off'} onStartOver={() => { send.settle(); setErr(null) }} />}
+      <p className="text-sm text-muted">{t('kiranaProducts.stockNow', { qty: qtyWithUnit(toMilli(p.stock), p.unit) })}</p>
+      {held && <UnsureNote what={count ? 'count' : shown === 'RESTOCK' ? 'restock' : 'takenOff'} onStartOver={() => { send.settle(); setErr(null) }} />}
       <Field
         id="stock-qty"
-        label={count ? `How many on the shelf (${unitWord})` : shown === 'RESTOCK' ? `How many came in (${unitWord})` : `How many to take off (${unitWord})`}
+        label={
+          count
+            ? kg ? t('kiranaProducts.howManyShelfKg') : t('kiranaProducts.howManyShelfPieces')
+            : shown === 'RESTOCK'
+              ? kg ? t('kiranaProducts.howManyCameInKg') : t('kiranaProducts.howManyCameInPieces')
+              : kg ? t('kiranaProducts.howManyTakeOffKg') : t('kiranaProducts.howManyTakeOffPieces')
+        }
         inputMode="decimal"
         disabled={!!held}
         value={qty}
@@ -638,9 +654,9 @@ function StockForm({ p, reason, onSaved }: { p: Product; reason: StockReason; on
         error={err ?? undefined}
         autoFocus
       />
-      <Field id="stock-note" label="Note (optional)" value={note} disabled={!!held} maxLength={200} onChange={(e) => setNote(e.target.value)} />
+      <Field id="stock-note" label={t('kiranaProducts.noteOptional')} value={note} disabled={!!held} maxLength={200} onChange={(e) => setNote(e.target.value)} />
       <Button busy={busy} onClick={save}>
-        Save
+        {t('common.save')}
       </Button>
     </div>
   )
@@ -648,6 +664,7 @@ function StockForm({ p, reason, onSaved }: { p: Product; reason: StockReason; on
 
 /** Another barcode for this product: scanned or typed, with how many one scan means. */
 function AddBarcode({ p, owner, onSaved }: { p: Product; owner: boolean; onSaved: (next: Product) => void }) {
+  const t = useT()
   const stale = useRefreshOnStale()
   const [code, setCode] = useState('')
   const [pack, setPack] = useState('1')
@@ -656,7 +673,7 @@ function AddBarcode({ p, owner, onSaved }: { p: Product; owner: boolean; onSaved
   const [error, setError] = useState<unknown>(null)
   async function save() {
     const k = parseQty(pack, p.unit)
-    if (!code.trim()) return setError(new Error('Scan or type the barcode'))
+    if (!code.trim()) return setError(new Error(t('kiranaProducts.scanOrTypeBarcode')))
     if ('error' in k) return setError(new Error(k.error))
     setBusy(true)
     setError(null)
@@ -683,11 +700,11 @@ function AddBarcode({ p, owner, onSaved }: { p: Product; owner: boolean; onSaved
   }
   return (
     <div className="flex flex-col gap-3">
-      <Field id="barcode-code" label="Barcode" inputMode="numeric" value={code} maxLength={32} onChange={(e) => setCode(e.target.value.trim())} error={fieldError(error, 'code')} />
+      <Field id="barcode-code" label={t('kiranaProducts.barcodeLabel')} inputMode="numeric" value={code} maxLength={32} onChange={(e) => setCode(e.target.value.trim())} error={fieldError(error, 'code')} />
       <Field
         id="barcode-pack"
-        label={p.unit === 'KG' ? 'Kg in one scan' : 'Pieces in one scan'}
-        hint={owner ? '12 for a carton of 12. Sending another number for a barcode already here corrects it.' : '12 for a carton of 12.'}
+        label={p.unit === 'KG' ? t('kiranaProducts.packKgLabel') : t('kiranaProducts.packPiecesLabel')}
+        hint={owner ? t('kiranaProducts.packHintOwner') : t('kiranaProducts.packHintHelper')}
         inputMode="decimal"
         value={pack}
         onChange={(e) => setPack(e.target.value)}
@@ -695,10 +712,10 @@ function AddBarcode({ p, owner, onSaved }: { p: Product; owner: boolean; onSaved
       />
       {error !== null && !fieldError(error, 'code') && !fieldError(error, 'pack') && <Banner tone="bad">{error instanceof Error && !isApiError(error) ? error.message : messageOf(error)}</Banner>}
       <Button busy={busy} onClick={save}>
-        Save the barcode
+        {t('kiranaProducts.saveBarcode')}
       </Button>
       <Button variant="ghost" onClick={() => setScanning(true)}>
-        Scan again
+        {t('kiranaProducts.scanAgain')}
       </Button>
     </div>
   )
