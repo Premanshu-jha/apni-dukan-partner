@@ -1,5 +1,6 @@
 import type { OfferView } from '../../api/offers'
 import { t } from '../../i18n'
+import { clock12 } from '../../lib/ist'
 
 /** The keys of the months' short names (translated when asked for, so they follow the language). */
 const MONTHS = [
@@ -13,10 +14,10 @@ export function shortDate(date: string): string {
   return t('offers.shortDate', { day: d, month: t(MONTHS[m - 1]) })
 }
 
-/** "12 Nov – 14 Nov, 12:00–16:00", "12 Nov" for one day; the hours only when set. The same text as the message. */
+/** "12 Nov – 14 Nov, 12:00 PM–4:00 PM", "12 Nov" for one day; the hours only when set, in 12-hour time as everywhere. */
 export function offerWhen(o: Pick<OfferView, 'startsOn' | 'endsOn' | 'from' | 'until'>): string {
   const days = o.startsOn === o.endsOn ? shortDate(o.startsOn) : `${shortDate(o.startsOn)} – ${shortDate(o.endsOn)}`
-  return o.from && o.until ? `${days}, ${o.from}–${o.until}` : days
+  return o.from && o.until ? `${days}, ${clock12(o.from)}–${clock12(o.until)}` : days
 }
 
 /** "All services", or the names it covers (from the salon's services; unknown ids are skipped). */

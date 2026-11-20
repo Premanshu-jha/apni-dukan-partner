@@ -61,6 +61,21 @@ export function dateTimeIst(instant: string): string {
   return day === null ? formatInTimeZone(new Date(instant), IST, 'EEE d MMM, h:mm a') : `${day}, ${timeIst(instant)}`
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/**
+ * "7 Nov 2026" for a yyyy-MM-dd date (a licence's last valid day), in the app's language with the app's own month
+ * words (the same on every phone, whatever its date formats; digits 0-9).
+ */
+export function fullDate(date: string): string {
+  const [y, m, d] = date.split('-').map(Number)
+  if (language() === 'en') {
+    const at = new Date(Date.UTC(y, m - 1, d, 6))
+    return at.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+  }
+  return `${t('shop.dayMonth', { day: d, month: t(`shop.monthShort${MONTHS[m - 1]}`) })} ${y}`
+}
+
 /** The yyyy-MM-dd date of an instant, in India time. */
 export function dateOfIst(instant: string): string {
   return formatInTimeZone(new Date(instant), IST, 'yyyy-MM-dd')

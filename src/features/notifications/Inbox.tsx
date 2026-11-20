@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router'
 import { INBOX_MAX_PAGES, useInbox, useMarkRead, type InboxItem } from '../../api/notifications'
 import { messageOf } from '../../api/errors'
 import { Button, EmptyState, ErrorState, Loading, Page } from '../../components/ui'
-import { t, useT } from '../../i18n'
+import { hasText, language, t, useT } from '../../i18n'
 import { dateTimeIst, minutesUntil } from '../../lib/ist'
 
 /** "Just now", "12 min ago", "3 h ago", else the date and time. */
@@ -12,6 +12,21 @@ function when(sentAt: string): string {
   if (ago < 60) return t('notifications.minAgo', { minutes: ago })
   if (ago < 24 * 60) return t('notifications.hoursAgo', { hours: Math.floor(ago / 60) })
   return dateTimeIst(sentAt)
+}
+
+/**
+ * The message's title. A message written before the backend wrote in the reader's language comes in English only: in
+ * another language, the title its type has here instead (the body stays as sent: it carries names and times).
+ */
+export function titleOf(m: Pick<InboxItem, 'type' | 'title'>): string {
+  if (language() === 'en' || !englishOnly(m.title)) return m.title
+  const key = `notifications.type${m.type}`
+  return hasText(key) ? t(key) : m.title
+}
+
+/** Only Latin letters, digits and punctuation: written in English. */
+function englishOnly(text: string): boolean {
+  return /[A-Za-z]/.test(text) && /^[\x20-\x7E’‘“”–—…₹]*$/.test(text)
 }
 
 const icons: Record<string, string> = {
@@ -42,6 +57,13 @@ const icons: Record<string, string> = {
   PARTNERHELP_REPLIED: '✉',
   SHOP_INVITE_ACCEPTED: '✓',
   SHOP_INVITE_DECLINED: '✕',
+  SUBSCRIPTION_AUTOPAY: '✓',
+  SUBSCRIPTION_PAID: '✓',
+  SUBSCRIPTION_FAILED: '!',
+  SUBSCRIPTION_STOPPED: '!',
+  SUBSCRIPTION_ENDING: '!',
+  SUBSCRIPTION_ENDED: '!',
+  SUBSCRIPTION_HIDDEN: '!',
 }
 
 const alarming = new Set([
@@ -134,7 +156,7 @@ export function Inbox() {
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="flex items-start justify-between gap-2">
-                    <span className={m.read ? 'font-medium' : 'font-semibold'}>{m.title}</span>
+                    <span className={m.read ? 'font-medium' : 'font-semibold'}>{titleOf(m)}</span>
                     {!m.read && (
                       <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent">
                         <span className="sr-only">{t('notifications.unread')}</span>

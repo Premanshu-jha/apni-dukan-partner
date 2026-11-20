@@ -24,7 +24,7 @@ function loadWorker() {
         for (const r of requests) stored.set(new URL(r.url).pathname, new Response(`kept ${new URL(r.url).pathname}`))
       },
     })),
-    keys: async () => ['offline-v1', 'offline-v2'],
+    keys: async () => ['offline-v1', 'offline-v2', 'offline-v3'],
     delete: vi.fn(async () => true),
     match: async (path: string) => stored.get(path)?.clone(),
   }
@@ -87,18 +87,19 @@ describe('service worker', () => {
     expect(self.skipWaiting).toHaveBeenCalledOnce()
   })
 
-  it('installing stores the offline page, its CSS and the icon in the new offline-v2 store', async () => {
+  it('installing stores the offline page, its CSS, its script (its words in the saved language) and the icon in the new offline-v3 store', async () => {
     const { caches, fire } = loadWorker()
     await fire('install')
-    expect(caches.open).toHaveBeenCalledWith('offline-v2')
-    for (const file of ['/offline.html', '/offline.css', '/icon.svg']) expect(await caches.match(file), file).toBeDefined()
+    expect(caches.open).toHaveBeenCalledWith('offline-v3')
+    for (const file of ['/offline.html', '/offline.css', '/offline.js', '/icon.svg']) expect(await caches.match(file), file).toBeDefined()
   })
 
   it('on activating, drops older offline copies and takes control', async () => {
     const { self, caches, fire } = loadWorker()
     await fire('activate')
     expect(caches.delete).toHaveBeenCalledWith('offline-v1')
-    expect(caches.delete).not.toHaveBeenCalledWith('offline-v2')
+    expect(caches.delete).toHaveBeenCalledWith('offline-v2')
+    expect(caches.delete).not.toHaveBeenCalledWith('offline-v3')
     expect(self.clients.claim).toHaveBeenCalled()
   })
 

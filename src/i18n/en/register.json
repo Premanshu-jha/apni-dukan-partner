@@ -225,5 +225,6 @@
   "notYet": "Not yet",
   "yesSubmit": "Yes, submit",
   "notAdded": "Not added",
-  "sentBack": "Our field team asked for a change: {reason} Fix it, then submit again."
+  "sentBack": "Our field team asked for a change: {reason} Fix it, then submit again.",
+  "sentBackList": "Our field team asked for a change. Fix it, then submit again."
 }

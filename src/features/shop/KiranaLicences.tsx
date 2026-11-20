@@ -9,6 +9,7 @@ import { Banner, Button, Card, Chip, ErrorState, Field, Loading, Page, Spinner }
 import { hasText, language, t, useT } from '../../i18n'
 import { shrinkPhoto } from '../../lib/image'
 import { cameFrom, SentBack, Steps } from './Register'
+import { shopAsk } from './TeamReasons'
 import {
   CHECK_AGAIN_REASONS,
   docKind,
@@ -563,7 +564,7 @@ export function RegisterLicences() {
   return (
     <Page back={fromReview ? '/register/review' : '/register/photos'} title={t('kiranaRegister.licencesTitle')} leaveWarning={busy ? t('kiranaRegister.leaveDuringUpload') : null}>
       <Steps at={3} leaveWarning={busy ? t('kiranaRegister.leaveDuringUpload') : null} />
-      {shop.statusReason && <SentBack reason={shop.statusReason} />}
+      {shopAsk(shop) && <SentBack ask={shopAsk(shop)!} shop={shop} />}
       <KiranaLicences onBusy={setBusy} />
       <Button disabled={!ready || busy} onClick={() => navigate(fromReview ? '/register/review' : '/register/upi')}>
         {fromReview ? t('kiranaRegister.backToReview') : t('common.continue')}

@@ -311,7 +311,8 @@ loaded page again.
 
 When a session ends (sign-out here, sign-out or someone else's sign-in in another tab, or the backend refusing a
 refresh), `forgetThisPerson` clears the cached data, where they were going, an unsaved registration (which is also
-tagged with who typed it) and the notifications still in the tray.
+tagged with who typed it) and the notifications still in the tray. The language is each account's own (see
+Languages): the next person to sign in gets theirs back, and the sign-in screen keeps the phone's last one.
 
 ### Times
 
@@ -381,9 +382,31 @@ Until the admin app exists, nobody can approve a salon: for a first real test, a
 
 The app is in English, Hindi, Telugu, Marathi, Tamil and Kannada. The language is chosen on the sign-in screen (each
 shown in its own script), offered once to everyone already signed in (a box at the top of every tab), and changed
-any time under More → Language; it applies at once, keeps whatever was typed,
-and is remembered on that phone (`localStorage.language`), not on the account: an owner and a helper can each use
-their own.
+any time under More → Language (also from the "Language: <name>" button with a globe at the top of More); it applies at once
+and keeps whatever was typed.
+
+- **Per account, saved on the account.** Signed in, the choice is the account's: kept on the phone as
+  `language:<userId>` (an owner and a helper sharing a phone each get theirs back when they sign in) and saved on the
+  account with `PATCH /api/v1/auth/me {"language": "hi"}` (backend V83), so its push and inbox messages are written in
+  it. Signed out, the sign-in screen shows the phone's last choice (`localStorage.language`). Which language an account
+  gets at sign-in, first that applies (`setAccount` in `src/i18n/index.ts`): one tapped on the sign-in screen just
+  now; one chosen on this phone and not yet saved on the account; the account's own (`language` from `/me`, also over
+  this phone's older one); else the phone's, saved on the account once.
+- **Sending it** (`src/i18n/sync.ts`, `src/lib/accountLanguage.ts`): fire and forget, one call at a time per account
+  (tapping through the languages sends the first and then only the newest). A failed call waits on the phone
+  (`language.unsynced:<userId>`) and goes again at the next start; a 400 (an older backend) is dropped. Never sent for
+  an account that signed out meanwhile. Two phones with different languages never send theirs back and forth: only a
+  real choice, or an account that has none yet, is sent.
+- **The phone's own language** (`navigator.languages`) is shown on the very first open when the app has it ("hi-IN" →
+  Hindi); the sign-in screen still offers the others. Signing in (or recovering the account) with it on screen counts
+  as choosing it (`keepShownLanguage`): kept on the phone and saved on the account unless the account has its own.
+  The once-only box for people signed in before says "Keep <name>" for the language showing.
+- **Kept texts, no English flash.** The chosen language's downloaded texts are kept on the phone
+  (`localStorage["language.texts"]`, not for English): a cold start shows them at once, and the download refreshes
+  them (screens are drawn again). Offline at start-up with kept texts, the app is in the language at once.
+- **Confirmation** (`LanguageToast`): after choosing, a line at the bottom for 5 seconds, in the new language, says it
+  changed and where to change it again (More → Language, in that language's words), for someone who tapped a script
+  by mistake.
 
 - **Where the words are.** `src/i18n/<language>/<area>.json`, the same keys in every language. English is in the main
   download; each other language is one download of its own (about 35 KB gzipped), fetched when chosen. A text a
@@ -392,9 +415,8 @@ their own.
   called when the text is needed (never kept in a module-level constant, which would not follow the language).
 - **The backend's messages.** `messageOf(e)` shows the app's words for the backend's message (the order is below,
   under "Which words win"). Messages the backend builds with names, numbers or lists in them that its details don't
-  carry (a barber busy until a time, which product of a bill is in the list already, hours outside the salon's), and
-  push notifications and the inbox, are still in English on this branch: they need the backend to send the values
-  separately and to know each person's language (`main` has the latter from V83; it comes with the next merge).
+  carry (a barber busy until a time, which product of a bill is in the list already, hours outside the salon's) are
+  still in English: they need the backend to send the values separately.
 - **Which words win for an error** (`messageOf`, `src/api/errors.ts`; one code can have several messages), in
   order: (1) `server.json` for the backend's exact English message (about 200 kirana messages added: the counter,
   bills, products and stock, khata, scans and bills from distributors, recounts, registration, FSSAI); (2) only in a
@@ -405,6 +427,27 @@ their own.
   in `server.json` because it was built with names or amounts. A code goes in `error.json` only when its details
   carry everything its message says; `src/api/kiranaErrors.test.ts` checks each language has every such code, with
   the same blanks, and that each code's blanks are filled by what its errors carry.
+- **Push and the inbox** come in the account's saved language (the backend writes them when they are queued). A message
+  written before that, in English only, shows the title its type has here (`notifications.type<TYPE>`, Inbox
+  `titleOf`) when the app is in another language; its body stays as sent (names, times).
+- **Service names.** A name from the service list is spelt in the reader's script (`serviceName()`,
+  `src/lib/serviceName.ts`, keys in `service.json`: "Haircut" → "हेयरकट"); a name the salon typed is shown as typed;
+  saved as given, so each person reads it in their own language. Every booking card (Today and Bookings) also shows
+  its services' pictures (at most 3, the salon's own choice first), for someone who can't read the names.
+- **The field team's reasons.** A send back, a fix asked on a live salon's re-check, and a declined address change
+  carry `statusReasonCodes` (fixed reasons) beside `statusReason` (now the team's optional note). `TeamReasons` shows
+  each code in the reader's language (`review.reason<CODE>`) as a list under "What to fix:", then their words under
+  "Note from the team" (never translated). Each reason has a **Fix ›** link to where it is fixed (`fixPath`): in a
+  sent-back draft the registration step (details and address, photos/video/licence, services, hours), after
+  registration the Salon tab's page, a verified address the request page; on a step, its own reasons come first,
+  without a link. A code the app doesn't know reads "Something else". Without codes (an older backend, or old
+  rows) the team's words show in the sentence as before. After a declined address request the form starts from that
+  request, to fix rather than type it all again.
+- **Outside the app's words.** The robot check (Turnstile) is drawn in Hindi for Hindi and in English otherwise
+  (Cloudflare has no Telugu, Marathi, Tamil or Kannada), with a line in the language saying so. Razorpay's checkout is
+  English only: before Pay, a line says the next screen is in English (choose UPI, approve with your UPI PIN), and a
+  failed payment shows our words, not Razorpay's English reason. The phone's own menus in the location help are
+  named in English with the local word in brackets.
 - **Tapped reasons.** A quick reason chip (cancelling a bill, items brought back) is saved in English (`inEnglish`)
   and shown in each person's language (`shownAs`, matched against the chips' English); typed words are saved and
   shown as typed. So a bill cancelled "Billed twice" by a helper in Telugu reads "Billed twice" in the owner's Hindi
@@ -416,11 +459,16 @@ their own.
   person's language (`fssaiReasonText`). The khata's WhatsApp reminder is written in the app's language (the owner's
   choice, sent from his phone). A scanner whose barcode reader couldn't download says so, instead of "no camera".
 - **A new version while the app is open.** Choosing a language whose file is gone (renamed by a new deploy) reloads
-  the app once into the new version. Offline at start-up, the app shows English until it is back online.
+  the app once into the new version. Offline at start-up with nothing kept, the app shows English until it is back
+  online.
 - **Dates and numbers.** Day and month names follow the language (`Intl.DateTimeFormat`); digits stay 0-9 in every
   language, so prices, counts and phone numbers read as on bills and packs.
 - **Not translated.** The legal pages (About, Terms, Privacy, Refunds, Delivery, Contact) stay in English, the
-  language they are binding in. Names people type, and everything saved, stay as entered.
+  language they are binding in. Names people type, and everything saved, stay as entered. The offline page shows its
+  lines in the saved language (`public/offline.js`, cached with it by `sw.js`, `offline-v3`).
+- **Short words in tight places.** A booking card's status pill uses short words (`day.pill*`) and never wraps or
+  shrinks; the name beside it wraps instead. Minutes use each language's own short form (hi/mr "मि.", te "నిమి.", ta
+  "நிமி.", kn "ನಿಮಿ."); the registration step labels fit a 360px phone in every language.
 - **CI check.** `src/i18n/i18n.test.ts` fails when a language lacks a text English has, has one English doesn't, an
   empty one, or different blanks.
 - **Fixing a word.** Change it in that language's JSON file and open a PR; nothing else needs touching. The first
@@ -444,6 +492,38 @@ No backend change is needed.
 - Pieces counted the language's way; the FSSAI check's reasons in the person's language; the khata's WhatsApp
   reminder in the app's language; numbers no longer grouped (1200, not 1,200); a scanner whose reader couldn't
   download says so.
+
+### 0.29.0 — 2026-11-20
+
+Uses the backend with V83–V84 (each user's language, the field team's fixed reasons); deploy the backend first, and
+this app before the admin app (the team's fixed reasons need this app to show them). On an older backend nothing
+breaks: the language stays on the phone and reasons show as the team's words.
+
+- **About and Contact in every language**, with the language choice at the top of About for first-time visitors.
+  Terms, Privacy, Refunds and Delivery stay in English (the text that applies); in another language their title is translated and a
+  line at the top says so.
+- **The language is the account's**, saved on it (`PATCH /auth/me {"language"}`): push and inbox messages come in it.
+  Each account on a shared phone gets its own back at sign-in; the sign-in screen keeps the phone's last one. Sent once,
+  never in a storm; a failed send goes again at the next start (see Languages).
+- **First open in the phone's language** when the app has it; signing in with it on screen keeps it. The once-only box
+  for people signed in before offers "Keep <name>" for the language showing.
+- **No English flash:** the chosen language's texts are kept on the phone and shown at once on a cold start, then
+  refreshed. The offline page speaks the saved language.
+- **After choosing a language**, a short line in the new language says where to change it again (More → Language);
+  a "Language: <name>" button with a globe at the top of More leads to the picker.
+- **The field team's reasons** (send back, fix asked on a re-check, address declined) as a list of what to fix in the
+  reader's language, each with a **Fix ›** link to its page (in a sent-back registration, each step shows its own first),
+  then the team's note. A declined address request is the form's starting point.
+- **Service names from the service list in the reader's script** wherever services show (cards, setup, walk-in,
+  offers, salon info), and **each booking card shows its services' pictures** (Today and Bookings).
+- **Old messages** in the inbox show their type's title in the reader's language; titles for the subscription
+  messages added.
+- Smaller fixes: short status pills that never wrap (the name wraps), long pills (an invited barber's phone, "Ended
+  early") may take a second line; registration step labels fit 360px; the Ratings summary's tags translated; licence
+  dates with the app's month words; minutes in each language's short form; the Pause sheet's dismiss is "Back" (not
+  "Cancel"); offer times in 12-hour form; Turnstile in Hindi for Hindi, with a line when it is in English; one line
+  before Pay saying Razorpay's screen is in English, and our words for a failed payment; the local word in brackets
+  next to the phone's English menu names; Hindi "अधिक" for More and no stray space before "।"; no number grouping.
 
 ### 0.28.0 — 2026-11-19
 

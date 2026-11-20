@@ -1,11 +1,13 @@
 import { Link } from 'react-router'
 import { BUSINESS } from '../../lib/business'
+import { useT } from '../../i18n'
 import { LegalPage, Section } from './LegalPage'
 
 /** The refund and cancellation policy for the salon subscription (customers pay Clozest nothing). */
 export function Refunds() {
+  const t = useT()
   return (
-    <LegalPage path="/refunds" title="Refunds and cancellation" updated={BUSINESS.policiesUpdated}>
+    <LegalPage path="/refunds" title={t('about.refundsTitle')} updated={BUSINESS.policiesUpdated} englishOnly>
       <Section title="The monthly subscription">
         <p>
           Customers pay Clozest nothing. Salons pay <strong>₹{BUSINESS.salonPricePerMonth} a month</strong> after a free trial of{' '}

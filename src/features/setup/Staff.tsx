@@ -78,7 +78,7 @@ export function StaffList() {
                       <span className="font-semibold">{s.name}</span>
                       {!s.active && <Pill tone="muted">{t('setup.off')}</Pill>}
                       {s.loginPhone && <Pill tone="brand">{t('setup.hasSignIn')}</Pill>}
-                      {!s.loginPhone && s.invitedPhone && <Pill tone="warn">{t('setup.invited', { phone: formatPhone(s.invitedPhone) })}</Pill>}
+                      {!s.loginPhone && s.invitedPhone && <Pill tone="warn" wrap>{t('setup.invited', { phone: formatPhone(s.invitedPhone) })}</Pill>}
                     </span>
                     <span className="text-sm text-muted">
                       {t('setup.serviceCount', { count: s.serviceIds.length })} · {weekText(s.hours)}

@@ -20,7 +20,7 @@
   "rowRatings": "रेटिंग",
   "rowRatingsSub": "भेटीनंतर ग्राहकांनी काय सांगितले",
   "rulesTitle": "बुकिंगचे नियम",
-  "rulesSummary": "{notice} min आधी सांगणे · {days} दिवसांपर्यंत आधी",
+  "rulesSummary": "{notice} मि. आधी सांगणे · {days} दिवसांपर्यंत आधी",
   "ownerOnlyChange": "हे फक्त मालक बदलू शकतात.",
 
   "infoTitle": "सलूनची माहिती",
@@ -31,7 +31,7 @@
   "noOffers": "सध्या चालू किंवा येणारी ऑफर नाही.",
   "hoursNotSet": "अजून ठरवलेल्या नाहीत.",
   "servicesHeading": "सर्व्हिसेस",
-  "minutesShort": "{minutes} min",
+  "minutesShort": "{minutes} मि.",
   "noServices": "अजून सर्व्हिसेस नाहीत",
 
   "noticeLabel": "किती आधी सांगावे लागेल (मिनिटे)",

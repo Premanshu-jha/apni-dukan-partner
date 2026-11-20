@@ -7,8 +7,9 @@ import { useShop } from '../../api/shop'
 import { messageOf } from '../../api/errors'
 import { Banner, Button, Card, EmptyState, ErrorState, Loading, Page, Pill } from '../../components/ui'
 import { can } from '../../lib/roles'
-import { useT } from '../../i18n'
+import { useLanguage, useT } from '../../i18n'
 import { offerWhat, offerWhen } from './offerText'
+import { serviceName } from '../../lib/serviceName'
 
 /** Each state's words as a key (translated where shown, so they follow the language) and its colour. */
 const STATE: Record<OwnerOffer['state'], { text: string; tone: 'good' | 'brand' | 'muted' }> = {
@@ -27,7 +28,12 @@ export function Offers() {
   const services = useServices()
   const owner = can(useShop().myRole).editSetup
   const published = (useLocation().state as { published?: number } | null)?.published
-  const names = useMemo(() => new Map((services.data ?? []).map((s) => [s.id, s.name])), [services.data])
+  // Catalog names are shown in the app's language: worded again when it changes
+  const language = useLanguage()
+  const names = useMemo(
+    () => new Map((services.data ?? []).map((s) => [s.id, serviceName(s.name)])),
+    [services.data, language], // serviceName reads the language
+  )
   return (
     <Page back="/more" title={t('offers.title')}>
       <p className="text-sm text-muted">
@@ -98,7 +104,7 @@ function OfferItem({ o, names, owner }: { o: OwnerOffer; names: Map<string, stri
       <Card className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <p className={`text-lg font-semibold ${o.state === 'ENDED' || o.endedAt || ended ? '' : 'text-accent'}`}>{t('offers.percentOff', { percent: o.offer.percentOff })}</p>
-          <Pill tone={state.tone}>{o.endedAt ? t('offers.endedEarly') : t(state.text)}</Pill>
+          <Pill tone={state.tone} wrap>{o.endedAt ? t('offers.endedEarly') : t(state.text)}</Pill>
         </div>
         <p className="text-sm">{offerWhat(o.offer, names)}</p>
         <p className="text-sm text-muted">{offerWhen(o.offer)}</p>

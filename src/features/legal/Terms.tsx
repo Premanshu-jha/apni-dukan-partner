@@ -1,11 +1,13 @@
 import { Link } from 'react-router'
 import { BUSINESS } from '../../lib/business'
+import { useT } from '../../i18n'
 import { LegalPage, Section } from './LegalPage'
 
 /** The terms of service for salons: owners, helpers and barbers using the partner app. */
 export function Terms() {
+  const t = useT()
   return (
-    <LegalPage path="/terms" title="Terms of service" updated={BUSINESS.policiesUpdated}>
+    <LegalPage path="/terms" title={t('about.termsTitle')} updated={BUSINESS.policiesUpdated} englishOnly>
       <p className="text-sm text-muted">
         These terms are an agreement between you and {BUSINESS.operator}, who runs {BUSINESS.brand} (the partner app
         at {BUSINESS.website} and the customer app at {BUSINESS.customerSite}). By using the partner app you accept

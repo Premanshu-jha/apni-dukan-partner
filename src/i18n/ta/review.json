@@ -1,0 +1,20 @@
+{
+  "whatToFix": "என்ன சரிசெய்ய வேண்டும்:",
+  "noteFromTeam": "டீமின் குறிப்பு",
+  "fixLink": "சரிசெய்யுங்கள் ›",
+  "fixAria": "சரிசெய்யுங்கள்: {reason}",
+  "reasonSHOP_FRONT_PHOTO": "சலூன் முன்பக்க ஃபோட்டோ இல்லை அல்லது தெளிவாக இல்லை",
+  "reasonBOARD_NOT_VISIBLE": "ஃபோட்டோவில் சலூன் பெயர்ப் பலகை தெரியவில்லை",
+  "reasonINSIDE_PHOTOS": "உள்ளே எடுத்த ஃபோட்டோக்கள் இல்லை அல்லது தெளிவாக இல்லை",
+  "reasonLICENCE_UNREADABLE": "டிரேட் லைசென்ஸைப் படிக்க முடியவில்லை",
+  "reasonLICENCE_NAME_MISMATCH": "டிரேட் லைசென்ஸில் உள்ள பெயர் சலூனுடன் பொருந்தவில்லை",
+  "reasonLICENCE_EXPIRED": "டிரேட் லைசென்ஸ் காலாவதி ஆகிவிட்டது",
+  "reasonLICENCE_WRONG_TYPE": "இது நகராட்சி/மாநகராட்சி டிரேட் லைசென்ஸ் இல்லை",
+  "reasonADDRESS_WRONG": "முகவரி தவறு",
+  "reasonPIN_WRONG_PLACE": "மேப்பில் உள்ள பின் உங்கள் சலூன் வாசலில் இல்லை",
+  "reasonSERVICES_MISSING": "சர்வீஸ்கள் அல்லது விலைகள் இல்லை",
+  "reasonHOURS_MISSING": "திறக்கும் நேரம் இல்லை",
+  "reasonVIDEO_UNCLEAR": "சலூன் வீடியோ தெளிவாக இல்லை",
+  "reasonOWNER_NAME": "ஓனரின் பெயரைச் சரிசெய்ய வேண்டும்",
+  "reasonOTHER": "வேறு ஒன்று (குறிப்பைப் பாருங்கள்)"
+}

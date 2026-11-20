@@ -4,7 +4,7 @@ import { authApi } from '../../api/auth'
 import { isApiError, messageOf } from '../../api/errors'
 import { Banner, Button, Field, Page } from '../../components/ui'
 import { Turnstile } from '../../components/Turnstile'
-import { language, languageChosen, setLanguage, useT } from '../../i18n'
+import { keepShownLanguage, useT } from '../../i18n'
 import { LanguagePicker } from '../../i18n/LanguagePicker'
 import { TURNSTILE_SITE_KEY } from '../../lib/config'
 import { formatPhone, normalizePhone } from '../../lib/phone'
@@ -37,7 +37,7 @@ export function PhoneStep() {
     setBusy(true)
     setError(null)
     // Signing in with the language on screen keeps it: the app doesn't offer the languages again afterwards
-    if (!languageChosen()) void setLanguage(language())
+    keepShownLanguage()
     try {
       await authApi.sendCode(normalized, captcha)
       navigate('/signin/code', { state: { phone: normalized } })

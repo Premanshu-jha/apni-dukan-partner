@@ -43,7 +43,7 @@ test('the owner makes an offer for some services and hours, sees both prices and
   await expect(offers).toContainText('25% off')
   await expect(offers.getByText('25% off', { exact: true })).toHaveClass(/text-accent/)   // a coming-up deal is the logo's orange
   await expect(offers).toContainText('Haircut, Beard trim')
-  await expect(offers).toContainText('12:00–16:00')
+  await expect(offers).toContainText('12:00 PM–4:00 PM')
   await expect(offers).toContainText('Coming up')
   await expect(offers).toContainText('Sent to 3 customers · 0 bookings')
   const sent = api.calls.find((c) => c.method === 'POST' && c.path === '/api/v1/salon/offers')!
@@ -175,7 +175,7 @@ test('the booking window, the 90 days, midnight, and a salon without opening hou
   await page.getByLabel('From', { exact: true }).fill('20:00')
   await page.getByLabel('Until', { exact: true }).fill('00:00')
   await preview.click()
-  await expect(page.getByText(/20:00–24:00/)).toBeVisible()
+  await expect(page.getByText(/8:00 PM–midnight/)).toBeVisible()
   const sent = api.calls.find((c) => c.path === '/api/v1/salon/offers/preview')!
   expect((sent.body as { until: string }).until).toBe('24:00')
   // A salon without its own opening hours: told, with the way there

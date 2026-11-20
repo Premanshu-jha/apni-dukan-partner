@@ -80,7 +80,7 @@ function Summary({ summary }: { summary: RatingSummary }) {
           : t('ratings.count', { count: summary.count })}
       </p>
       {summary.tags.length > 0 && (
-        <p className="text-sm">{summary.tags.map((tag) => `${tag.label} (${tag.count})`).join(' · ')}</p>
+        <p className="text-sm">{summary.tags.map((tag) => `${TAG_LABELS[tag.tag] ? t(TAG_LABELS[tag.tag]) : tag.label} (${tag.count})`).join(' · ')}</p>
       )}
     </Card>
   )

@@ -20,7 +20,7 @@
   "rowRatings": "ரேட்டிங்",
   "rowRatingsSub": "வந்து போன பிறகு கஸ்டமர்கள் சொன்னது",
   "rulesTitle": "புக்கிங் விதிகள்",
-  "rulesSummary": "{notice} min முன்னறிவிப்பு · {days} நாட்கள் வரை முன்கூட்டியே",
+  "rulesSummary": "{notice} நிமி. முன்னறிவிப்பு · {days} நாட்கள் வரை முன்கூட்டியே",
   "ownerOnlyChange": "இவற்றை ஓனர் மட்டுமே மாற்ற முடியும்.",
 
   "infoTitle": "சலூன் தகவல்",
@@ -31,7 +31,7 @@
   "noOffers": "இப்போது நடக்கும் அல்லது வரப்போகும் ஆஃபர் எதுவும் இல்லை.",
   "hoursNotSet": "இன்னும் அமைக்கவில்லை.",
   "servicesHeading": "சர்வீஸ்கள்",
-  "minutesShort": "{minutes} min",
+  "minutesShort": "{minutes} நிமி.",
   "noServices": "இன்னும் சர்வீஸ்கள் இல்லை",
 
   "noticeLabel": "தேவையான முன்னறிவிப்பு (நிமிடங்கள்)",

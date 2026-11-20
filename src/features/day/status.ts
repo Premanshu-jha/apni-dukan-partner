@@ -1,5 +1,6 @@
 import type { Appointment, AppointmentStatus } from '../../api/types'
 import { t } from '../../i18n'
+import { serviceName } from '../../lib/serviceName'
 
 /** Each status's words, as keys (translated when asked for, so they follow the language). */
 const STATUS_KEYS: Record<AppointmentStatus, string> = {
@@ -15,6 +16,23 @@ const STATUS_KEYS: Record<AppointmentStatus, string> = {
 
 export function statusText(status: AppointmentStatus): string {
   return t(STATUS_KEYS[status])
+}
+
+/** The short words for a status in a card's pill (it sits beside the name: never wraps, so kept short). */
+const PILL_KEYS: Partial<Record<AppointmentStatus, string>> = {
+  CONFIRMED: 'day.pillConfirmed',
+  IN_SERVICE: 'day.pillInService',
+  COMPLETED: 'day.pillCompleted',
+  CANCELLED_BY_CUSTOMER: 'day.pillCancelledByCustomer',
+  CANCELLED_BY_SALON: 'day.pillCancelledBySalon',
+  NO_SHOW: 'day.pillNoShow',
+}
+
+/** A card's pill: "Not started" for a booking not started on time, else its status in short. */
+export function pillText(a: Pick<Appointment, 'status' | 'notStarted'>): string {
+  if (a.notStarted) return t('day.pillNotStarted')
+  const key = PILL_KEYS[a.status]
+  return key ? t(key) : statusText(a.status)
 }
 
 /** The words for a status the backend names as text; a status the app doesn't know stays as sent. */
@@ -55,7 +73,7 @@ export function isLive(a: Appointment): boolean {
 }
 
 export function servicesText(a: Appointment): string {
-  return a.services.map((s) => s.name).join(', ')
+  return a.services.map((s) => serviceName(s.name)).join(', ')
 }
 
 export function totalPaise(a: Appointment): { paise: number; from: boolean } {

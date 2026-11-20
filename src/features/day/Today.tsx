@@ -20,7 +20,10 @@ import { SubscriptionBanner } from '../subscription/SubscriptionBanner'
 import { RecheckWaiting } from '../shop/RecheckWaiting'
 import { AppointmentSheet } from './AppointmentSheet'
 import { PauseControl } from './Pause'
-import { isLive, servicesText, statusText, statusTone, totalPaise, whoText } from './status'
+import { isLive, pillText, servicesText, statusTone, totalPaise, whoText } from './status'
+import { NO_ICONS, useServiceIcons, type ServiceIconMap } from './serviceIconMap'
+import { ServiceIcon } from '../../components/ServiceIcon'
+import { iconOf } from '../../lib/serviceIcons'
 
 /** How far the board goes back and ahead (customers book up to 30 days ahead; closed days up to 90). */
 const PAST_DAYS = 31
@@ -58,6 +61,7 @@ export function dayLink(a: { id: string; startsAt: string }): string {
 export function Today() {
   const t = useT()
   const shop = useShop()
+  const icons = useServiceIcons()
   const rights = can(shop.myRole)
   const [params, setParams] = useSearchParams()
   // Moves on by itself: a board left open overnight shows the new day.
@@ -230,7 +234,7 @@ export function Today() {
             <ul className="flex flex-col gap-2">
               {live.map(({ a, barber: name }) => (
                 <li key={a.id} className={OFFSCREEN_CHEAP}>
-                  <AppointmentCard a={a} barber={columns.length > 1 && barber === 'all' ? name : null} onOpen={openCard} />
+                  <AppointmentCard a={a} barber={columns.length > 1 && barber === 'all' ? name : null} onOpen={openCard} icons={icons} />
                 </li>
               ))}
             </ul>
@@ -241,7 +245,7 @@ export function Today() {
               <ul className="mt-3 flex flex-col gap-2">
                 {closed.map(({ a, barber: name }) => (
                   <li key={a.id} className={OFFSCREEN_CHEAP}>
-                    <AppointmentCard a={a} barber={columns.length > 1 && barber === 'all' ? name : null} onOpen={openCard} />
+                    <AppointmentCard a={a} barber={columns.length > 1 && barber === 'all' ? name : null} onOpen={openCard} icons={icons} />
                   </li>
                 ))}
               </ul>
@@ -341,10 +345,13 @@ export const AppointmentCard = memo(function AppointmentCard({
   a,
   barber,
   onOpen,
+  icons = NO_ICONS,
 }: {
   a: Appointment
   barber: string | null
   onOpen: (a: Appointment) => void
+  /** The salon's own picture for each service id (useServiceIcons); without one, the picture its name fits. */
+  icons?: ServiceIconMap
 }) {
   const total = totalPaise(a)
   const block = a.kind === 'BLOCK'
@@ -372,11 +379,14 @@ export const AppointmentCard = memo(function AppointmentCard({
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="flex items-start justify-between gap-2">
-          <span className="truncate font-semibold">{whoText(a)}</span>
-          {!block && <Pill tone={statusTone(a)}>{a.notStarted ? t('day.notStarted') : statusText(a.status)}</Pill>}
+          {/* The name wraps; the status pill beside it stays whole */}
+          <span className="min-w-0 font-semibold break-words">{whoText(a)}</span>
+          {!block && <Pill tone={statusTone(a)}>{pillText(a)}</Pill>}
         </span>
+        {!block && a.services.length > 0 && <CardServiceIcons a={a} icons={icons} />}
+        {/* Two lines at most, so the price at the end still shows with several services in a long language */}
         {!block && (
-          <span className="truncate text-sm text-muted">
+          <span className="line-clamp-2 text-sm break-words text-muted">
             {a.kind === 'WALK_IN'
               ? t('day.cardWalkIn', { services: servicesText(a), price: rupees(total.paise, total.from) })
               : `${servicesText(a)} · ${rupees(total.paise, total.from)}`}
@@ -387,6 +397,21 @@ export const AppointmentCard = memo(function AppointmentCard({
     </button>
   )
 })
+
+/**
+ * The services' pictures on a card (at most 3, one per kind), so whoever can't read the names still sees what the
+ * customer is in for. Hidden from screen readers: the services line says it.
+ */
+function CardServiceIcons({ a, icons }: { a: Appointment; icons: ServiceIconMap }) {
+  const kinds = [...new Set(a.services.map((s) => iconOf({ name: s.name, icon: icons.get(s.serviceId) })))].slice(0, 3)
+  return (
+    <span className="flex items-center gap-1.5 text-muted" data-testid="card-service-icons">
+      {kinds.map((icon) => (
+        <ServiceIcon key={icon} icon={icon} size={18} />
+      ))}
+    </span>
+  )
+}
 
 /** The owner's to-do list until customers can book: services, barbers, and barbers' skills and hours. */
 function SetupChecklist() {

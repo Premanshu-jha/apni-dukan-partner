@@ -1,0 +1,20 @@
+{
+  "whatToFix": "What to fix:",
+  "noteFromTeam": "Note from the team",
+  "fixLink": "Fix ›",
+  "fixAria": "Fix: {reason}",
+  "reasonSHOP_FRONT_PHOTO": "The photo of the salon front is missing or not clear",
+  "reasonBOARD_NOT_VISIBLE": "The salon's name board can't be seen in the photo",
+  "reasonINSIDE_PHOTOS": "Photos of the inside are missing or not clear",
+  "reasonLICENCE_UNREADABLE": "The trade licence can't be read",
+  "reasonLICENCE_NAME_MISMATCH": "The name on the trade licence doesn't match the salon",
+  "reasonLICENCE_EXPIRED": "The trade licence has expired",
+  "reasonLICENCE_WRONG_TYPE": "It isn't a municipal trade licence",
+  "reasonADDRESS_WRONG": "The address is wrong",
+  "reasonPIN_WRONG_PLACE": "The pin on the map isn't at your salon's door",
+  "reasonSERVICES_MISSING": "Services or prices are missing",
+  "reasonHOURS_MISSING": "Opening hours are missing",
+  "reasonVIDEO_UNCLEAR": "The salon video isn't clear",
+  "reasonOWNER_NAME": "The owner's name needs to be corrected",
+  "reasonOTHER": "Something else (see the note)"
+}

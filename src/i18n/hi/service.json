@@ -1,0 +1,20 @@
+{
+  "haircut": "हेयरकट",
+  "beardTrim": "बियर्ड ट्रिम",
+  "haircutAndBeard": "हेयरकट और बियर्ड",
+  "cleanShave": "क्लीन शेव",
+  "kidsHaircut": "किड्स हेयरकट",
+  "womensHaircut": "वीमेंस हेयरकट",
+  "hairWash": "हेयर वॉश",
+  "headMassage": "हेड मसाज",
+  "hairColour": "हेयर कलर",
+  "beardColour": "बियर्ड कलर",
+  "hairSpa": "हेयर स्पा",
+  "hairStraightening": "हेयर स्ट्रेटनिंग",
+  "facial": "फ़ेशियल",
+  "faceCleanup": "फ़ेस क्लीन-अप",
+  "threading": "थ्रेडिंग",
+  "waxing": "वैक्सिंग",
+  "manicure": "मैनीक्योर",
+  "pedicure": "पेडीक्योर"
+}

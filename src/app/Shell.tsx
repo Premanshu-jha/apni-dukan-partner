@@ -2,8 +2,9 @@ import { NavLink, Outlet } from 'react-router'
 import { useShop } from '../api/shop'
 import type { ShopType } from '../api/types'
 import { useState } from 'react'
-import { languageChosen, setLanguage, t, useT } from '../i18n'
+import { LANGUAGES, languageChosen, setLanguage, t, useLanguage, useT } from '../i18n'
 import { LanguagePicker } from '../i18n/LanguagePicker'
+import { announceLanguageChosen } from '../i18n/LanguageToast'
 import { can } from '../lib/roles'
 
 /**
@@ -104,12 +105,16 @@ export function Bare({ approvalBar = false }: { approvalBar?: boolean }) {
 
 /**
  * Someone signed in before languages came (or who never chose one): offered once, at the top of every tab, until they
- * pick a language or keep English. Later it is under More → Language.
+ * pick a language or keep the one showing (English, or the phone's own language). Later it is under More → Language.
  */
 function LanguageOffer() {
   const t = useT()
+  const shown = useLanguage()
   const [open, setOpen] = useState(() => !languageChosen())
   if (!open) return null
+  // The phone's own language showing (not chosen yet): keeping it is one tap too
+  const name = LANGUAGES.find((l) => l.code === shown)?.name ?? ''
+  const keep = shown === 'en' ? t('language.keepEnglish') : t('language.keepShown', { name })
   return (
     <div role="region" aria-label={t('language.offerTitle')} className="m-3 rounded-2xl border border-line bg-raised p-3">
       <p className="mb-2 font-medium">{t('language.offerTitle')}</p>
@@ -120,11 +125,11 @@ function LanguageOffer() {
           type="button"
           className="min-h-11 shrink-0 px-2 text-sm text-link underline"
           onClick={() => {
-            void setLanguage('en')
+            void setLanguage(shown).then((ok) => ok && announceLanguageChosen())
             setOpen(false)
           }}
         >
-          {t('language.keepEnglish')}
+          {keep}
         </button>
       </div>
     </div>

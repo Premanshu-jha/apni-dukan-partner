@@ -5,10 +5,10 @@
 // A new version of this file installs and then waits: the app shows "New version available — Reload", and only that
 // button switches over (never in the middle of a walk-in or a booking change).
 
-// Change the name when offline.html, offline.css or the icon change, so a new version stores them again
-const OFFLINE_CACHE = 'offline-v2'
+// Change the name when offline.html, offline.css, offline.js or the icon change, so a new version stores them again
+const OFFLINE_CACHE = 'offline-v3'
 const OFFLINE_PAGE = '/offline.html'
-const OFFLINE_FILES = [OFFLINE_PAGE, '/offline.css', '/icon.svg']
+const OFFLINE_FILES = [OFFLINE_PAGE, '/offline.css', '/offline.js', '/icon.svg']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -47,7 +47,7 @@ self.addEventListener('fetch', (event) => {
     )
     return
   }
-  // The offline page's own CSS and icon; everything else (the app, the API) goes to the network untouched
+  // The offline page's own CSS, script and icon; everything else (the app, the API) goes to the network untouched
   const url = new URL(request.url)
   if (url.origin === self.location.origin && OFFLINE_FILES.includes(url.pathname)) {
     event.respondWith(fetch(request).catch(() => caches.match(url.pathname, { cacheName: OFFLINE_CACHE })))

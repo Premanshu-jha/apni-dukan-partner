@@ -20,7 +20,7 @@
   "rowRatings": "रेटिंग",
   "rowRatingsSub": "आने के बाद ग्राहकों ने क्या कहा",
   "rulesTitle": "बुकिंग के नियम",
-  "rulesSummary": "{notice} min पहले बताना ज़रूरी · {days} दिन आगे तक",
+  "rulesSummary": "{notice} मि. पहले बताना ज़रूरी · {days} दिन आगे तक",
   "ownerOnlyChange": "इन्हें सिर्फ़ मालिक बदल सकते हैं।",
 
   "infoTitle": "सैलून की जानकारी",
@@ -31,7 +31,7 @@
   "noOffers": "अभी कोई ऑफ़र नहीं चल रहा, न आने वाला है।",
   "hoursNotSet": "अभी तय नहीं।",
   "servicesHeading": "सर्विस",
-  "minutesShort": "{minutes} min",
+  "minutesShort": "{minutes} मि.",
   "noServices": "अभी कोई सर्विस नहीं",
 
   "noticeLabel": "कितना पहले बताना ज़रूरी (मिनट)",
@@ -71,7 +71,7 @@
   "hoursNotSetByOwner": "मालिक ने अभी खुलने का समय तय नहीं किया है।",
   "closedDaysBefore": "त्योहार की छुट्टियों और उन बाक़ी दिनों के लिए जब पूरा सैलून बंद रहता है, यह देखें:",
   "closedDaysOwnerSets": "बंद के दिन (मालिक तय करते हैं)",
-  "closedDaysAfter": ".",
+  "closedDaysAfter": "।",
   "openAtLeastOne": "हफ़्ते में कम से कम एक दिन खोलें।",
   "dayFillBothTimes": "{day}: दोनों समय भरें।",
   "dayCloseAfterOpen": "{day}: बंद होने का समय खुलने के बाद का होना चाहिए।",

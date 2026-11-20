@@ -14,6 +14,7 @@ import { readyForVisit } from '../../lib/salonVideo'
 import { useSession } from '../../store/session'
 import { licencesGap, licencesReady } from './KiranaLicences'
 import { DraftExits, Line, SentBack, Steps, Thumb } from './Register'
+import { shopAsk } from './TeamReasons'
 
 const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ default: m.PinMap })))
 
@@ -84,7 +85,7 @@ export function RegisterKind() {
           ? t('kiranaRegister.kindIntroSaved', { name: shop.name })
           : t('kiranaRegister.kindIntroNew')}
       </p>
-      {shop?.statusReason && <SentBack reason={shop.statusReason} />}
+      {shop && shopAsk(shop) && <SentBack ask={shopAsk(shop)!} shop={shop} />}
       <div className="flex flex-col gap-3" role="group" aria-label={t('kiranaRegister.whatDoYouRun')}>
         {KINDS.map((k) => (
           <button
@@ -216,7 +217,7 @@ export function RegisterUpi() {
   return (
     <Page back={fromReview ? '/register/review' : '/register/licences'} title={t('kiranaRegister.upiTitle')}>
       <Steps at={4} />
-      {shop.statusReason && <SentBack reason={shop.statusReason} />}
+      {shopAsk(shop) && <SentBack ask={shopAsk(shop)!} shop={shop} />}
       <UpiIdForm saveLabel={fromReview ? t('kiranaRegister.saveBackToReview') : t('kiranaRegister.saveAndContinue')} onSaved={() => navigate('/register/review')} />
     </Page>
   )
@@ -270,7 +271,7 @@ export function KiranaReview() {
   return (
     <Page back="/register/upi" title={t('kiranaRegister.reviewTitle')}>
       <Steps at={5} />
-      {shop.statusReason && <SentBack reason={shop.statusReason} />}
+      {shopAsk(shop) && <SentBack ask={shopAsk(shop)!} shop={shop} />}
       <Card className="flex flex-col gap-3">
         <Line label={t('kiranaRegister.reviewShop')} value={shop.name} />
         <Line label={t('kiranaRegister.reviewOwner')} value={shop.ownerName} />
