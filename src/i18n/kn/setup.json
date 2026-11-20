@@ -20,7 +20,7 @@
   "rowRatings": "ರೇಟಿಂಗ್‌ಗಳು",
   "rowRatingsSub": "ಬಂದು ಹೋದ ಮೇಲೆ ಗ್ರಾಹಕರು ಏನು ಹೇಳಿದರು",
   "rulesTitle": "ಬುಕಿಂಗ್ ನಿಯಮಗಳು",
-  "rulesSummary": "{notice} min ಮುಂಚೆ ತಿಳಿಸಬೇಕು · {days} ದಿನ ಮುಂಚಿನವರೆಗೆ ಬುಕಿಂಗ್",
+  "rulesSummary": "{notice} ನಿಮಿ. ಮುಂಚೆ ತಿಳಿಸಬೇಕು · {days} ದಿನ ಮುಂಚಿನವರೆಗೆ ಬುಕಿಂಗ್",
   "ownerOnlyChange": "ಇವುಗಳನ್ನು ಮಾಲೀಕರು ಮಾತ್ರ ಬದಲಾಯಿಸಬಹುದು.",
 
   "infoTitle": "ಸಲೂನ್ ಮಾಹಿತಿ",
@@ -31,7 +31,7 @@
   "noOffers": "ಈಗ ನಡೆಯುತ್ತಿರುವ ಅಥವಾ ಮುಂದೆ ಬರುವ ಆಫರ್ ಇಲ್ಲ.",
   "hoursNotSet": "ಇನ್ನೂ ಹಾಕಿಲ್ಲ.",
   "servicesHeading": "ಸೇವೆಗಳು",
-  "minutesShort": "{minutes} min",
+  "minutesShort": "{minutes} ನಿಮಿ.",
   "noServices": "ಇನ್ನೂ ಸೇವೆಗಳಿಲ್ಲ",
 
   "noticeLabel": "ಎಷ್ಟು ಮುಂಚೆ ಬುಕ್ ಮಾಡಬೇಕು (ನಿಮಿಷಗಳಲ್ಲಿ)",

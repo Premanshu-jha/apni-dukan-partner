@@ -82,8 +82,9 @@ export function PauseControl() {
           <Button busy={busy} onClick={() => act(() => dayApi.pauseUntil(pauseEnd(choice)))}>
             {t('day.pause')}
           </Button>
+          {/* "Back", not "Cancel": next to Pause, "Cancel" reads as cancelling the day's bookings */}
           <Button variant="ghost" onClick={() => setOpen(false)}>
-            {t('common.cancel')}
+            {t('common.back')}
           </Button>
         </div>
       </Sheet>

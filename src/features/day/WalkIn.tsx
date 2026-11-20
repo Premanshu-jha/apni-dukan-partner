@@ -11,6 +11,7 @@ import { duration, rupees } from '../../lib/money'
 import { ServiceIcon } from '../../components/ServiceIcon'
 import { priceNow, walkInTotal } from '../../lib/walkIn'
 import { newIdempotencyKey } from './status'
+import { serviceName } from '../../lib/serviceName'
 
 /**
  * A customer who walked in: pick the services, then a barber who is free now (or see when each is next free), and
@@ -213,7 +214,7 @@ export function WalkIn() {
                   />
                   <ServiceIcon service={s} size={22} className="text-link" />
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="[overflow-wrap:anywhere]">{s.name}</span>
+                    <span className="break-words">{serviceName(s.name)}</span>
                     <span className="text-sm text-muted">{duration(s.durationMinutes)}</span>
                   </span>
                   {p.listPricePaise != null ? (

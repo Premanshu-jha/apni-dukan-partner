@@ -18,8 +18,8 @@ import { useSession } from '../../store/session'
 import { NotificationsRow } from './Notifications'
 import { licenceSummary } from '../shop/RegistrationDoc'
 import { signOutHere } from './signOut'
-import { useT } from '../../i18n'
-import { LanguagePicker } from '../../i18n/LanguagePicker'
+import { LANGUAGES, useLanguage, useT } from '../../i18n'
+import { GlobeIcon, LanguagePicker } from '../../i18n/LanguagePicker'
 
 /** The map library is big: loaded only when the owner opens the pin. */
 const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ default: m.PinMap })))
@@ -27,6 +27,7 @@ const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ defau
 /** More: the person's profile, the shop's other screens (a salon's or a kirana's), help and signing out. */
 export function Profile() {
   const t = useT()
+  const lang = useLanguage()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const [phoneChanged] = useState(takePhoneChanged)
@@ -105,6 +106,21 @@ export function Profile() {
 
   return (
     <Page title={t('profile.title')}>
+      {/* The way to the language, first thing on More: found without reading (its name in its own script) */}
+      <div className="-mb-2 flex justify-end">
+        <button
+          type="button"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-line px-3 text-sm text-link"
+          onClick={() => {
+            const card = document.getElementById('language')
+            card?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            card?.querySelector<HTMLButtonElement>('button[aria-pressed="true"]')?.focus({ preventScroll: true })
+          }}
+        >
+          <GlobeIcon />
+          {t('language.button', { name: LANGUAGES.find((l) => l.code === lang)?.name ?? lang })}
+        </button>
+      </div>
       {phoneChanged && (
         <Banner tone="good">
           {t('profile.phoneChanged', { phone: formatPhone(phoneChanged) })}
@@ -231,7 +247,7 @@ export function Profile() {
         <NotificationsRow />
       </Card>
 
-      <Card className="flex flex-col gap-2">
+      <Card id="language" className="flex scroll-mt-20 flex-col gap-2">
         <p className="font-medium">{t('language.title')}</p>
         <LanguagePicker />
         <p className="text-xs text-muted">{t('language.profileHint')}</p>

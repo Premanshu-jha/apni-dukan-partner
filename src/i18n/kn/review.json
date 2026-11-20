@@ -1,0 +1,20 @@
+{
+  "whatToFix": "ಏನು ಸರಿಪಡಿಸಬೇಕು:",
+  "noteFromTeam": "ಟೀಮ್‌ನಿಂದ ನೋಟ್",
+  "fixLink": "ಸರಿಪಡಿಸಿ ›",
+  "fixAria": "ಸರಿಪಡಿಸಿ: {reason}",
+  "reasonSHOP_FRONT_PHOTO": "ಸಲೂನ್ ಮುಂಭಾಗದ ಫೋಟೋ ಇಲ್ಲ ಅಥವಾ ಸ್ಪಷ್ಟವಾಗಿಲ್ಲ",
+  "reasonBOARD_NOT_VISIBLE": "ಫೋಟೋದಲ್ಲಿ ಸಲೂನ್ ಹೆಸರಿನ ಬೋರ್ಡ್ ಕಾಣುತ್ತಿಲ್ಲ",
+  "reasonINSIDE_PHOTOS": "ಒಳಗಿನ ಫೋಟೋಗಳು ಇಲ್ಲ ಅಥವಾ ಸ್ಪಷ್ಟವಾಗಿಲ್ಲ",
+  "reasonLICENCE_UNREADABLE": "ಟ್ರೇಡ್ ಲೈಸೆನ್ಸ್ ಓದಲು ಆಗುತ್ತಿಲ್ಲ",
+  "reasonLICENCE_NAME_MISMATCH": "ಟ್ರೇಡ್ ಲೈಸೆನ್ಸ್‌ನಲ್ಲಿರುವ ಹೆಸರು ಸಲೂನ್‌ಗೆ ಹೊಂದುತ್ತಿಲ್ಲ",
+  "reasonLICENCE_EXPIRED": "ಟ್ರೇಡ್ ಲೈಸೆನ್ಸ್ ಅವಧಿ ಮುಗಿದಿದೆ",
+  "reasonLICENCE_WRONG_TYPE": "ಇದು ಮುನ್ಸಿಪಾಲಿಟಿಯ ಟ್ರೇಡ್ ಲೈಸೆನ್ಸ್ ಅಲ್ಲ",
+  "reasonADDRESS_WRONG": "ವಿಳಾಸ ತಪ್ಪಾಗಿದೆ",
+  "reasonPIN_WRONG_PLACE": "ಮ್ಯಾಪ್‌ನಲ್ಲಿರುವ ಪಿನ್ ನಿಮ್ಮ ಸಲೂನ್ ಬಾಗಿಲಿನಲ್ಲಿ ಇಲ್ಲ",
+  "reasonSERVICES_MISSING": "ಸೇವೆಗಳು ಅಥವಾ ಬೆಲೆಗಳು ಇಲ್ಲ",
+  "reasonHOURS_MISSING": "ತೆರೆಯುವ ಸಮಯ ಇಲ್ಲ",
+  "reasonVIDEO_UNCLEAR": "ಸಲೂನ್ ವೀಡಿಯೊ ಸ್ಪಷ್ಟವಾಗಿಲ್ಲ",
+  "reasonOWNER_NAME": "ಮಾಲೀಕರ ಹೆಸರು ಸರಿಪಡಿಸಬೇಕು",
+  "reasonOTHER": "ಬೇರೆ ಏನೋ (ನೋಟ್ ನೋಡಿ)"
+}

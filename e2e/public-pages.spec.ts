@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs'
 import { expect, signedIn, test } from './helpers'
+
+const te = (area: string) => JSON.parse(readFileSync(`src/i18n/te/${area}.json`, 'utf8')) as Record<string, string>
 
 test('a first-time visitor sees About (for salons, with the price) first, with Sign in on it; sign-in links back to every page', async ({ page }) => {
   await page.goto('/')
@@ -16,6 +19,30 @@ test('a first-time visitor sees About (for salons, with the price) first, with S
   // Back goes to the screen before it
   await page.getByRole('button', { name: 'Back' }).click()
   await expect(page).toHaveURL(/\/signin$/)
+})
+
+test('a first-time visitor picks Telugu on About: the page is in Telugu, and so is the sign-in screen after it', async ({ page }) => {
+  await page.goto('/')
+  await expect(page).toHaveURL(/\/about$/)
+  await page.getByRole('group', { name: 'Choose your language' }).getByRole('button', { name: 'తెలుగు' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: te('about').title })).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'te')
+  // The amounts are the same figures, inside the Telugu sentence
+  await expect(page.getByText(te('about').priceLine.replace('{price}', '500').replace('{days}', '30'))).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Clozest for salons' })).toHaveCount(0)
+
+  await page.getByRole('link', { name: te('about').signInOrUp }).click()
+  await expect(page).toHaveURL(/\/signin$/)
+  await expect(page.getByRole('button', { name: te('auth').phoneSendCode })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'తెలుగు' })).toHaveAttribute('aria-pressed', 'true')
+  // A real choice, kept on this phone
+  await page.reload()
+  await expect(page.getByRole('button', { name: te('auth').phoneSendCode })).toBeVisible()
+  // The policies keep their English text, and say so in Telugu
+  await page.getByRole('navigation', { name: te('misc').legalNavAria }).getByRole('link', { name: te('misc').legalRefunds }).click()
+  await expect(page.getByRole('heading', { level: 1, name: te('about').refundsTitle })).toBeVisible()
+  await expect(page.getByText(te('about').englishApplies)).toBeVisible()
+  await expect(page.getByText(/Subscription payments are not refunded/)).toBeVisible()
 })
 
 test('someone who has signed in on this browser goes straight to sign-in at /, even after a reload (not About)', async ({ page, context, api }) => {

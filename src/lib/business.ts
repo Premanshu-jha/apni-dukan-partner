@@ -22,7 +22,8 @@ export const BUSINESS = {
   salonPricePerMonth: 500,
   trialDays: 30,
   /** The date the policies were last changed (shown at the top of each) */
-  policiesUpdated: '15 November 2026',
+  /** When the policies last changed (shown as a date in the reader's language; English: "15 November 2026"). */
+  policiesUpdated: '2026-11-15',
 } as const
 
 /** "Clozest is operated by Premanshu Jha, a sole proprietor" — the line every public page carries. */

@@ -3,7 +3,7 @@ import { checkOffer, offerPrice, offerWhat, offerWhen } from './offerText'
 
 describe('offer texts', () => {
   it('says when, like the message', () => {
-    expect(offerWhen({ startsOn: '2026-11-12', endsOn: '2026-11-14', from: '12:00', until: '16:00' })).toBe('12 Nov – 14 Nov, 12:00–16:00')
+    expect(offerWhen({ startsOn: '2026-11-12', endsOn: '2026-11-14', from: '12:00', until: '16:00' })).toBe('12 Nov – 14 Nov, 12:00 PM–4:00 PM')
     expect(offerWhen({ startsOn: '2026-11-12', endsOn: '2026-11-12', from: null, until: null })).toBe('12 Nov')
   })
 

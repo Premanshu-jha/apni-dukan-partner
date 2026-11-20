@@ -16,7 +16,7 @@ describe("the FSSAI check's reason", () => {
   })
 
   it("is in the person's language: fixed reasons, the kept-licence note and the ones with a date or a number", async () => {
-    provideForTests('hi', { server: file('hi', 'server'), kiranaRegister: file('hi', 'kiranaRegister') })
+    provideForTests('hi', { server: file('hi', 'server'), kiranaRegister: file('hi', 'kiranaRegister'), shop: file('hi', 'shop') })
     await setLanguage('hi')
     expect(fssaiReasonText("We couldn't find the FSSAI number on the certificate.")).toBe('सर्टिफ़िकेट पर हमें FSSAI नंबर नहीं मिला।')
     expect(fssaiReasonText("We couldn't find the FSSAI number on the certificate. Your current licence keeps your shop open until 5 Mar 2027."))

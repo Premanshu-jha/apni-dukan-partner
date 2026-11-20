@@ -11,6 +11,8 @@ import { checkService, comeBackText, IconPicker, pickedIcon, serviceIn, ServiceS
 import { ServiceIcon } from '../../components/ServiceIcon'
 import { useShop } from '../../api/shop'
 import { SentBack, Steps } from './Register'
+import { shopAsk } from './TeamReasons'
+import { serviceName } from '../../lib/serviceName'
 
 /** One line of the list: a service from the catalog (ticked or not) or one the owner typed in. */
 export interface Row {
@@ -170,7 +172,7 @@ export function RegisterServices() {
   return (
     <Page back="/register/photos" title={t('register.servicesTitle')}>
       <Steps at={3} />
-      {shop.statusReason && <SentBack reason={shop.statusReason} />}
+      {shopAsk(shop) && <SentBack ask={shopAsk(shop)!} shop={shop} />}
       {have.length > 0 && (
         <Card className="flex flex-col gap-2">
           <p className="font-medium">{t('register.yourServices')}</p>
@@ -179,13 +181,13 @@ export function RegisterServices() {
               <li key={s.id} className="flex items-center gap-2">
                 <ServiceIcon service={s} size={22} className="text-link" />
                 <button type="button" className="flex min-w-0 flex-1 flex-col text-left" onClick={() => setEditing(s)}>
-                  <span className="font-semibold">{s.name}</span>
+                  <span className="font-semibold">{serviceName(s.name)}</span>
                   <span className="text-sm text-muted">
                     {duration(s.durationMinutes)} · {rupees(s.pricePaise, s.priceIsFrom)}
                     {comeBackText(s.returnAfterDays) && ` · ${comeBackText(s.returnAfterDays)}`}
                   </span>
                 </button>
-                <Button variant="ghost" aria-label={t('register.removeNamed', { name: s.name })} disabled={busy} onClick={() => remove(s)}>
+                <Button variant="ghost" aria-label={t('register.removeNamed', { name: serviceName(s.name) })} disabled={busy} onClick={() => remove(s)}>
                   {t('common.remove')}
                 </Button>
               </li>
@@ -215,7 +217,7 @@ export function RegisterServices() {
                   onChange={(e) => change(r.key, (x) => ({ ...x, ticked: e.target.checked }))}
                 />
                 <ServiceIcon icon={pickedIcon(r.form)} size={22} className="text-link" />
-                <span className="font-semibold">{r.form.name}</span>
+                <span className="font-semibold">{serviceName(r.form.name)}</span>
               </label>
             )}
             {/* A service from the list comes with its picture; one typed in shows the picture its name gets ("Change" when

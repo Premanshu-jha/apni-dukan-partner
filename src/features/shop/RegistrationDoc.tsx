@@ -7,7 +7,7 @@ import type { LicenceCheck, LicenceCheckReason, LicenceRead, RegistrationDocType
 import { Banner, Card, Spinner } from '../../components/ui'
 import { t, useT } from '../../i18n'
 import { shrinkPhoto } from '../../lib/image'
-import { local } from '../../lib/ist'
+import { fullDate } from '../../lib/ist'
 
 /** The backend takes files up to 10 MB. */
 export const MAX_DOC_BYTES = 10 * 1024 * 1024
@@ -91,10 +91,7 @@ export const CHECK_AGAIN_REASONS: ReadonlyArray<LicenceCheckReason> = ['NAME_MIS
 
 /** "31 Mar 2027" from "2027-03-31"; in another language with its own month names ("31 मार्च 2027"), digits 0-9. */
 export function shortDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number)
-  const at = new Date(Date.UTC(y, m - 1, d))
-  const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }
-  return local(at, 'UTC', options) ?? at.toLocaleDateString('en-IN', { ...options, timeZone: 'UTC' })
+  return fullDate(iso)
 }
 
 /** Today's date in India (YYYY-MM-DD), the day the licence's last valid day is compared with. */

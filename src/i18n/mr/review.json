@@ -1,0 +1,20 @@
+{
+  "whatToFix": "काय दुरुस्त करायचे:",
+  "noteFromTeam": "टीमची नोंद",
+  "fixLink": "दुरुस्त करा ›",
+  "fixAria": "दुरुस्त करा: {reason}",
+  "reasonSHOP_FRONT_PHOTO": "सलूनच्या समोरचा फोटो नाही किंवा स्पष्ट नाही",
+  "reasonBOARD_NOT_VISIBLE": "फोटोमध्ये सलूनच्या नावाचा बोर्ड दिसत नाही",
+  "reasonINSIDE_PHOTOS": "आतले फोटो नाहीत किंवा स्पष्ट नाहीत",
+  "reasonLICENCE_UNREADABLE": "ट्रेड लायसन्स वाचता येत नाही",
+  "reasonLICENCE_NAME_MISMATCH": "ट्रेड लायसन्सवरचे नाव सलूनशी जुळत नाही",
+  "reasonLICENCE_EXPIRED": "ट्रेड लायसन्सची मुदत संपली आहे",
+  "reasonLICENCE_WRONG_TYPE": "हे महानगरपालिकेचे/नगरपालिकेचे ट्रेड लायसन्स नाही",
+  "reasonADDRESS_WRONG": "पत्ता चुकीचा आहे",
+  "reasonPIN_WRONG_PLACE": "नकाशावरची पिन तुमच्या सलूनच्या दारावर नाही",
+  "reasonSERVICES_MISSING": "सर्व्हिस किंवा किंमती दिलेल्या नाहीत",
+  "reasonHOURS_MISSING": "उघडण्याच्या वेळा दिलेल्या नाहीत",
+  "reasonVIDEO_UNCLEAR": "सलूनचा व्हिडिओ स्पष्ट नाही",
+  "reasonOWNER_NAME": "मालकाचे नाव दुरुस्त करायचे आहे",
+  "reasonOTHER": "आणखी काही (नोंद पहा)"
+}

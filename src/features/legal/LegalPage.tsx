@@ -4,7 +4,7 @@ import { Page } from '../../components/ui'
 import { OPERATED_BY } from '../../lib/business'
 import { screensBehind } from '../../lib/nav'
 import { useSession } from '../../store/session'
-import { useT } from '../../i18n'
+import { useLanguage, useT } from '../../i18n'
 
 /** The public pages, in the order the footer lists them (each with its label's language key). Open to everyone: no sign-in needed. */
 const LEGAL_LINKS = [
@@ -51,34 +51,62 @@ export function Section({ title, children }: { title: string; children: ReactNod
 /**
  * The frame of every public page: title, back (to the screen that opened it, or Home / About when opened from a link),
  * the "operated by" line, an optional "last updated" date, and the links to the other pages at the bottom.
+ * {@code englishOnly}: a policy whose text stays in English (it is the one that applies, and what Razorpay checks); in
+ * another language its title and links are translated and one line at the top says the English text applies.
  */
 export function LegalPage({
   path,
   title,
   updated,
+  englishOnly = false,
   children,
 }: {
   path: string
   title: string
   updated?: string
+  englishOnly?: boolean
   children: ReactNode
 }) {
   // Back: to the screen that opened this one. Opened from a link: Home when signed in, otherwise the front page
   // (About), not sign-in (Razorpay's reviewer may be reading). About itself, opened first, has no Back.
   // While the session is still starting, `/` too: its guard sends each person to the right place once it is known.
   const t = useT()
+  const lang = useLanguage()
+  // In another language, what stays in English says so (screen readers then read it as English)
+  const inEnglish = lang !== 'en' ? 'en' : undefined
   const signedOut = useSession((s) => s.status === 'signedOut')
   const back = screensBehind() > 0 ? true : !signedOut ? '/' : path === '/about' ? undefined : '/about'
   return (
     <Page title={title} back={back} backReplace>
       <article className="flex flex-col gap-5">
-        {updated && <p className="text-xs text-muted">{t('misc.legalUpdated', { date: updated })}</p>}
-        {children}
-        <p className="text-sm text-muted">{OPERATED_BY}</p>
+        {englishOnly && inEnglish && (
+          <p role="note" className="rounded-xl border border-line bg-raised p-3 text-sm text-ink">
+            {t('about.englishApplies')}
+          </p>
+        )}
+        {updated && <p className="text-xs text-muted">{t('misc.legalUpdated', { date: policyDate(updated, lang) })}</p>}
+        {englishOnly && inEnglish ? (
+          <div lang="en" className="contents">
+            {children}
+          </div>
+        ) : (
+          children
+        )}
+        <p lang={inEnglish} className="text-sm text-muted">
+          {OPERATED_BY}
+        </p>
       </article>
       <div className="mt-auto border-t border-line pt-4">
         <LegalLinks current={path} />
       </div>
     </Page>
   )
+}
+
+/** A policy date ("2026-11-15") as the reader writes it, digits 0-9: "15 November 2026" in English. */
+export function policyDate(iso: string, lang: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(`${lang}-IN-u-nu-latn`, {
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+  })
 }
