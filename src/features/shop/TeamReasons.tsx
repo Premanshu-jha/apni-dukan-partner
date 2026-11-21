@@ -65,17 +65,25 @@ const FIX_PLACES: Record<string, FixPlace> = {
 export interface FixShop {
   status: string
   addressLocked?: boolean
+  /** A kirana's licences are on its Licences page, and it has no services or hours to fix. */
+  type?: string
 }
 
 /**
  * The page where a reason is fixed: in a draft (sent back) the registration step (1 details and address, 2 photos,
  * video and trade licence, 3 services, 4 hours); after registration the Salon tab's page. An address the field team
- * verified is theirs to change: asked for at /setup/address (also from a sent-back draft). Null: no one place.
+ * verified is theirs to change: asked for at /setup/address (also from a sent-back draft). A kirana's licence is fixed
+ * on its Licences step (/register/licences, after registration /kirana/licences). Null: no one place.
  */
 export function fixPath(code: string, shop: FixShop): string | null {
   const place = FIX_PLACES[code]
   if (!place) return null
   if (place === 'address' && shop.addressLocked) return '/setup/address'
+  if (shop.type === 'KIRANA') {
+    if (place === 'services' || place === 'hours') return null
+    if (shop.status === 'DRAFT') return place === 'document' ? '/register/licences' : place === 'photos' ? '/register/photos' : '/register'
+    return place === 'document' ? '/kirana/licences' : place === 'photos' ? '/setup/photos' : '/setup/details'
+  }
   if (shop.status === 'DRAFT') {
     return { details: '/register', address: '/register', photos: '/register/photos', document: '/register/photos', services: '/register/services', hours: '/register/hours' }[place]
   }

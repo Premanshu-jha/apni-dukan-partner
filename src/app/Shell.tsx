@@ -1,13 +1,27 @@
 import { NavLink, Outlet } from 'react-router'
 import { useShop } from '../api/shop'
+import type { ShopType } from '../api/types'
 import { useState } from 'react'
 import { LANGUAGES, languageChosen, setLanguage, t, useLanguage, useT } from '../i18n'
 import { LanguagePicker } from '../i18n/LanguagePicker'
 import { announceLanguageChosen } from '../i18n/LanguageToast'
+import { kiranaOn } from '../lib/config'
 import { can } from '../lib/roles'
 
-/** The bottom bar's tabs for a role: barbers have no Salon tab (setup is for the owner and helpers). */
-export function tabsFor(role: Parameters<typeof can>[0]) {
+/**
+ * The bottom bar's tabs for a role: barbers have no Salon tab (setup is for the owner and helpers). A kirana's owner
+ * and helpers (kirana switch on only; off, there are no kirana tabs): the counter, its bills, products and khata book.
+ */
+export function tabsFor(role: Parameters<typeof can>[0], kind: ShopType = 'SALON') {
+  if (kind === 'KIRANA' && kiranaOn()) {
+    return [
+      { to: '/kirana/counter', label: t('app.tabCounter'), icon: '⊞' },
+      { to: '/kirana/bills', label: t('app.tabBills'), icon: '▤' },
+      { to: '/kirana/products', label: t('app.tabProducts'), icon: '▣' },
+      { to: '/kirana/khata', label: t('app.tabKhata'), icon: '₹' },
+      { to: '/more', label: t('app.tabMore'), icon: '☰' },
+    ]
+  }
   return [
     { to: '/salon/day', label: t('app.tabToday'), icon: '◷' },
     { to: '/salon/bookings', label: t('app.tabBookings'), icon: '▤' },
@@ -20,7 +34,8 @@ export function tabsFor(role: Parameters<typeof can>[0]) {
 export function Shell() {
   // Drawn again when the language changes, so tabsFor's words are in it
   const t = useT()
-  const tabs = tabsFor(useShop().myRole)
+  const shop = useShop()
+  const tabs = tabsFor(shop.myRole, shop.type)
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col md:max-w-3xl">
       <ApprovalBar />
@@ -69,7 +84,9 @@ export function ApprovalBar() {
       <p className="font-display text-lg font-bold text-warn">
         <span aria-hidden>⏳ </span>{t('app.approvalWaiting')}
       </p>
-      <p className="text-sm text-ink">{t('app.approvalBody', { name: shop.name })}</p>
+      <p className="text-sm text-ink">
+        {t(shop.type === 'KIRANA' ? 'app.approvalBodyKirana' : 'app.approvalBody', { name: shop.name })}
+      </p>
     </section>
   )
 }

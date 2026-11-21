@@ -50,10 +50,13 @@ export function SalonVideo({
   fileId,
   save,
   onBusy,
+  kirana = false,
 }: {
   fileId: string | null
   save: (fileId: string, signal: AbortSignal) => Promise<void>
   onBusy?: (busy: boolean) => void
+  /** A kirana's shop video: the same upload, its own words (the shelves and the counter). */
+  kirana?: boolean
 }) {
   const t = useT()
   const recordInput = useRef<HTMLInputElement>(null)
@@ -77,12 +80,12 @@ export function SalonVideo({
     if (!uploading) return
     const warn = (e: BeforeUnloadEvent) => {
       e.preventDefault()
-      e.returnValue = t('shop.videoLeaveWarning')
+      e.returnValue = t(kirana ? 'shop.videoLeaveWarningKirana' : 'shop.videoLeaveWarning')
     }
     const link = (e: MouseEvent) => {
       const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
       if (!a || a.target === '_blank' || new URL(a.href, location.href).origin !== location.origin) return
-      if (!window.confirm(t('shop.videoLeaveWarning'))) {
+      if (!window.confirm(t(kirana ? 'shop.videoLeaveWarningKirana' : 'shop.videoLeaveWarning'))) {
         e.preventDefault()
         e.stopPropagation()
       }
@@ -93,7 +96,7 @@ export function SalonVideo({
       window.removeEventListener('beforeunload', warn)
       document.removeEventListener('click', link, true)
     }
-  }, [uploading, t])
+  }, [uploading, t, kirana])
 
   function reset() {
     abort.current?.abort()
@@ -178,7 +181,7 @@ export function SalonVideo({
         setMessage(t('shop.videoUploadCancelled'))
         return
       }
-      setMessage(videoErrorText(e))
+      setMessage(videoErrorText(e, kirana))
       if (isApiError(e, 'UPLOAD_GONE')) {
         // The completed video expired before it was saved on the salon: Try again sends it again from the start
         state.current = { held: null, sent: false, fileId: null }
@@ -188,7 +191,7 @@ export function SalonVideo({
         setPhase('blocked')
       } else if (refusedForGood(e) || afterCompleteFailure(e) === 'pick-again') {
         reset()
-        setMessage(videoErrorText(e))
+        setMessage(videoErrorText(e, kirana))
       } else {
         setPhase('failed')
       }
@@ -210,14 +213,14 @@ export function SalonVideo({
   return (
     <Card className="flex flex-col gap-3">
       <div>
-        <p className="font-medium">{t('shop.videoTitle')}</p>
+        <p className="font-medium">{t(kirana ? 'shop.videoTitleKirana' : 'shop.videoTitle')}</p>
         <p className="text-sm text-muted">
           {t('shop.videoLengthNote', { min: VIDEO_MIN_SECONDS, max: VIDEO_MAX_SECONDS })}
         </p>
       </div>
       {fileId && !replacing && (
         <>
-          <Preview fileId={fileId} />
+          <Preview fileId={fileId} kirana={kirana} />
           <Button variant="secondary" onClick={() => setReplacing(true)}>
             {t('shop.videoReplace')}
           </Button>
@@ -227,8 +230,8 @@ export function SalonVideo({
         <>
           <ol className="list-decimal space-y-1 pl-5 text-sm">
             <li>{t('shop.videoHowSideways')}</li>
-            <li>{t('shop.videoHowOutside')}</li>
-            <li>{t('shop.videoHowInside')}</li>
+            <li>{t(kirana ? 'shop.videoHowOutsideKirana' : 'shop.videoHowOutside')}</li>
+            <li>{t(kirana ? 'shop.videoHowInsideKirana' : 'shop.videoHowInside')}</li>
             <li>{t('shop.videoHowSteady')}</li>
             <li>{t('shop.videoHowFaces')}</li>
           </ol>
@@ -296,7 +299,7 @@ export function SalonVideo({
  * (changing it would stop a video being watched); it takes the newest link only before it loaded, or once after an
  * error (a link that ran out), then says to reload.
  */
-function Preview({ fileId }: { fileId: string }) {
+function Preview({ fileId, kirana = false }: { fileId: string; kirana?: boolean }) {
   const t = useT()
   const link = useVideoLink(fileId)
   const [src, setSrc] = useState<string | null>(null)
@@ -330,7 +333,7 @@ function Preview({ fileId }: { fileId: string }) {
       controls
       playsInline
       preload="metadata"
-      aria-label={t('shop.videoYours')}
+      aria-label={t(kirana ? 'shop.videoYoursKirana' : 'shop.videoYours')}
       className="aspect-video w-full rounded-xl bg-scrim/20"
       onLoadedMetadata={() => setLoaded(true)}
       onError={() => void failed()}

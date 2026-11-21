@@ -3,7 +3,7 @@ import { lazy, Suspense, useCallback, useContext, useEffect, useRef, useState, t
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
 import { fileApi, ShopContext, shopApi, shopKeys, useMyShop, usePhotoLink, useShop } from '../../api/shop'
-import type { AddressIn, AddressRequest, GeocodePrecision, RegistrationDocType, Shop, ShopDetailsIn } from '../../api/types'
+import type { AddressIn, AddressRequest, GeocodePrecision, RegistrationDocType, Shop, ShopDetailsIn, ShopType } from '../../api/types'
 import { LocationGuide } from '../../components/LocationGuide'
 import { MapBoundary } from '../../components/MapBoundary'
 import { PhotoPicker } from '../../components/PhotoPicker'
@@ -29,7 +29,7 @@ import {
   type LocateError,
 } from '../../lib/locate'
 import { t, useT } from '../../i18n'
-import { forgetRegisterDraft, loadRegisterDraft, saveRegisterDraft } from '../../lib/registerDraft'
+import { forgetRegisterDraft, forgetRegisterKind, loadRegisterDraft, loadRegisterKind, saveRegisterDraft } from '../../lib/registerDraft'
 import { useSession } from '../../store/session'
 import {
   ADDRESS_FIELDS,
@@ -43,6 +43,10 @@ import {
   zoomFor,
 } from './addressPin'
 import { signOutHere } from '../profile/signOut'
+import { kiranaOn, shopTypeOn } from '../../lib/config'
+
+/** A kirana's last step: its own download (kirana switch on only; off, no kirana reaches registration). */
+const KiranaReview = lazy(() => import('./KiranaRegister').then((m) => ({ default: m.KiranaReview })))
 
 /** The map library is big and only registration needs it: loaded when this screen shows the map. */
 const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ default: m.PinMap })))
@@ -57,13 +61,14 @@ export function RegisterLayout({ needShop }: { needShop: boolean }) {
   if (shop.isPending) return <Loading />
   if (shop.isError && shop.data === undefined) {
     return (
-      <Page back="/" title={t('register.registerTitle')}>
+      <Page back="/" title={t(kiranaOn() ? 'register.registerTitleShop' : 'register.registerTitle')}>
         <ErrorState message={messageOf(shop.error)} onRetry={() => shop.refetch()} />
       </Page>
     )
   }
   const mine = shop.data ?? null
-  if (mine && (mine.myRole !== 'OWNER' || mine.status !== 'DRAFT' || mine.type !== 'SALON')) return <Navigate to="/" replace />
+  // A kind this build doesn't serve (a kirana, switch off): home, whose gate says so
+  if (mine && (mine.myRole !== 'OWNER' || mine.status !== 'DRAFT' || !shopTypeOn(mine.type))) return <Navigate to="/" replace />
   if (needShop && !mine) return <Navigate to="/register" replace />
   return (
     <ShopContext.Provider value={mine}>
@@ -76,8 +81,29 @@ export function RegisterLayout({ needShop }: { needShop: boolean }) {
   )
 }
 
-/** Each step's screen, in order. */
+/** Each step's screen, in order: a salon's, and a kirana's (no services or hours; its UPI ID instead). */
 export const STEP_PATHS = ['/register', '/register/photos', '/register/services', '/register/hours', '/register/review'] as const
+export const KIRANA_STEP_PATHS = ['/register', '/register/photos', '/register/licences', '/register/upi', '/register/review'] as const
+
+/**
+ * The kind picked on "What do you run?" on this phone (null: not yet). The type picker's gate: with the kirana switch
+ * off nobody is asked, and every shop registered is a salon.
+ */
+export function pickedKind(userId: string | undefined): ShopType | null {
+  return kiranaOn() ? loadRegisterKind(userId) : 'SALON'
+}
+
+/** The kind being registered: the saved draft's, else what was picked on "What do you run?" (null: not yet). */
+export function useRegisterKind(): ShopType | null {
+  const shop = useContext(ShopContext)
+  const userId = useSession((s) => s.user?.id)
+  return shop?.type ?? pickedKind(userId)
+}
+
+/** "shop" for a kirana, "salon" for a salon: the word the registration screens use. */
+export function nounFor(kind: ShopType | null): 'shop' | 'salon' {
+  return kind === 'KIRANA' ? 'shop' : 'salon'
+}
 
 /**
  * The step pills. Once the salon is saved (step 1 done), each pill is a link: the owner jumps straight to the step
@@ -94,8 +120,14 @@ export function Steps({
   leaveWarning?: string | null
 }) {
   const t = useT()
-  const names = ['stepDetails', 'stepPhotos', 'stepServices', 'stepHours', 'stepSubmit']
+  const kirana = useRegisterKind() === 'KIRANA'
+  const names = kirana
+    ? ['stepDetails', 'stepPhotos', 'stepLicences', 'stepUpi', 'stepSubmit']
+    : ['stepDetails', 'stepPhotos', 'stepServices', 'stepHours', 'stepSubmit']
+  const paths: readonly string[] = kirana ? KIRANA_STEP_PATHS : STEP_PATHS
   return (
+    <>
+    <KindLine leaveWarning={leaveWarning} />
     <ol className="flex gap-1.5" aria-label={t('register.stepsLabel')}>
       {names.map((n, i) => {
         // min-w-0 and a second line if ever needed: five pills fit a 360px phone in every language
@@ -110,7 +142,7 @@ export function Steps({
           <li key={n} className="flex min-w-0 flex-1" aria-current={i + 1 === at ? 'step' : undefined}>
             {linked && i + 1 !== at ? (
               <Link
-                to={STEP_PATHS[i]}
+                to={paths[i]}
                 className={`${look} underline-offset-2 hover:underline`}
                 onClick={(e) => {
                   if (leaveWarning && !window.confirm(leaveWarning)) e.preventDefault()
@@ -125,10 +157,45 @@ export function Steps({
         )
       })}
     </ol>
+    </>
   )
 }
 
-type Form = Omit<ShopDetailsIn, 'latitude' | 'longitude'>
+/**
+ * "Registering a Salon · Change" on every registration step: picked the wrong kind by mistake, the owner goes back to
+ * "What do you run?" and changes it, any time before Submit (the backend's PUT /shops/me/type).
+ */
+export function KindLine({ leaveWarning = null }: { leaveWarning?: string | null }) {
+  const t = useT()
+  const kind = useRegisterKind()
+  const shop = useContext(ShopContext)
+  // Kirana switch off: there is no other kind to pick, so no line
+  if (!kind || !kiranaOn()) return null
+  // Approved once (then suspended and sent back): its kind was verified, it can't change any more
+  const canChange = !shop?.addressLocked
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
+      <span>
+        {t('register.kindLineBefore')}{' '}
+        <span className="font-semibold text-ink">{t(kind === 'KIRANA' ? 'register.kindLineKirana' : 'register.kindLineSalon')}</span>
+      </span>
+      {canChange && (
+      <Link
+        to="/register/kind"
+        className="text-link underline"
+        aria-label={t('register.kindLineChangeLabel')}
+        onClick={(e) => {
+          if (leaveWarning && !window.confirm(leaveWarning)) e.preventDefault()
+        }}
+      >
+        {t('register.kindLineChange')}
+      </Link>
+      )}
+    </p>
+  )
+}
+
+type Form = Omit<ShopDetailsIn, 'latitude' | 'longitude' | 'gstin'>
 
 const empty: Form = { name: '', ownerName: '', addressLine: '', area: '', city: '', pincode: '' }
 
@@ -160,10 +227,10 @@ interface Pin {
 }
 
 /** The same limits as the backend's CreateShop, so most mistakes show before sending. */
-export function checkDetails(f: Form): Partial<Record<keyof Form, string>> {
+export function checkDetails(f: Form, noun: 'shop' | 'salon' = 'salon'): Partial<Record<keyof Form, string>> {
   const e: Partial<Record<keyof Form, string>> = {}
   const len = (v: string, min: number, max: number) => v.trim().length >= min && v.trim().length <= max
-  if (!len(f.name, 2, 100)) e.name = t('register.needSalonName')
+  if (!len(f.name, 2, 100)) e.name = t(noun === 'shop' ? 'register.needShopNameKirana' : 'register.needSalonName')
   if (!len(f.ownerName, 2, 100)) e.ownerName = t('register.needOwnerName')
   if (!len(f.addressLine, 5, 200)) e.addressLine = t('register.needAddressLine')
   if (!len(f.area, 2, 100)) e.area = t('register.needArea')
@@ -203,6 +270,14 @@ export function RegisterDetails({
    * owner asks them (request mode, where they can be typed and moved again).
    */
   const locked = Boolean(shop?.addressLocked) && !request
+  // What was picked on "What do you run?", read once: forgetting it after the first save mustn't send this screen back
+  const [picked] = useState(() => pickedKind(userId))
+  const kind = shop?.type ?? picked
+  const kirana = kind === 'KIRANA'
+  const noun = nounFor(kind)
+  /** A kirana's GSTIN (optional; kept for its bills and online orders later); a salon has none. */
+  const [gstin, setGstin] = useState(() => shop?.gstin ?? loadRegisterDraft<{ gstin: string }>(userId)?.gstin ?? '')
+  const [gstinBase, setGstinBase] = useState(() => shop?.gstin ?? '')
   const start = request?.start ?? null
   const [form, setForm] = useState<Form>(() =>
     shop ? { ...formOf(shop), ...(start ? addressOf(start) : {}) } : { ...empty, ...loadRegisterDraft<Form>(userId) },
@@ -266,8 +341,8 @@ export function RegisterDetails({
 
   // Nothing is on the backend before the first save: keep the typing on this phone meanwhile.
   useEffect(() => {
-    if (!shop && userId) saveRegisterDraft(userId, form)
-  }, [form, shop, userId])
+    if (!shop && userId) saveRegisterDraft(userId, { ...form, gstin })
+  }, [form, gstin, shop, userId])
 
   useEffect(() => {
     void permissionState().then((s) => setBlocked(s === 'denied'))
@@ -275,8 +350,8 @@ export function RegisterDetails({
 
   // Asking for a new address checks only the address (the other fields aren't on screen to fix)
   const problems = request
-    ? Object.fromEntries(Object.entries(checkDetails(form)).filter(([k]) => (ADDRESS_FIELDS as readonly string[]).includes(k)))
-    : checkDetails(form)
+    ? Object.fromEntries(Object.entries(checkDetails(form, noun)).filter(([k]) => (ADDRESS_FIELDS as readonly string[]).includes(k)))
+    : checkDetails(form, noun)
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setForm((f) => ({ ...f, [k]: value }))
@@ -412,6 +487,11 @@ export function RegisterDetails({
       latitude: round6(pin.lat),
       longitude: round6(pin.lng),
     }
+    // A kirana's GSTIN: sent when typed (registering) or changed ("" removes it); the backend checks it
+    if (kirana && !request) {
+      const typed = gstin.replace(/\s+/g, '').toUpperCase()
+      if (shop ? typed !== (shop.gstin ?? '') : typed) details.gstin = typed
+    }
     // A trade licence that passed was matched against the name, owner and address: changing one checks it again
     // (ShopService.update), and "Licensed" goes until it passes again. Say so first and save only on the second tap.
     const licensed = shop !== null && licenceState(shop) === 'LICENSED'
@@ -467,8 +547,11 @@ export function RegisterDetails({
     try {
       const result = shop
         ? await shopApi.update(shop.version, details)
-        : await shopApi.create(details)
+        : await shopApi.create(details, kind ?? 'SALON')
       forgetRegisterDraft()
+      forgetRegisterKind()
+      setGstin(result.gstin ?? '')
+      setGstinBase(result.gstin ?? '')
       qc.setQueryData(shopKeys.mine, result)
       setCheckAddress(false)
       // The form as stored now: nothing unsaved any more
@@ -508,6 +591,7 @@ export function RegisterDetails({
     baseline !== null &&
     !busy &&
     ((Object.keys(empty) as Array<keyof Form>).some((k) => form[k].trim() !== baseline.form[k].trim()) ||
+      (kirana && gstin.replace(/\s+/g, '').toUpperCase() !== gstinBase) ||
       (pin !== null && (Math.abs(pin.lat - baseline.lat) > 1e-6 || Math.abs(pin.lng - baseline.lng) > 1e-6)))
   useEffect(() => {
     if (!dirty) return
@@ -521,13 +605,22 @@ export function RegisterDetails({
   // Field errors show under their fields; the banner is for everything else.
   // EDIT_LOCKED: the code sheet comes up instead (EditGate), and after the code Save works
   const generalError =
-    error && !isApiError(error, 'EDIT_LOCKED') && !Object.keys(empty).some((k) => fieldError(error, k)) ? messageOf(error) : null
+    error && !isApiError(error, 'EDIT_LOCKED') && ![...Object.keys(empty), 'gstin'].some((k) => fieldError(error, k)) ? messageOf(error) : null
+
+  // Nothing saved and nothing picked yet: "What do you run?" comes first
+  if (!shop && !kind && !edit && !request) return <Navigate to="/register/kind" replace />
 
   return (
     // A saved draft has no screen before this one ("/" comes back here), so no back arrow then
     <Page
       back={request ? cameFrom(location, '/setup/details') : edit ? cameFrom(location, '/setup') : shop ? undefined : '/start'}
-      title={request ? t('register.requestAddressChange') : edit ? t('register.salonDetailsTitle') : t('register.registerTitle')}
+      title={
+        request
+          ? t('register.requestAddressChange')
+          : edit
+            ? t(kirana ? 'register.shopDetailsTitleKirana' : 'register.salonDetailsTitle')
+            : t(kirana ? 'register.registerTitleShop' : 'register.registerTitle')
+      }
       leaveWarning={dirty ? UNSAVED : null}
     >
       {!edit && !request && <Steps at={1} linked={shop !== null} leaveWarning={dirty ? UNSAVED : null} />}
@@ -537,15 +630,15 @@ export function RegisterDetails({
       <Card className="flex flex-col gap-4">
         {request ? (
           <p className="text-sm text-muted">
-            {t('register.requestAddressIntro')}
+            {t(kirana ? 'register.requestAddressIntroKirana' : 'register.requestAddressIntro')}
           </p>
         ) : (
           <>
-            <Field id="shop-name" label={t('register.salonName')} value={form.name} onChange={set('name')} maxLength={100} error={show('name')} />
+            <Field id="shop-name" label={t(kirana ? 'register.shopNameKirana' : 'register.salonName')} value={form.name} onChange={set('name')} maxLength={100} error={show('name')} />
             <Field
               id="owner-name"
               label={t('register.ownerName')}
-              hint={t('register.ownerNameHint')}
+              hint={t(kirana ? 'register.ownerNameHintKirana' : 'register.ownerNameHint')}
               value={form.ownerName}
               onChange={set('ownerName')}
               maxLength={100}
@@ -579,9 +672,27 @@ export function RegisterDetails({
         )}
       </Card>
 
+      {kirana && !request && (
+        <Card className="flex flex-col gap-2">
+          <Field
+            id="gstin"
+            label={t('register.gstinLabel')}
+            hint={shop?.status === 'APPROVED' ? t('register.gstinHintApproved') : t('register.gstinHint')}
+            value={gstin}
+            onChange={(e) => {
+              setGstin(e.target.value)
+              setSaved(false)
+            }}
+            maxLength={20}
+            autoCapitalize="characters"
+            error={fieldError(error, 'gstin')}
+          />
+        </Card>
+      )}
+
       {locked && shop ? (
         <Card className="flex flex-col gap-2">
-          <p className="font-semibold">{t('register.salonLocation')}</p>
+          <p className="font-semibold">{t(kirana ? 'register.shopLocationKirana' : 'register.salonLocation')}</p>
           <MapBoundary>
             <Suspense fallback={<Loading label={t('register.loadingMap')} />}>
               <PinMap lat={shop.latitude} lng={shop.longitude} />
@@ -592,10 +703,12 @@ export function RegisterDetails({
       <Card className="flex flex-col gap-3">
         <div>
           <p id="salon-location" tabIndex={-1} className="font-semibold outline-none">
-            {t('register.salonLocation')}
+            {t(kirana ? 'register.shopLocationKirana' : 'register.salonLocation')}
           </p>
           <p className="text-sm text-muted">
-            {searchHidden ? t('register.locationIntroGpsOnly') : t('register.locationIntro')}
+            {searchHidden
+              ? t(kirana ? 'register.locationIntroGpsOnlyKirana' : 'register.locationIntroGpsOnly')
+              : t(kirana ? 'register.locationIntroKirana' : 'register.locationIntro')}
           </p>
         </div>
         {!searchHidden && (
@@ -608,7 +721,7 @@ export function RegisterDetails({
             onClick={searchAddress}
             aria-describedby={needFields ? 'address-search-needs' : undefined}
           >
-            {t('register.findOnMap')}
+            {t(kirana ? 'register.findOnMapKirana' : 'register.findOnMap')}
           </Button>
         )}
         {/* One live region for every location message, always there, so screen readers hear each change once */}
@@ -623,7 +736,7 @@ export function RegisterDetails({
           {found && <Banner tone={found === 'EXACT' ? 'info' : 'warn'} live={false}>{precisionHint(found)}</Banner>}
           {addressChanged && (
             <Banner tone="info" live={false}>
-              {t('register.addressChanged')}
+              {t(kirana ? 'register.addressChangedKirana' : 'register.addressChanged')}
             </Banner>
           )}
           {locError === 'timeout' && <Banner tone="warn" live={false}>{t('register.locTimeout')}</Banner>}
@@ -660,17 +773,27 @@ export function RegisterDetails({
             {pin?.gps ? t('register.takeLocationAgain') : t('register.useMyLocation')}
           </Button>
         )}
-        {touched && !pin && <p className="text-sm text-bad">{t('register.needLocation')}</p>}
+        {touched && !pin && <p className="text-sm text-bad">{t(kirana ? 'register.needLocationKirana' : 'register.needLocation')}</p>}
       </Card>
       )}
 
       {generalError && <Banner tone="bad">{generalError}</Banner>}
       {confirmRecheck && (
         <Banner tone="warn">
-          {t('register.confirmRecheck')}
+          {t(
+            kirana
+              ? shop?.registrationDocType === 'SHOPS_ESTABLISHMENT'
+                ? 'register.confirmRecheckKiranaShopsEstablishment'
+                : 'register.confirmRecheckKirana'
+              : 'register.confirmRecheck',
+          )}
         </Banner>
       )}
-      {saved && <Banner tone="good">{request ? t('register.sentToFieldTeam') : t('register.saved')}</Banner>}
+      {saved && (
+        <Banner tone="good">
+          {request ? t(kirana ? 'register.sentToFieldTeamKirana' : 'register.sentToFieldTeam') : t('register.saved')}
+        </Banner>
+      )}
       <Button busy={busy} onClick={save}>
         {request ? (request.waiting ? t('register.sendChangedRequest') : t('register.sendToFieldTeam')) : edit ? (confirmRecheck ? t('register.saveAndRecheck') : t('common.save')) : t('register.saveAndContinue')}
       </Button>
@@ -688,7 +811,7 @@ export function RegisterDetails({
  * A registered draft's owner who isn't going ahead: hand it over or close it (after closing, Start offers deleting the
  * account). An owner can't delete their account while they own a shop.
  */
-function DraftExits({ name }: { name: string }) {
+export function DraftExits({ name }: { name: string }) {
   const t = useT()
   return (
     <p className="text-center text-sm text-muted">
@@ -815,8 +938,10 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
   const [videoBusy, setVideoBusy] = useState(false)
   const [docBusy, setDocBusy] = useState(false)
   const done = readyForVisit(shop)
+  // A kirana's video is the same; its papers (food answer, FSSAI, shop licence) have their own step next
+  const kirana = shop.type === 'KIRANA'
   const leaveWarning = videoBusy
-    ? t('register.leaveDuringVideo')
+    ? t(kirana ? 'register.leaveDuringVideoKirana' : 'register.leaveDuringVideo')
     : docBusy
       ? t('register.leaveDuringDocument')
       : photosBusy
@@ -825,7 +950,7 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
   return (
     <Page
       back={edit ? cameFrom(location, '/setup') : fromReview ? '/register/review' : '/register'}
-      title={edit ? t('register.photosVideoTitle') : t('register.photosPapersTitle')}
+      title={edit || kirana ? t('register.photosVideoTitle') : t('register.photosPapersTitle')}
       leaveWarning={leaveWarning}
     >
       {!edit && (
@@ -837,7 +962,7 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
       {!edit && shopAsk(shop) && <SentBack ask={shopAsk(shop)!} shop={shop} />}
       {edit && shop.status === 'APPROVED' && (
         <Banner tone="info">
-          {t('register.newPhotoRecheck')}
+          {t(kirana ? 'register.newPhotoRecheckKirana' : 'register.newPhotoRecheck')}
         </Banner>
       )}
       {edit && <RecheckWaiting />}
@@ -857,23 +982,27 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
         upload={(p) => setPhoto('SHOP_PHOTO', p)}
         onBusy={photoBusy}
       />
-      <SalonVideo fileId={shop.shopVideoFileId ?? null} save={setVideo} onBusy={setVideoBusy} />
+      <SalonVideo fileId={shop.shopVideoFileId ?? null} save={setVideo} onBusy={setVideoBusy} kirana={kirana} />
       {!edit && (
         <>
-          <RegistrationDocCard
+          {!kirana && <RegistrationDocCard
             shop={shop}
             save={setDocument}
             remove={removeDocument}
             onBusy={setDocBusy}
-          />
+          />}
           {/* Not while the document is still on its way: its error would have nowhere to show */}
           <Button
             disabled={!done || videoBusy || docBusy || photosBusy > 0}
-            onClick={() => navigate(fromReview ? '/register/review' : '/register/services')}
+            onClick={() => navigate(fromReview ? '/register/review' : kirana ? '/register/licences' : '/register/services')}
           >
             {fromReview ? t('register.backToReview') : t('common.continue')}
           </Button>
-          {!done && <p className="text-center text-sm text-muted">{t('register.photosVideoNeeded')}</p>}
+          {!done && (
+            <p className="text-center text-sm text-muted">
+              {t(kirana ? 'register.photosVideoNeededKirana' : 'register.photosVideoNeeded')}
+            </p>
+          )}
         </>
       )}
     </Page>
@@ -1004,8 +1133,20 @@ export function OwnerAsBarber() {
   )
 }
 
-/** Step 5: check everything and ask for the field team's visit. */
+/** The last step: a kirana's review (KiranaReview) or a salon's. */
 export function RegisterReview() {
+  const shop = useShop()
+  return shop.type === 'KIRANA' ? (
+    <Suspense fallback={<Loading />}>
+      <KiranaReview />
+    </Suspense>
+  ) : (
+    <SalonReview />
+  )
+}
+
+/** Step 5: check everything and ask for the field team's visit. */
+function SalonReview() {
   const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -1181,7 +1322,7 @@ export function RegisterReview() {
 }
 
 /** A photo, small, on the review step (or a dash while there is none). */
-function Thumb({ fileId, label }: { fileId: string | null; label: string }) {
+export function Thumb({ fileId, label }: { fileId: string | null; label: string }) {
   const t = useT()
   const link = usePhotoLink(fileId)
   return (
@@ -1198,7 +1339,7 @@ function Thumb({ fileId, label }: { fileId: string | null; label: string }) {
   )
 }
 
-function Line({ label, value }: { label: string; value: string }) {
+export function Line({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-sm text-muted">{label}</p>

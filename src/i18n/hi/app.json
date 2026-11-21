@@ -1,11 +1,17 @@
 {
   "notFoundTitle": "पेज नहीं मिला",
   "notFoundLink": "आज पर जाएँ",
+  "notFoundStartLink": "शुरुआत पर जाएँ",
   "navMain": "मुख्य",
   "tabToday": "आज",
   "tabBookings": "बुकिंग",
   "tabSalon": "सैलून",
   "tabMore": "अधिक",
+  "tabCounter": "काउंटर",
+  "tabBills": "बिल",
+  "tabProducts": "सामान",
+  "tabKhata": "खाता",
   "approvalWaiting": "मंज़ूरी का इंतज़ार",
-  "approvalBody": "जब तक हमारी फ़ील्ड टीम {name} को मंज़ूर नहीं करती, ग्राहक बुकिंग नहीं कर सकते।"
+  "approvalBody": "जब तक हमारी फ़ील्ड टीम {name} को मंज़ूर नहीं करती, ग्राहक बुकिंग नहीं कर सकते।",
+  "approvalBodyKirana": "जब तक हमारी फ़ील्ड टीम {name} को मंज़ूर नहीं करती, ग्राहक वहाँ से ऑर्डर नहीं कर सकते। तब तक आपका काउंटर चलता रहेगा।"
 }

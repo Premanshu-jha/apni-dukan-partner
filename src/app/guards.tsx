@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router'
 import { Loading } from '../components/ui'
 import { useShop } from '../api/shop'
-import type { ShopRole } from '../api/types'
+import type { ShopRole, ShopType } from '../api/types'
 import { forgetReturn, nextAfterSignIn, rememberReturn } from '../features/auth/flow'
 import { missingSteps, signedInHereBefore, useSession } from '../store/session'
 
@@ -67,7 +67,10 @@ export function SignedIn() {
  */
 export function PastRegistration() {
   const shop = useShop()
-  const ok = shop.myRole === 'OWNER' ? shop.status !== 'DRAFT' : shop.status === 'APPROVED' || shop.status === 'SUSPENDED'
+  // A kirana's helpers bill from the day it is submitted, as the owner does (the counter works before approval)
+  const ok = shop.myRole === 'OWNER' || (shop.type === 'KIRANA' && shop.status === 'PENDING_VISIT')
+    ? shop.status !== 'DRAFT'
+    : shop.status === 'APPROVED' || shop.status === 'SUSPENDED'
   if (!ok) return <Navigate to="/" replace />
   return <Outlet />
 }
@@ -83,5 +86,15 @@ export function DraftOwner() {
 export function RoleOnly({ roles }: { roles: ShopRole[] }) {
   const shop = useShop()
   if (!roles.includes(shop.myRole)) return <Navigate to="/" replace />
+  return <Outlet />
+}
+
+/**
+ * Screens for one kind of shop: a kirana's people never open a salon screen (its calls would only answer 409
+ * NOT_A_SALON) and a salon's never a kirana one. Anyone else goes home, which knows where they belong.
+ */
+export function KindOnly({ kind }: { kind: ShopType }) {
+  const shop = useShop()
+  if (shop.type !== kind) return <Navigate to="/" replace />
   return <Outlet />
 }

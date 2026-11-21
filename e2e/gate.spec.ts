@@ -18,17 +18,6 @@ test('someone who works at a salon sees the number to give the owner, and gets i
   expect(api.calls.filter((c) => c.path === '/api/v1/auth/refresh').length).toBeGreaterThanOrEqual(2)
 })
 
-test('a kirana shop sees "coming soon" and no kirana screens at all', async ({ page, context, api }) => {
-  await signedIn(context, api)
-  api.shop = MockApi.shopOf({ type: 'KIRANA' })
-  for (const path of ['/', '/salon/day', '/setup', '/more']) {
-    await page.goto(path)
-    await expect(page.getByText('Kirana partners: coming soon')).toBeVisible()
-    await expect(page.getByRole('navigation', { name: 'Main' })).toBeHidden()
-  }
-  expect(api.calls.some((c) => c.path.startsWith('/api/v1/salon'))).toBe(false)
-})
-
 test('a helper of a salon not approved yet waits; the owner meanwhile sets up', async ({ page, context, api }) => {
   await signedIn(context, api)
   api.shop = MockApi.shopOf({ status: 'PENDING_VISIT', myRole: 'HELPER' })

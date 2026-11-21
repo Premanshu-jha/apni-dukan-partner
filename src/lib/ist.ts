@@ -38,7 +38,7 @@ const DAY: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', mont
  * A date or time in the app's language (its own day and month names, digits 0-9); null in English, which keeps the
  * wording it always had.
  */
-function local(at: Date, timeZone: string, options: Intl.DateTimeFormatOptions): string | null {
+export function local(at: Date, timeZone: string, options: Intl.DateTimeFormatOptions): string | null {
   const lang = language()
   if (lang === 'en') return null
   try {

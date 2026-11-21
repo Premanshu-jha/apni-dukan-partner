@@ -71,6 +71,8 @@ const REASONS: Record<LicenceCheckReason, (addressLocked: boolean) => string> = 
   ADDRESS_MISMATCH: (locked) => (locked ? 'shop.licenceReasonAddressMismatchLocked' : 'shop.licenceReasonAddressMismatch'),
   DUPLICATE: () => 'shop.licenceReasonDuplicate',
   NOT_READ: () => 'shop.licenceReasonNotRead',
+  NOT_A_SHOP_TRADE: () => 'shop.licenceReasonNotAShopTrade',
+  NOT_SHOPS_ESTABLISHMENT: () => 'shop.licenceReasonNotShopsEstablishment',
 }
 
 /**
@@ -87,7 +89,7 @@ export const ALL_REASONS = Object.keys(REASONS) as LicenceCheckReason[]
 /** Reasons the same licence may pass when checked again (the owner fixed his details, or a read went wrong). */
 export const CHECK_AGAIN_REASONS: ReadonlyArray<LicenceCheckReason> = ['NAME_MISMATCH', 'ADDRESS_MISMATCH', 'NOT_READ']
 
-/** "31 Mar 2027" from "2027-03-31". */
+/** "31 Mar 2027" from "2027-03-31"; in another language with its own month names ("31 मार्च 2027"), digits 0-9. */
 export function shortDate(iso: string): string {
   return fullDate(iso)
 }

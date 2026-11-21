@@ -33,3 +33,6 @@ coverage
 # Playwright output
 test-results
 playwright-report
+
+# The kirana build of the end-to-end tests (playwright.config.ts)
+dist-kirana

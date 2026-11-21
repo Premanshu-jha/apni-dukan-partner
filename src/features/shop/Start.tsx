@@ -6,6 +6,7 @@ import { messageOf } from '../../api/errors'
 import { fetchMyShop, shopApi, shopKeys, useMyShop } from '../../api/shop'
 import { Banner, Button, Card, Loading, Page } from '../../components/ui'
 import { useT } from '../../i18n'
+import { kiranaOn } from '../../lib/config'
 import { formatPhone } from '../../lib/phone'
 import { useSession } from '../../store/session'
 import { Brand } from '../auth/Brand'
@@ -15,8 +16,26 @@ import { InviteOffers } from './InviteOffers'
 import { closedNotice, forgetClosed, startNotice } from './ownership'
 
 /**
- * Signed in, no shop yet (404 NO_SHOP): register a salon, or, for someone who works in one, show the number the
- * owner must add.
+ * Start's words and where "Register" goes. Kirana switch on: "I own a shop", then "What do you run?". Off: the salon
+ * app's own words, straight to the salon's first step.
+ */
+export function startWords() {
+  return kiranaOn()
+    ? {
+        welcome: 'register.welcomeShop', closedNotice: 'register.closedNoticeShop', ownTitle: 'register.ownShopTitle',
+        ownBody: 'register.ownShopBody', register: 'register.registerMyShop', registerPath: '/register/kind',
+        workTitle: 'register.workAtShopTitle', workBody: 'register.workAtShopBody', workButton: 'register.workAtShopButton',
+      }
+    : {
+        welcome: 'register.welcome', closedNotice: 'register.closedNotice', ownTitle: 'register.ownSalonTitle',
+        ownBody: 'register.ownSalonBody', register: 'register.registerMySalon', registerPath: '/register',
+        workTitle: 'register.workAtSalonTitle', workBody: 'register.workAtSalonBody', workButton: 'register.workAtSalonButton',
+      }
+}
+
+/**
+ * Signed in, no shop yet (404 NO_SHOP): register a shop (with the kirana switch on, a kirana or a salon: "What do
+ * you run?" comes next; off, a salon), or, for someone who works in one, show the number the owner must add.
  */
 export function Start() {
   const t = useT()
@@ -57,12 +76,13 @@ export function Start() {
     }
   }
 
+  const w = startWords()
   return (
     <Page>
-      <Brand subtitle={t('register.welcome', { name: user.name ?? '' })} />
+      <Brand subtitle={t(w.welcome, { name: user.name ?? '' })} />
       {closed && (
         <Banner tone="info">
-          {t('register.closedNotice', { name: closed })}
+          {t(w.closedNotice, { name: closed })}
         </Banner>
       )}
       {note && <Banner tone="info">{note}</Banner>}
@@ -72,17 +92,17 @@ export function Start() {
       {!worker ? (
         <div className="flex flex-col gap-3">
           <Card className="flex flex-col gap-3">
-            <p className="text-lg font-semibold">{t('register.ownSalonTitle')}</p>
+            <p className="text-lg font-semibold">{t(w.ownTitle)}</p>
             <p className="text-sm text-muted">
-              {t('register.ownSalonBody')}
+              {t(w.ownBody)}
             </p>
-            <Button onClick={() => navigate('/register')}>{t('register.registerMySalon')}</Button>
+            <Button onClick={() => navigate(w.registerPath)}>{t(w.register)}</Button>
           </Card>
           <Card className="flex flex-col gap-3">
-            <p className="text-lg font-semibold">{t('register.workAtSalonTitle')}</p>
-            <p className="text-sm text-muted">{t('register.workAtSalonBody')}</p>
+            <p className="text-lg font-semibold">{t(w.workTitle)}</p>
+            <p className="text-sm text-muted">{t(w.workBody)}</p>
             <Button variant="secondary" onClick={() => setWorker(true)}>
-              {t('register.workAtSalonButton')}
+              {t(w.workButton)}
             </Button>
           </Card>
         </div>

@@ -2,9 +2,11 @@ import type { QueryClient } from '@tanstack/react-query'
 import { authApi } from '../../api/auth'
 import { refreshSettled } from '../../api/client'
 import { closeShownNotifications, turnOffPush } from '../../api/push'
-import { forgetRegisterDraft } from '../../lib/registerDraft'
+import { forgetRegisterDraft, forgetRegisterKind } from '../../lib/registerDraft'
+import { kiranaOn } from '../../lib/config'
 import { forgetReturn } from '../auth/flow'
 import { forgetHelpDrafts } from '../help/drafts'
+import { forgetProductDraft } from '../kirana/drafts'
 import { useSession } from '../../store/session'
 
 /** Ends the session on this browser: stops notifications here, tells the backend, forgets everything local. */
@@ -36,6 +38,11 @@ export async function signOutHere(qc: QueryClient, opts: { everywhere?: boolean;
 export function forgetThisPerson(qc: QueryClient) {
   forgetReturn()
   forgetRegisterDraft()
+  forgetRegisterKind()
+  // A new kirana product's typing isn't kept per person: forgotten here at once, switch on or off (a tiny module, no
+  // download). The counter's bill being made is kept per person and shop, so its own download may come a moment later.
+  forgetProductDraft()
+  if (kiranaOn()) void import('../kirana/forget').then((m) => m.forgetKiranaHere())
   forgetHelpDrafts()
   void closeShownNotifications()
   qc.clear()
