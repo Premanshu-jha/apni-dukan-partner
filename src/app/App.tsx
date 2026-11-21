@@ -42,20 +42,15 @@ import { HandOver } from '../features/shop/HandOver'
 import { HandoverPage } from '../features/shop/HandoverOffers'
 import { InvitesPage } from '../features/shop/InviteOffers'
 import { Start } from '../features/shop/Start'
-import { RegisterKind, RegisterUpi } from '../features/shop/KiranaRegister'
-import { KiranaLicencesPage, RegisterLicences } from '../features/shop/KiranaLicences'
-import { Counter } from '../features/kirana/Counter'
-import { BillPage, Bills, Day } from '../features/kirana/Bills'
-import { NewProduct, ProductPage, Products } from '../features/kirana/Products'
-import { Customer, Khata } from '../features/kirana/Khata'
-import { KiranaTeam, KiranaUpi } from '../features/kirana/KiranaTeam'
 import { Team } from '../features/team/Team'
 import { SubscriptionPage } from '../features/subscription/SubscriptionPage'
 import { NeedHelp } from '../features/help/NeedHelp'
 import { MyRequests, RequestDetail } from '../features/help/MyRequests'
 import { EmptyState, Page } from '../components/ui'
 import { useT } from '../i18n'
+import { kiranaOn } from '../lib/config'
 import { FinishingProfile, KindOnly, PastRegistration, RoleOnly, SignedIn, SignedOutOnly } from './guards'
+import { kiranaKindRoute, kiranaRegisterRoutes, kiranaScreenRoutes, kiranaTabRoutes } from './kiranaRoutes'
 import { Bare, Shell } from './Shell'
 
 export function App() {
@@ -92,8 +87,8 @@ export function App() {
           <Route path="/help/requests" element={<MyRequests />} />
           <Route path="/help/requests/:id" element={<RequestDetail />} />
           <Route element={<RegisterLayout needShop={false} />}>
-            {/* "What do you run?": first, and again from "Change" on any step until Submit */}
-            <Route path="/register/kind" element={<RegisterKind />} />
+            {/* "What do you run?" (kirana switch on only; off, every shop registered is a salon) */}
+            {kiranaKindRoute()}
             <Route path="/register" element={<RegisterDetails />} />
           </Route>
           <Route element={<RegisterLayout needShop />}>
@@ -102,10 +97,7 @@ export function App() {
               <Route path="/register/services" element={<RegisterServices />} />
               <Route path="/register/hours" element={<RegisterHours />} />
             </Route>
-            <Route element={<KindOnly kind="KIRANA" />}>
-              <Route path="/register/licences" element={<RegisterLicences />} />
-              <Route path="/register/upi" element={<RegisterUpi />} />
-            </Route>
+            {kiranaRegisterRoutes()}
             <Route path="/register/review" element={<RegisterReview />} />
           </Route>
         </Route>
@@ -134,27 +126,12 @@ export function App() {
                   <Route path="/setup" element={<SetupHub />} />
                 </Route>
               </Route>
-              {/* A kirana's owner and helpers: the counter and its book */}
-              <Route element={<KindOnly kind="KIRANA" />}>
-                <Route path="/kirana/counter" element={<Counter />} />
-                <Route path="/kirana/bills" element={<Bills />} />
-                <Route path="/kirana/products" element={<Products />} />
-                <Route path="/kirana/khata" element={<Khata />} />
-              </Route>
+              {/* A kirana's owner and helpers: the counter and its book (kirana switch on only) */}
+              {kiranaTabRoutes()}
             </Route>
             <Route element={<Bare approvalBar />}>
-              <Route element={<KindOnly kind="KIRANA" />}>
-                <Route path="/kirana/bills/:id" element={<BillPage />} />
-                <Route path="/kirana/day" element={<Day />} />
-                <Route path="/kirana/products/new" element={<NewProduct />} />
-                <Route path="/kirana/products/:id" element={<ProductPage />} />
-                <Route path="/kirana/khata/:id" element={<Customer />} />
-                <Route element={<RoleOnly roles={['OWNER']} />}>
-                  <Route path="/kirana/team" element={<KiranaTeam />} />
-                  <Route path="/kirana/upi" element={<EditGate><KiranaUpi /></EditGate>} />
-                  <Route path="/kirana/licences" element={<EditGate><KiranaLicencesPage /></EditGate>} />
-                </Route>
-              </Route>
+              {/* A kirana's pages (kirana switch on only) */}
+              {kiranaScreenRoutes()}
               <Route path="/notifications" element={<Inbox />} />
               <Route path="/profile/email" element={<ChangeEmail />} />
               <Route path="/profile/phone" element={<ChangePhone />} />
@@ -203,7 +180,8 @@ export function App() {
                 title={t('app.notFoundTitle')}
                 action={
                   <Link to="/" className="text-link underline">
-                    {t('app.notFoundStartLink')}
+                    {/* Off: the salon app's words ("Go to today"); on, "/" may be the counter */}
+                    {t(kiranaOn() ? 'app.notFoundStartLink' : 'app.notFoundLink')}
                   </Link>
                 }
               />

@@ -1,8 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
+import { lazy, Suspense } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { useSalonHours, useServices } from '../../api/salon'
-import { useKiranaSettings, useOnline } from '../../api/kirana'
-import { licencesReady } from './KiranaLicences'
 import { shopAsk } from './TeamReasons'
 import { useShop } from '../../api/shop'
 import { Button, Card, EmptyState, Loading, Page } from '../../components/ui'
@@ -18,27 +17,21 @@ import { useRecheckShop } from './ShopGate'
 export function Home() {
   const shop = useShop()
   const kirana = shop.type === 'KIRANA'
-  if (shop.myRole === 'OWNER' && shop.status === 'DRAFT') return kirana ? <ResumeKiranaRegistration /> : <ResumeRegistration />
+  if (shop.myRole === 'OWNER' && shop.status === 'DRAFT') {
+    return kirana ? (
+      <Suspense fallback={<Loading />}>
+        <ResumeKiranaRegistration />
+      </Suspense>
+    ) : (
+      <ResumeRegistration />
+    )
+  }
   if (shop.myRole !== 'OWNER' && (shop.status === 'DRAFT' || (shop.status === 'PENDING_VISIT' && !kirana))) return <NotLiveYet />
   return <Navigate to={kirana ? '/kirana/counter' : '/salon/day'} replace />
 }
 
-/**
- * A kirana's owner back to his registration: the first step not done yet (photos and video, licences, UPI ID), else
- * the review.
- */
-function ResumeKiranaRegistration() {
-  const shop = useShop()
-  const settings = useKiranaSettings()
-  const online = useOnline()
-  if (shopAsk(shop)) return <Navigate to="/register/review" replace />
-  if (!readyForVisit(shop)) return <Navigate to="/register/photos" replace />
-  if (settings.isError || online.isError) return <Navigate to="/register/review" replace />
-  if (!settings.data || !online.data) return <Loading />
-  if (!licencesReady(settings.data, online.data.fssai)) return <Navigate to="/register/licences" replace />
-  if (!settings.data.upiId) return <Navigate to="/register/upi" replace />
-  return <Navigate to="/register/review" replace />
-}
+/** A kirana's owner back to his registration (KiranaRegister): its own download, kirana switch on only. */
+const ResumeKiranaRegistration = lazy(() => import('./KiranaRegister').then((m) => ({ default: m.ResumeKiranaRegistration })))
 
 /**
  * An owner coming back to a registration he started: straight to the first step not done yet (photos and video,

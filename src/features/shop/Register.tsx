@@ -43,7 +43,10 @@ import {
   zoomFor,
 } from './addressPin'
 import { signOutHere } from '../profile/signOut'
-import { KiranaReview } from './KiranaRegister'
+import { kiranaOn, shopTypeOn } from '../../lib/config'
+
+/** A kirana's last step: its own download (kirana switch on only; off, no kirana reaches registration). */
+const KiranaReview = lazy(() => import('./KiranaRegister').then((m) => ({ default: m.KiranaReview })))
 
 /** The map library is big and only registration needs it: loaded when this screen shows the map. */
 const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ default: m.PinMap })))
@@ -58,13 +61,14 @@ export function RegisterLayout({ needShop }: { needShop: boolean }) {
   if (shop.isPending) return <Loading />
   if (shop.isError && shop.data === undefined) {
     return (
-      <Page back="/" title={t('register.registerTitleShop')}>
+      <Page back="/" title={t(kiranaOn() ? 'register.registerTitleShop' : 'register.registerTitle')}>
         <ErrorState message={messageOf(shop.error)} onRetry={() => shop.refetch()} />
       </Page>
     )
   }
   const mine = shop.data ?? null
-  if (mine && (mine.myRole !== 'OWNER' || mine.status !== 'DRAFT')) return <Navigate to="/" replace />
+  // A kind this build doesn't serve (a kirana, switch off): home, whose gate says so
+  if (mine && (mine.myRole !== 'OWNER' || mine.status !== 'DRAFT' || !shopTypeOn(mine.type))) return <Navigate to="/" replace />
   if (needShop && !mine) return <Navigate to="/register" replace />
   return (
     <ShopContext.Provider value={mine}>
@@ -81,11 +85,19 @@ export function RegisterLayout({ needShop }: { needShop: boolean }) {
 export const STEP_PATHS = ['/register', '/register/photos', '/register/services', '/register/hours', '/register/review'] as const
 export const KIRANA_STEP_PATHS = ['/register', '/register/photos', '/register/licences', '/register/upi', '/register/review'] as const
 
+/**
+ * The kind picked on "What do you run?" on this phone (null: not yet). The type picker's gate: with the kirana switch
+ * off nobody is asked, and every shop registered is a salon.
+ */
+export function pickedKind(userId: string | undefined): ShopType | null {
+  return kiranaOn() ? loadRegisterKind(userId) : 'SALON'
+}
+
 /** The kind being registered: the saved draft's, else what was picked on "What do you run?" (null: not yet). */
 export function useRegisterKind(): ShopType | null {
   const shop = useContext(ShopContext)
   const userId = useSession((s) => s.user?.id)
-  return shop?.type ?? loadRegisterKind(userId)
+  return shop?.type ?? pickedKind(userId)
 }
 
 /** "shop" for a kirana, "salon" for a salon: the word the registration screens use. */
@@ -157,7 +169,8 @@ export function KindLine({ leaveWarning = null }: { leaveWarning?: string | null
   const t = useT()
   const kind = useRegisterKind()
   const shop = useContext(ShopContext)
-  if (!kind) return null
+  // Kirana switch off: there is no other kind to pick, so no line
+  if (!kind || !kiranaOn()) return null
   // Approved once (then suspended and sent back): its kind was verified, it can't change any more
   const canChange = !shop?.addressLocked
   return (
@@ -258,7 +271,7 @@ export function RegisterDetails({
    */
   const locked = Boolean(shop?.addressLocked) && !request
   // What was picked on "What do you run?", read once: forgetting it after the first save mustn't send this screen back
-  const [picked] = useState(() => loadRegisterKind(userId))
+  const [picked] = useState(() => pickedKind(userId))
   const kind = shop?.type ?? picked
   const kirana = kind === 'KIRANA'
   const noun = nounFor(kind)
@@ -1123,7 +1136,13 @@ export function OwnerAsBarber() {
 /** The last step: a kirana's review (KiranaReview) or a salon's. */
 export function RegisterReview() {
   const shop = useShop()
-  return shop.type === 'KIRANA' ? <KiranaReview /> : <SalonReview />
+  return shop.type === 'KIRANA' ? (
+    <Suspense fallback={<Loading />}>
+      <KiranaReview />
+    </Suspense>
+  ) : (
+    <SalonReview />
+  )
 }
 
 /** Step 5: check everything and ask for the field team's visit. */

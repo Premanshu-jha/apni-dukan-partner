@@ -5,14 +5,15 @@ import { useState } from 'react'
 import { LANGUAGES, languageChosen, setLanguage, t, useLanguage, useT } from '../i18n'
 import { LanguagePicker } from '../i18n/LanguagePicker'
 import { announceLanguageChosen } from '../i18n/LanguageToast'
+import { kiranaOn } from '../lib/config'
 import { can } from '../lib/roles'
 
 /**
  * The bottom bar's tabs for a role: barbers have no Salon tab (setup is for the owner and helpers). A kirana's owner
- * and helpers: the counter, its bills, products and khata book.
+ * and helpers (kirana switch on only; off, there are no kirana tabs): the counter, its bills, products and khata book.
  */
 export function tabsFor(role: Parameters<typeof can>[0], kind: ShopType = 'SALON') {
-  if (kind === 'KIRANA') {
+  if (kind === 'KIRANA' && kiranaOn()) {
     return [
       { to: '/kirana/counter', label: t('app.tabCounter'), icon: '⊞' },
       { to: '/kirana/bills', label: t('app.tabBills'), icon: '▤' },

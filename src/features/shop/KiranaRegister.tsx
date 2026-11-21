@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Suspense, lazy, useContext, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
 import { kiranaApi, kiranaKeys, useKiranaSettings, useOnline, type FssaiStatus } from '../../api/kirana'
 import { ShopContext, shopApi, shopKeys, useShop } from '../../api/shop'
@@ -420,4 +420,21 @@ function licenceWords(shop: Shop): string {
         ? 'kiranaRegister.statusNotAccepted'
         : 'kiranaRegister.statusBeingChecked',
   )
+}
+
+/**
+ * A kirana's owner back to his registration: the first step not done yet (photos and video, licences, UPI ID), else
+ * the review.
+ */
+export function ResumeKiranaRegistration() {
+  const shop = useShop()
+  const settings = useKiranaSettings()
+  const online = useOnline()
+  if (shopAsk(shop)) return <Navigate to="/register/review" replace />
+  if (!readyForVisit(shop)) return <Navigate to="/register/photos" replace />
+  if (settings.isError || online.isError) return <Navigate to="/register/review" replace />
+  if (!settings.data || !online.data) return <Loading />
+  if (!licencesReady(settings.data, online.data.fssai)) return <Navigate to="/register/licences" replace />
+  if (!settings.data.upiId) return <Navigate to="/register/upi" replace />
+  return <Navigate to="/register/review" replace />
 }
