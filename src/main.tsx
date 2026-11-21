@@ -12,6 +12,7 @@ import { forgetThisPerson } from './features/profile/signOut'
 import { refreshSalonWork } from './api/salon'
 import { shopKeys } from './api/shop'
 import { restoreLanguage } from './i18n'
+import { startKiranaTexts } from './i18n/kirana'
 import { LanguageToast } from './i18n/LanguageToast'
 import { followAccountLanguage } from './lib/accountLanguage'
 import { followOtherTabs, useSession } from './store/session'
@@ -99,6 +100,8 @@ async function start() {
   })
 }
 
+// With the kirana switch on, the kiranas' words too (their own downloads; first, so a language comes with them)
+startKiranaTexts()
 // The language chosen on this phone before (shown at once from the texts kept on the phone)
 void restoreLanguage()
 // Then each account's own language, saved on the account too

@@ -6,8 +6,9 @@ import { ApiError, messageOf } from './errors'
 
 /**
  * The kirana backend's own error codes (in.apnidukan.kirana and the kirana parts of shops, origin/kirana) that the
- * partner app can meet, each with words in every language (error.json). Codes shared with the salon (OWNER_ONLY,
- * NOT_FOUND, NO_SHOP, WRONG_STATUS, VALIDATION_FAILED…) have none: their kirana messages are in server.json, so a
+ * partner app can meet, each with words in every language (kiranaErrors.json: added to `error` only with the kirana
+ * switch on, src/i18n/kirana.ts). Codes shared with the salon (OWNER_ONLY,
+ * NOT_FOUND, NO_SHOP, WRONG_STATUS, VALIDATION_FAILED…) have none: their kirana messages are in kiranaServer.json, so a
  * salon message the app has no words for still shows as the backend wrote it. Left to the backend's own text, as its
  * message names something its details don't carry: ITEM_IN_LIST and STOCK_OUT_OF_RANGE (which product of the bill),
  * NOT_ACCEPTED_YET and WAITING_FOR_SHOP (another shop's name).
@@ -33,13 +34,19 @@ const file = (lang: string, name: string) =>
 afterEach(() => resetLanguageForTests())
 
 describe('the kirana backend errors', () => {
-  it.each(LANGUAGES.map((l) => l.code))('have words for every kirana code in %s', (lang) => {
-    const errors = file(lang, 'error')
+  it.each(LANGUAGES.map((l) => l.code))('have words for every kirana code in %s, in the kirana file only', (lang) => {
+    const errors = file(lang, 'kiranaErrors')
     expect(KIRANA_CODES.filter((code) => typeof errors[code] !== 'string' || !(errors[code] as string).trim())).toEqual([])
+    expect(Object.keys(errors).sort()).toEqual([...KIRANA_CODES].sort())
+    // Not in the salon app's own words (error.json is in every build)
+    expect(KIRANA_CODES.filter((code) => code in file(lang, 'error'))).toEqual([])
   })
 
   it('show the exact message first, then the code\'s words with the details filled in, else the backend\'s text', async () => {
-    provideForTests('hi', { error: file('hi', 'error'), server: file('hi', 'server') })
+    provideForTests('hi', {
+      error: { ...file('hi', 'error'), ...file('hi', 'kiranaErrors') },
+      server: { ...file('hi', 'server'), ...file('hi', 'kiranaServer') },
+    })
     await setLanguage('hi')
     // A fixed message: its own words (one code, several messages)
     expect(messageOf(new ApiError(409, { code: 'BILL_HAS_RETURNS', message: "Items of this bill were returned already, so its payment can't be changed." })))
@@ -65,7 +72,7 @@ describe('the kirana backend errors', () => {
   })
 
   it('fills each code\'s blanks from what its errors carry in their details', () => {
-    const en = file('en', 'error')
+    const en = file('en', 'kiranaErrors')
     const blanks = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',')
     // The details the backend sends with each code that has blanks (amounts in paise become rupees without "Paise")
     const sent: Record<string, string> = {

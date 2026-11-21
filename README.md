@@ -62,6 +62,17 @@ always a salon when off, and its "Registering a … · Change" line); Start's wo
 (`ShopGate`, and `RegisterLayout` for a draft); and forgetting the counter's cart at sign-out. Everything else that is
 a kirana's shows only for a shop of type `KIRANA`, which never gets past the gate when off.
 
+The kiranas' words are behind the switch too (`src/i18n/kirana.ts`): `src/i18n/<language>/kirana*.json` (the
+counter, bills, products, registration, and `kiranaErrors.json` / `kiranaServer.json`, the kirana error codes and
+backend messages) are in neither English's main download nor a language's own. With the switch on, `main.tsx`
+(`startKiranaTexts`) adds them before the language is restored: English's kirana words are one download at start-up,
+and each other language's come in the same load as that language (and are kept on the phone with it, so a cold start
+shows a kirana screen in the language at once). `kiranaErrors.json` adds its codes to `error` and `kiranaServer.json`
+its messages to `server`, so `error.<CODE>` and `server.<message>` are asked for as before. Every kirana screen's
+download also waits for them (`withKiranaTexts`), so none is drawn with keys. Off, a salon partner downloads about
+14 KB (gzip) less English and about 19 KB less per other language. The core (`addAreas` and `areasReady` in
+`src/i18n/index.ts`) knows nothing of kiranas; a test (`src/i18n/kiranaTexts.test.ts`) checks both ways.
+
 Tests: `src/lib/config.test.ts` (the switch) and `src/kiranaSwitch.test.tsx` (the routes, tabs, type picker, Start and
 the gate, both ways). Playwright builds the app twice: the `salon` project (the default build, switch off, port 4173)
 runs every spec but `e2e/kirana-*.spec.ts`, among them `e2e/no-kirana.spec.ts` (no kirana choice, no `/kirana/...`
@@ -369,7 +380,9 @@ body. The tag is opaque to the app.
 `src/api/client.ts`, `errors.ts`, `auth.ts`, `push.ts`, `src/store/session.ts`, `src/lib/{ist,money,phone,storage,device}.ts`,
 `src/components/{ui,CodeInput,Turnstile}.tsx` and `src/features/auth/*` are copies of the customer app's, with
 the storage keys renamed (`adp.*`) and the wording changed for partners. A fix in one should go to the other until
-the admin app makes a shared package worth it.
+the admin app makes a shared package worth it. `src/i18n/index.ts` is the same as the customer app's but for the
+areas some builds add (`addAreas`, `areasReady`: generic, used here for the kiranas' words) and its English glob
+skipping `kirana*.json` (matching nothing in the customer app): the customer app's copy can take it as it is.
 
 ## Deploying
 
@@ -443,7 +456,8 @@ and keeps whatever was typed.
   by mistake.
 
 - **Where the words are.** `src/i18n/<language>/<area>.json`, the same keys in every language. English is in the main
-  download; each other language is one download of its own (about 35 KB gzipped), fetched when chosen. A text a
+  download; each other language is one download of its own (about 43 KB gzipped), fetched when chosen. The kirana
+  files (`kirana*.json`) are only in a build with the [kirana switch](#kirana-switch) on, as downloads of their own. A text a
   language lacks shows in English. Blanks are `{name}`; counts use `{ "one": …, "other": … }`.
 - **In code.** In a component `const t = useT()` then `t('shop.homeTitle')`; outside React `t()` from `src/i18n`,
   called when the text is needed (never kept in a module-level constant, which would not follow the language).
@@ -452,14 +466,15 @@ and keeps whatever was typed.
   carry (a barber busy until a time, which product of a bill is in the list already, hours outside the salon's) are
   still in English: they need the backend to send the values separately.
 - **Which words win for an error** (`messageOf`, `src/api/errors.ts`; one code can have several messages), in
-  order: (1) `server.json` for the backend's exact English message (about 200 kirana messages added: the counter,
-  bills, products and stock, khata, scans and bills from distributors, recounts, registration, FSSAI); (2) only in a
-  language other than English, `error.json` for the code (about 60 kirana codes: `BILL_CHANGED`, `KHATA_LIMIT`,
+  order: (1) `server.json` for the backend's exact English message (and `kiranaServer.json`, added to it with the
+  switch on: about 185 kirana messages, the counter, bills, products and stock, khata, scans and bills from
+  distributors, recounts, registration, FSSAI); (2) only in a language other than English, `error.json` for the code
+  (and `kiranaErrors.json`, added to it with the switch on: about 60 kirana codes, `BILL_CHANGED`, `KHATA_LIMIT`,
   `PRODUCT_GONE`, `TOO_MANY_PAGES`…), its `{blanks}` filled from the error's `details` (`{max}`, `{pages}`, `{name}`; `availablePaise` 25050 also gives
   `{available}` "₹250.50"); (3) the backend's English as sent. So English always shows the backend's own sentence
   (it may name a customer or a product), and another language shows the code's words when the exact sentence isn't
-  in `server.json` because it was built with names or amounts. A code goes in `error.json` only when its details
-  carry everything its message says; `src/api/kiranaErrors.test.ts` checks each language has every such code, with
+  in `server.json` because it was built with names or amounts. A code goes in `error.json` (`kiranaErrors.json` for a kirana one)
+  only when its details carry everything its message says; `src/api/kiranaErrors.test.ts` checks each language has every such code, with
   the same blanks, and that each code's blanks are filled by what its errors carry.
 - **Push and the inbox** come in the account's saved language (the backend writes them when they are queued). A message
   written before that, in English only, shows the title its type has here (`notifications.type<TYPE>`, Inbox
@@ -488,7 +503,7 @@ and keeps whatever was typed.
   app, and the backend and reports keep one English word for it.
 - **Kirana screens.** The counter, bills and the day, products and stock, the khata, the scanner, kirana
   registration, Licences and the UPI ID are in all six languages (`kiranaCounter`, `kiranaBills`, `kiranaProducts`,
-  `kiranaRegister`: about 600 texts in all). Pieces are counted the language's way (`qtyWithUnit`: "3 పీస్‌లు"); kg, ₹
+  `kiranaRegister`: about 600 texts in all), downloaded only with the switch on. Pieces are counted the language's way (`qtyWithUnit`: "3 పీస్‌లు"); kg, ₹
   and digits stay as on packs. The FSSAI check's reasons, including the ones with a date or a number, are shown in the
   person's language (`fssaiReasonText`). The khata's WhatsApp reminder is written in the app's language (the owner's
   choice, sent from his phone). A scanner whose barcode reader couldn't download says so, instead of "no camera".
@@ -517,6 +532,10 @@ and keeps whatever was typed.
   (`VITE_KIRANA_ENABLED`, off by default; it must match the backend's `KIRANA_ENABLED`). Off, the app is the salon app
   as in 0.29.0, and the kirana screens are separate downloads salon partners never fetch (the main download is
   about 30% smaller than with them in it). No more `kirana-partner` branch.
+- **The kiranas' words only with the switch on.** The kirana texts, codes and backend messages are their own downloads
+  (`kirana*.json`, now also `kiranaErrors.json` and `kiranaServer.json` out of `error.json` and `server.json`), fetched
+  only with the switch on: off, the English words in the main download are about 14 KB smaller (gzip) and each other
+  language's download about 19 KB (Hindi 62 → 43 KB).
 
 ### Kirana branch — 2026-11-20, languages (not released; `kirana-partner` only)
 

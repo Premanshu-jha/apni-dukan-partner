@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ComponentType } from 'react'
 import { Route } from 'react-router'
 import { Loading } from '../components/ui'
+import { withKiranaTexts } from '../i18n/kirana'
 import { kiranaOn } from '../lib/config'
 import { EditGate } from '../features/shop/EditGate'
 import { KindOnly, RoleOnly } from './guards'
@@ -11,9 +12,9 @@ import { KindOnly, RoleOnly } from './guards'
  * so salon partners never fetch one. Each function gives the routes for one spot of App's route table, or null.
  */
 
-/** A kirana screen as its own download, with a spinner while it comes. */
+/** A kirana screen as its own download (with the kiranas' words), with a spinner while it comes. */
 function screen<P extends object>(load: () => Promise<ComponentType<P>>) {
-  const Lazy = lazy(() => load().then((c) => ({ default: c })))
+  const Lazy = lazy(() => withKiranaTexts(load()).then((c) => ({ default: c })))
   return function KiranaScreen(props: P) {
     return (
       <Suspense fallback={<Loading />}>
