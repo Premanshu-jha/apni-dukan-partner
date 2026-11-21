@@ -21,6 +21,7 @@ import type {
   RegistrationDocType,
   Shop,
   ShopDetailsIn,
+  ShopType,
   ShopMember,
   StoredFile,
   VideoUploadLink,
@@ -115,8 +116,8 @@ export async function ensureShopInToken(): Promise<void> {
 }
 
 export const shopApi = {
-  create: async (details: ShopDetailsIn) => {
-    const shop = await api<Shop>('POST', S, { body: { ...details, type: 'SALON' } })
+  create: async (details: ShopDetailsIn, type: ShopType) => {
+    const shop = await api<Shop>('POST', S, { body: { ...details, type } })
     // The backend asks for a refresh so the token carries the new shop (uploads need it).
     await refreshSession()
     return shop
@@ -146,6 +147,8 @@ export const shopApi = {
   /** Remove it (owner): no "Licensed" badge from now on. */
   removeRegistrationDoc: (version: number) =>
     api<Shop>('DELETE', `${S}/me/registration-document?version=${version}`),
+  /** The kind picked by mistake, changed while registering (a draft never approved): PUT /shops/me/type. */
+  changeType: (version: number, type: ShopType) => api<Shop>('PUT', `${S}/me/type`, { body: { version, type } }),
   submit: (version: number) => api<Shop>('POST', `${S}/me/submit`, { body: { version } }),
   members: () => api<ShopMember[]>('GET', `${S}/me/members`),
   /** Invite a helper (owner): 202 with the same message for any number; they join when they accept. */

@@ -1,5 +1,7 @@
 # Partner scenarios (salon)
 
+The kirana's rows (registration as a kirana, the counter, products, khata, bills, the day) are in `docs/scenarios-kirana.md`.
+
 Scope: every scenario a salon owner, helper or barber can hit in the partner app, checked against the backend `apni-dukan-backend` (`main`: auth, shops, files, salon, notifications) and this app (`src/features/**`, `src/api/**`).
 "API behaviour" comes from the backend's code; "App behaviour" from this app's code. Backend tests are JUnit methods: `AuthIntegrationTest` = AuthIT, `ShopIntegrationTest` = ShopIT, `FilesIntegrationTest` = FilesIT, `SalonIntegrationTest` = SalonIT, `SalonBookingIntegrationTest` = BookIT, `SalonScaleIntegrationTest` = ScaleIT, `LanguagesIntegrationTest` = LanguagesIT. App tests are Vitest (`unit:<describe>`) and Playwright (`e2e:<spec> "<title>"`).
 Verdicts: **OK-tested**, **OK-untested** (correct but no test), **GAP** (wrong or missing; file:line given), **N/A-v1** (a v1 limit the README states).
@@ -14,8 +16,8 @@ How to use it: every new feature or fix adds or updates rows. A row is done when
 |---|---|---|---|---|---|---|---|
 | 1 | Sign-in | Partner signs in with a number that is also a customer account | Same account; one person can be both | Same sign-in; this app shows only the shop side | AuthIT.firstSignIn… | e2e:register "a new owner signs up…" | OK-tested |
 | 2 | Sign-in | Session key | n/a | Saved under `adp.session` (the app runs on its own site, so it never shares the customer app's session) | — | client.test | OK-tested |
-| 3 | Shop gate | Signed in, no shop | `GET /shops/me` 404 NO_SHOP | ShopGate → /start: "I own a salon" / "I work at a salon" | ShopIT.withoutAShopMyShopSaysSo | e2e:register "a new owner…" | OK-tested |
-| 4 | Shop gate | Kirana shop | 200 `type: KIRANA`; salon calls 409 NOT_A_SALON | "Kirana partners: coming soon" on every path; no salon call made; no bottom bar | SalonIT.salonSetupIsOnlyForSalonsAndNeedsSignIn | e2e:gate "a kirana shop sees…" | OK-tested |
+| 3 | Shop gate | Signed in, no shop | `GET /shops/me` 404 NO_SHOP | ShopGate → /start: "I own a shop" (→ "What do you run?") / "I work at a shop" | ShopIT.withoutAShopMyShopSaysSo | e2e:register "a new owner…" | OK-tested |
+| 4 | Shop gate | Kirana shop (0.28.0) | 200 `type: KIRANA`; salon calls 409 NOT_A_SALON | Kirana screens only (KindOnly): every salon path goes to the counter, no salon call made; the kirana rows are in `docs/scenarios-kirana.md` | SalonIT.salonSetupIsOnlyForSalonsAndNeedsSignIn | e2e:gate "a kirana's people see only kirana screens…" | OK-tested |
 | 5 | Shop gate | Owner of a DRAFT | 200 DRAFT, myRole OWNER | "/" and board paths → /register | ShopIT.registeringCreatesADraftShop… | e2e:register "a half-done registration…" | OK-tested |
 | 6 | Shop gate | Helper or barber of a DRAFT or PENDING_VISIT salon | 200 | "Your salon isn't live yet" with Check again; no board | — | e2e:gate "a helper of a salon not approved yet waits…" | OK-tested |
 | 7 | Shop gate | Owner of a PENDING_VISIT salon | 200 | "Waiting for approval" bar on top of every tab (row 395); Today also has "What happens next" with the shop code, and the setup checklist; setup screens open | BookIT.registrationNeedsBothPhotosThenTheFieldTeamApprovesAfterTheVisit | e2e:register "a new owner…" | OK-tested |

@@ -156,7 +156,7 @@ describe('the trade licence check, as the owner sees it', () => {
   })
 
   it('has words for every reason the backend gives, and for an address only the field team can change', () => {
-    expect(ALL_REASONS).toHaveLength(11)
+    expect(ALL_REASONS).toHaveLength(13)   // + NOT_A_SHOP_TRADE, NOT_SHOPS_ESTABLISHMENT (a kirana's, 0.28.0)
     for (const r of ALL_REASONS) expect(licenceReasonText(r)).not.toMatch(/^Upload another photo or the PDF of your trade licence\.$/)
     expect(licenceReasonText('ADDRESS_MISMATCH', true)).toMatch(/Request address change/)
     expect(licenceReasonText('ADDRESS_MISMATCH', false)).toMatch(/change it in Salon details/)

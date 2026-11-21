@@ -15,7 +15,8 @@ import { InviteOffers } from './InviteOffers'
 import { closedNotice, forgetClosed, startNotice } from './ownership'
 
 /**
- * Signed in, no shop yet (404 NO_SHOP): register a salon, or, for someone who works in one, show the number the
+ * Signed in, no shop yet (404 NO_SHOP): register a shop (a kirana or a salon: "What do you run?" comes next), or,
+ * for someone who works in one, show the number the
  * owner must add.
  */
 export function Start() {
@@ -59,10 +60,10 @@ export function Start() {
 
   return (
     <Page>
-      <Brand subtitle={t('register.welcome', { name: user.name ?? '' })} />
+      <Brand subtitle={t('register.welcomeShop', { name: user.name ?? '' })} />
       {closed && (
         <Banner tone="info">
-          {t('register.closedNotice', { name: closed })}
+          {t('register.closedNoticeShop', { name: closed })}
         </Banner>
       )}
       {note && <Banner tone="info">{note}</Banner>}
@@ -72,17 +73,17 @@ export function Start() {
       {!worker ? (
         <div className="flex flex-col gap-3">
           <Card className="flex flex-col gap-3">
-            <p className="text-lg font-semibold">{t('register.ownSalonTitle')}</p>
+            <p className="text-lg font-semibold">{t('register.ownShopTitle')}</p>
             <p className="text-sm text-muted">
-              {t('register.ownSalonBody')}
+              {t('register.ownShopBody')}
             </p>
-            <Button onClick={() => navigate('/register')}>{t('register.registerMySalon')}</Button>
+            <Button onClick={() => navigate('/register/kind')}>{t('register.registerMyShop')}</Button>
           </Card>
           <Card className="flex flex-col gap-3">
-            <p className="text-lg font-semibold">{t('register.workAtSalonTitle')}</p>
-            <p className="text-sm text-muted">{t('register.workAtSalonBody')}</p>
+            <p className="text-lg font-semibold">{t('register.workAtShopTitle')}</p>
+            <p className="text-sm text-muted">{t('register.workAtShopBody')}</p>
             <Button variant="secondary" onClick={() => setWorker(true)}>
-              {t('register.workAtSalonButton')}
+              {t('register.workAtShopButton')}
             </Button>
           </Card>
         </div>

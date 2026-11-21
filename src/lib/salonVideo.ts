@@ -26,8 +26,8 @@ export function tooBig(): string {
 export function lengthUnknown(): string {
   return t('shop.videoLengthUnknown', { min: VIDEO_MIN_SECONDS, max: VIDEO_MAX_SECONDS })
 }
-export function shopChangedAgain(): string {
-  return t('shop.videoShopChangedAgain')
+export function shopChangedAgain(kirana = false): string {
+  return t(kirana ? 'shop.videoShopChangedAgainKirana' : 'shop.videoShopChangedAgain')
 }
 /**
  * The English of tooBig(), read once when the app loads: only for salonVideo.test.ts, which compares with it. It
@@ -136,7 +136,8 @@ export function refusedForGood(e: unknown): boolean {
 }
 
 /** The words for a failed video step (asking for the link, the upload itself, or recording it). */
-export function videoErrorText(e: unknown): string {
+/** What to tell the person; {@code kirana}: the shop's video, not a salon's. */
+export function videoErrorText(e: unknown, kirana = false): string {
   if (e instanceof VideoSendError) {
     return e.linkExpired ? t('shop.videoUploadTooLong') : t('shop.videoDidntGoThrough')
   }
@@ -159,7 +160,10 @@ export function videoErrorText(e: unknown): string {
     case 'UPLOAD_GONE':
       return t('shop.videoExpired')
     case 'SHOP_CHANGED':
-      return shopChangedAgain()
+      return shopChangedAgain(kirana)
+    case 'OWNER_ONLY':
+      // The backend says "salon video": a kirana's is the shop's
+      return kirana ? t('shop.videoOwnerOnlyKirana') : messageOf(e)
     default:
       return messageOf(e)
   }
@@ -201,7 +205,7 @@ export function readVideoSeconds(file: Blob, timeoutMs = 10_000): Promise<number
   })
 }
 
-/** What the backend needs before Submit for visit (else 409 PHOTOS_REQUIRED): both photos, and a salon's video. */
+/** Both photos and the shop's video (a salon's and, since 0.28.0, a kirana's): what the field team needs before a visit. */
 export function readyForVisit(shop: Pick<Shop, 'ownerPhotoFileId' | 'shopPhotoFileId' | 'shopVideoFileId'> & { type?: Shop['type'] }): boolean {
-  return Boolean(shop.ownerPhotoFileId && shop.shopPhotoFileId && (shop.type === 'KIRANA' || shop.shopVideoFileId))
+  return Boolean(shop.ownerPhotoFileId && shop.shopPhotoFileId && shop.shopVideoFileId)
 }

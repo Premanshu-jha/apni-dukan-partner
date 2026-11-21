@@ -109,8 +109,8 @@ export function EditGate({ children, ending = false }: { children: ReactNode; en
           <>
             <span>
               {ending
-                ? t('shop.editNeedsCodeEnding')
-                : t('shop.editNeedsCode')}
+                ? t(shop.type === 'KIRANA' ? 'shop.editNeedsCodeEndingKirana' : 'shop.editNeedsCodeEnding')
+                : t(shop.type === 'KIRANA' ? 'shop.editNeedsCodeKirana' : 'shop.editNeedsCode')}
             </span>
             <button type="button" className="shrink-0 text-link underline" onClick={() => setAsking(true)}>
               {ending ? t('shop.editGetCode') : t('shop.editStart')}
@@ -150,6 +150,7 @@ function UnlockSheet({
 }) {
   const t = useT()
   const phone = useSession((s) => s.user?.phone)
+  const shop = useShop()
   // Kept while the sheet is closed: a code already sent can still be typed when it opens again
   const [sentAt, setSentAt] = useState<number | null>(null)
   const [code, setCode] = useState('')
@@ -197,7 +198,12 @@ function UnlockSheet({
     <Sheet open={open} title={t('shop.editConfirmTitle')} onClose={onClose}>
       <div className="flex flex-col gap-3">
         <p className="text-muted">
-          {t(ending ? 'shop.editCodeExplainEnding' : 'shop.editCodeExplain', { phone: formatPhone(phone ?? null) })}
+          {t(
+            shop.type === 'KIRANA'
+              ? ending ? 'shop.editCodeExplainEndingKirana' : 'shop.editCodeExplainKirana'
+              : ending ? 'shop.editCodeExplainEnding' : 'shop.editCodeExplain',
+            { phone: formatPhone(phone ?? null) },
+          )}
         </p>
         {loadError !== null && <Banner tone="warn">{messageOf(loadError)}</Banner>}
         <Button variant={sentAt === null ? 'primary' : 'secondary'} busy={busy && code.length !== 6} disabled={wait > 0} onClick={send}>

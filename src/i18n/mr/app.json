@@ -1,11 +1,17 @@
 {
   "notFoundTitle": "पान सापडले नाही",
   "notFoundLink": "आजच्या दिवसावर जा",
+  "notFoundStartLink": "सुरुवातीला जा",
   "navMain": "मुख्य",
   "tabToday": "आज",
   "tabBookings": "बुकिंग",
   "tabSalon": "सलून",
   "tabMore": "आणखी",
+  "tabCounter": "काउंटर",
+  "tabBills": "बिले",
+  "tabProducts": "वस्तू",
+  "tabKhata": "खाता",
   "approvalWaiting": "मंजुरीची वाट पाहत आहे",
-  "approvalBody": "आमची फील्ड टीम मंजुरी देईपर्यंत ग्राहक {name} मध्ये बुकिंग करू शकत नाहीत."
+  "approvalBody": "आमची फील्ड टीम मंजुरी देईपर्यंत ग्राहक {name} मध्ये बुकिंग करू शकत नाहीत.",
+  "approvalBodyKirana": "आमची फील्ड टीम मंजुरी देईपर्यंत ग्राहक {name} कडून ऑर्डर करू शकत नाहीत. तोपर्यंत तुमचा काउंटर चालू राहतो."
 }

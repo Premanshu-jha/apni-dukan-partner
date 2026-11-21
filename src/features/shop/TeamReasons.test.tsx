@@ -63,6 +63,21 @@ describe('where each reason is fixed', () => {
     for (const code of REVIEW_REASONS) expect(fixPath(code, draft) === null, code).toBe(code === 'OTHER')
   })
 
+  it("a kirana's: its licence on the Licences page, no services or hours, the rest as a salon's", () => {
+    const draft = { status: 'DRAFT', type: 'KIRANA' }
+    expect(fixPath('LICENCE_EXPIRED', draft)).toBe('/register/licences')
+    expect(fixPath('SHOP_FRONT_PHOTO', draft)).toBe('/register/photos')
+    expect(fixPath('OWNER_NAME', draft)).toBe('/register')
+    expect(fixPath('SERVICES_MISSING', draft)).toBeNull()
+    expect(fixPath('HOURS_MISSING', draft)).toBeNull()
+    expect(fixPath('ADDRESS_WRONG', { ...draft, addressLocked: true })).toBe('/setup/address')
+    const live = { status: 'APPROVED', type: 'KIRANA' }
+    expect(fixPath('LICENCE_NAME_MISMATCH', live)).toBe('/kirana/licences')
+    expect(fixPath('INSIDE_PHOTOS', live)).toBe('/setup/photos')
+    expect(fixPath('PIN_WRONG_PLACE', live)).toBe('/setup/details')
+    expect(fixPath('HOURS_MISSING', live)).toBeNull()
+  })
+
   it('each reason links to its page ("Fix ›" in the reader\'s language); this page\'s own come first, without a link', async () => {
     await setLanguage('kn')
     const kn = read('kn', 'review')

@@ -1,11 +1,17 @@
 {
   "notFoundTitle": "Page not found",
   "notFoundLink": "Go to today",
+  "notFoundStartLink": "Go to the start",
   "navMain": "Main",
   "tabToday": "Today",
   "tabBookings": "Bookings",
   "tabSalon": "Salon",
   "tabMore": "More",
+  "tabCounter": "Counter",
+  "tabBills": "Bills",
+  "tabProducts": "Products",
+  "tabKhata": "Khata",
   "approvalWaiting": "Waiting for approval",
-  "approvalBody": "Customers can't book {name} until our field team approves it."
+  "approvalBody": "Customers can't book {name} until our field team approves it.",
+  "approvalBodyKirana": "Customers can't order from {name} until our field team approves it. Your counter works meanwhile."
 }

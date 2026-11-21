@@ -1,6 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { useSalonHours, useServices } from '../../api/salon'
+import { useKiranaSettings, useOnline } from '../../api/kirana'
+import { licencesReady } from './KiranaLicences'
 import { shopAsk } from './TeamReasons'
 import { useShop } from '../../api/shop'
 import { Button, Card, EmptyState, Loading, Page } from '../../components/ui'
@@ -15,9 +17,27 @@ import { useRecheckShop } from './ShopGate'
 /** Where "/" goes: registration for a draft owner, a wait screen for staff of a salon not live yet, else today. */
 export function Home() {
   const shop = useShop()
-  if (shop.myRole === 'OWNER' && shop.status === 'DRAFT') return <ResumeRegistration />
-  if (shop.myRole !== 'OWNER' && (shop.status === 'DRAFT' || shop.status === 'PENDING_VISIT')) return <NotLiveYet />
-  return <Navigate to="/salon/day" replace />
+  const kirana = shop.type === 'KIRANA'
+  if (shop.myRole === 'OWNER' && shop.status === 'DRAFT') return kirana ? <ResumeKiranaRegistration /> : <ResumeRegistration />
+  if (shop.myRole !== 'OWNER' && (shop.status === 'DRAFT' || (shop.status === 'PENDING_VISIT' && !kirana))) return <NotLiveYet />
+  return <Navigate to={kirana ? '/kirana/counter' : '/salon/day'} replace />
+}
+
+/**
+ * A kirana's owner back to his registration: the first step not done yet (photos and video, licences, UPI ID), else
+ * the review.
+ */
+function ResumeKiranaRegistration() {
+  const shop = useShop()
+  const settings = useKiranaSettings()
+  const online = useOnline()
+  if (shopAsk(shop)) return <Navigate to="/register/review" replace />
+  if (!readyForVisit(shop)) return <Navigate to="/register/photos" replace />
+  if (settings.isError || online.isError) return <Navigate to="/register/review" replace />
+  if (!settings.data || !online.data) return <Loading />
+  if (!licencesReady(settings.data, online.data.fssai)) return <Navigate to="/register/licences" replace />
+  if (!settings.data.upiId) return <Navigate to="/register/upi" replace />
+  return <Navigate to="/register/review" replace />
 }
 
 /**
@@ -52,11 +72,15 @@ function NotLiveYet() {
       <HandoverOffers />
       <InviteOffers />
       <EmptyState
-        title={shop.status === 'PENDING_VISIT' ? t('shop.notLiveWaitingTitle') : t('shop.notLiveTitle')}
+        title={
+          shop.status === 'PENDING_VISIT'
+            ? t('shop.notLiveWaitingTitle')
+            : t(shop.type === 'KIRANA' ? 'shop.notLiveTitleKirana' : 'shop.notLiveTitle')
+        }
         body={
           shop.status === 'PENDING_VISIT'
-            ? t('shop.notLiveRegisteredBody', { ownerName: shop.ownerName, name: shop.name })
-            : t('shop.notLiveRegisteringBody', { ownerName: shop.ownerName, name: shop.name })
+            ? t(shop.type === 'KIRANA' ? 'shop.notLiveRegisteredBodyKirana' : 'shop.notLiveRegisteredBody', { ownerName: shop.ownerName, name: shop.name })
+            : t(shop.type === 'KIRANA' ? 'shop.notLiveRegisteringBodyKirana' : 'shop.notLiveRegisteringBody', { ownerName: shop.ownerName, name: shop.name })
         }
         action={<Button onClick={() => recheck()}>{t('shop.checkAgain')}</Button>}
       />
@@ -81,7 +105,7 @@ export function WaitingForVisit() {
     <Card className="flex flex-col gap-2 border-brand/40">
       <p className="text-lg font-semibold">{t('shop.visitNextTitle')}</p>
       <p className="text-sm text-muted">
-        {t('shop.visitNextBody', { name: shop.name })}
+        {t(shop.type === 'KIRANA' ? 'shop.visitNextBodyKirana' : 'shop.visitNextBody', { name: shop.name })}
       </p>
       <p className="text-sm">
         {t('shop.yourShopCode')} <span className="font-bold tracking-wide">{shop.shopCode}</span>{' '}

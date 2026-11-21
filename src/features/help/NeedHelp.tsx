@@ -23,8 +23,8 @@ const draftKey = (userId: string) => `pd.helpDraft.${userId}`
 
 /**
  * /help: "Need help" — the partner writes to support; it becomes a ticket (CLZ-1042) and our reply comes by email.
- * Support sees their salon and role with the ticket, so they needn't type the shop code. Opened from More (and the
- * kirana "coming soon" page, `?about=` fills the subject).
+ * Support sees their salon and role with the ticket, so they needn't type the shop code. Opened from More
+ * (`?about=` fills the subject).
  */
 /** Set when leaving to finish the profile with files picked (they can't come along). */
 const FILES_DROPPED = 'pd.helpFilesDropped'

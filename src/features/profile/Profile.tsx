@@ -24,7 +24,7 @@ import { GlobeIcon, LanguagePicker } from '../../i18n/LanguagePicker'
 /** The map library is big: loaded only when the owner opens the pin. */
 const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ default: m.PinMap })))
 
-/** More: the person's profile, the salon's other screens, help and signing out. */
+/** More: the person's profile, the shop's other screens (a salon's or a kirana's), help and signing out. */
 export function Profile() {
   const t = useT()
   const lang = useLanguage()
@@ -44,6 +44,7 @@ export function Profile() {
   const [confirmAll, setConfirmAll] = useState(false)
   const [showPin, setShowPin] = useState(false)
   const owner = shop.myRole === 'OWNER'
+  const kirana = shop.type === 'KIRANA'
   const addressAsked = useAddressRequest(owner && Boolean(shop.addressLocked))
 
   async function saveName() {
@@ -88,14 +89,20 @@ export function Profile() {
     }
   }
 
-  const links = [
+  const links = (kirana ? [
+    owner && { to: '/kirana/team', text: t('profile.linkKiranaTeam') },
+    { to: '/kirana/day', text: t('profile.linkKiranaDay') },
+    owner && { to: '/kirana/upi', text: t('profile.linkKiranaUpi') },
+    owner && { to: '/kirana/licences', text: t('profile.linkKiranaLicences') },
+    { to: '/notifications', text: t('profile.linkMessages') },
+  ] : [
     rights.team && { to: '/team', text: t('profile.linkTeam') },
     rights.closures && { to: '/salon/closures', text: t('profile.linkClosures') },
     rights.seeSetup && { to: '/salon/offers', text: t('profile.linkOffers') },
     rights.seeSetup && { to: '/salon/ratings', text: t('profile.linkRatings') },
     !rights.seeSetup && { to: '/salon/info', text: t('profile.linkSalonInfo') },
     { to: '/notifications', text: t('profile.linkMessages') },
-  ].filter(Boolean) as Array<{ to: string; text: string }>
+  ]).filter(Boolean) as Array<{ to: string; text: string }>
 
   return (
     <Page title={t('profile.title')}>
@@ -124,7 +131,7 @@ export function Profile() {
         <div className="flex items-start justify-between gap-3">
           <p className="min-w-0 font-semibold break-words">{shop.name}</p>
           {owner && (
-            <Link to="/setup/details" state={{ from: '/more', edit: true }} className="shrink-0 text-sm text-link" aria-label={t('profile.editSalonAria')}>
+            <Link to="/setup/details" state={{ from: '/more', edit: true }} className="shrink-0 text-sm text-link" aria-label={t(kirana ? 'profile.editShopAriaKirana' : 'profile.editSalonAria')}>
               {t('common.edit')}
             </Link>
           )}
@@ -145,7 +152,7 @@ export function Profile() {
           </p>
         )}
         <p className="text-sm text-muted break-words">{t('profile.owner', { name: shop.ownerName })}</p>
-        {owner && (
+        {owner && !kirana && (
           <p className="text-sm break-words">
             <Link to="/setup/document" state={{ from: '/more' }} className="text-link underline">
               {t('profile.tradeLicence', { summary: licenceSummary(shop) })}
@@ -158,7 +165,7 @@ export function Profile() {
           <span>{owner ? t('profile.youAreOwner') : shop.myRole === 'HELPER' ? t('profile.youAreHelper') : t('profile.youAreBarber')}</span>
         </div>
         {shop.recheckSince && (
-          <p className="text-sm text-muted">{t('profile.recheck')}</p>
+          <p className="text-sm text-muted">{t(kirana ? 'profile.recheckKirana' : 'profile.recheck')}</p>
         )}
         {owner && (
           <p className="flex flex-wrap gap-x-4 text-sm">
@@ -195,7 +202,7 @@ export function Profile() {
       <Card className="flex flex-col gap-4">
         {editing ? (
           <div className="flex flex-col gap-3">
-            <Field id="profile-name" label={t('profile.yourName')} hint={t('profile.yourNameHint')} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+            <Field id="profile-name" label={t('profile.yourName')} hint={t(kirana ? 'profile.yourNameHintKirana' : 'profile.yourNameHint')} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
             {error && <Banner tone="bad">{error}</Banner>}
             <div className="flex gap-2">
               <Button busy={busy} disabled={name.trim().length < 2} onClick={saveName} className="flex-1">
@@ -246,12 +253,12 @@ export function Profile() {
         <p className="text-xs text-muted">{t('language.profileHint')}</p>
       </Card>
 
-      <SubscriptionRow />
+      {!kirana && <SubscriptionRow />}
 
       <Card className="flex flex-col gap-1">
         <p className="font-medium">{t('profile.needHelp')}</p>
         <p className="text-sm text-muted">
-          {t('profile.needHelpBody')}
+          {t(kirana ? 'profile.needHelpBodyKirana' : 'profile.needHelpBody')}
         </p>
         <Link to="/help" className="text-sm text-link underline">
           {t('profile.writeToSupport')}
@@ -317,7 +324,7 @@ export function Profile() {
       </Sheet>
       <Sheet open={leaving} title={t('profile.leaveShopTitle', { name: shop.name })} onClose={() => setLeaving(false)}>
         <div className="flex flex-col gap-3">
-          <p className="text-muted">{t('profile.leaveShopBody')}</p>
+          <p className="text-muted">{t(kirana ? 'profile.leaveShopBodyKirana' : 'profile.leaveShopBody')}</p>
           {leaveError && <Banner tone="bad">{leaveError}</Banner>}
           <Button variant="danger" busy={busy} onClick={leave}>
             {t('profile.leave')}

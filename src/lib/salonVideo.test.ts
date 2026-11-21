@@ -66,7 +66,7 @@ describe('the salon video, before anything is sent', () => {
     expect(readyForVisit(all)).toBe(true)
     expect(readyForVisit({ ...all, shopVideoFileId: null })).toBe(false)
     expect(readyForVisit({ ...all, shopVideoFileId: undefined, type: 'SALON' })).toBe(false)
-    expect(readyForVisit({ ...all, shopVideoFileId: null, type: 'KIRANA' })).toBe(true)
+    expect(readyForVisit({ ...all, shopVideoFileId: null, type: 'KIRANA' })).toBe(false)   // a kirana records one too (0.28.0)
     expect(readyForVisit({ ...all, ownerPhotoFileId: null })).toBe(false)
   })
 })
@@ -204,5 +204,15 @@ describe('sending the video', () => {
     SilentXhr.last.status = 503
     SilentXhr.last.onload!()
     await expect(refused).rejects.toMatchObject({ status: 503, linkExpired: false })
+  })
+})
+
+describe("a kirana's video errors", () => {
+  it('say shop, not salon', () => {
+    const owner = new ApiError(403, { code: 'OWNER_ONLY', message: 'Only the shop owner can add the salon video.', details: {} })
+    expect(videoErrorText(owner, true)).toBe('Only the shop owner can add the shop video.')
+    expect(videoErrorText(owner)).toBe('Only the shop owner can add the salon video.')
+    const changed = new ApiError(409, { code: 'SHOP_CHANGED', message: 'x', details: {} })
+    expect(videoErrorText(changed, true)).toContain('Your shop was changed')
   })
 })

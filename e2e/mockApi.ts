@@ -1,3 +1,4 @@
+import { KiranaMock } from './kiranaMock'
 import { TicketFilesMock, type ShownFile } from './ticketFiles'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
@@ -226,6 +227,8 @@ export class MockApi {
   calls: Call[] = []
   /** The person's shop (null = 404 NO_SHOP). */
   shop: Json | null = null
+  /** The kirana counter's fake (/kirana/...): its products, bills, khata and UPI ID. */
+  kirana = new KiranaMock()
   role: Role = 'OWNER'
   services: Json[] = SERVICES.map((s) => ({ ...s, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' }))
   staff: Json[] = [
@@ -420,6 +423,14 @@ export class MockApi {
   addressRequests: Json[] = []
 
   /** ShopService.requireUnlocked: a verified salon's details need the edit code in the last 15 minutes. */
+  /** Kind changes today (ShopService.requireTypeChangesLeft: 10 a day). */
+  typeChanges = 0
+
+  /** Shop.checkable: a salon's trade licence; a kirana's trade licence or Shops and Establishments certificate. */
+  private checkable(type: string, doc: string | null): boolean {
+    return doc === 'TRADE_LICENCE' || (type === 'KIRANA' && doc === 'SHOPS_ESTABLISHMENT')
+  }
+
   private editLocked(): boolean {
     return Boolean(this.shop?.addressLocked) && this.shop?.status !== 'DRAFT' && !(this.editUntil && Date.parse(this.editUntil) > Date.now())
   }
@@ -451,6 +462,15 @@ export class MockApi {
 
   static completeUser(): MockUser {
     return { id: 'u1', phone: '9848012345', name: 'Ravi Kumar', email: 'ravi@example.com', emailVerified: true, admin: false, language: null }
+  }
+
+  /** A kirana with this person in the given role (an approved one unless `over` says otherwise). */
+  kiranaShop(role: Role = 'OWNER', over: Json = {}) {
+    this.role = role
+    this.shop = MockApi.shopOf({ type: 'KIRANA', name: 'Sharma Kirana Store', ownerName: 'Ravi Kumar', status: 'APPROVED', myRole: role, shopVideoFileId: null, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, licenceCheck: null, licenceValidUntil: null, licenceCheckSince: null, ...over })
+    this.kirana.upiId = 'sharmastore@okhdfcbank'
+    this.members = [{ userId: 'u1', name: this.user.name, phone: this.user.phone, role, joinedAt: '2026-11-01T00:00:00Z' }]
+    if (role !== 'OWNER') this.members.unshift({ userId: 'u0', name: 'Owner', phone: '9000000001', role: 'OWNER', joinedAt: '2026-11-01T00:00:00Z' })
   }
 
   /** An approved salon with this person in the given role. */
@@ -970,6 +990,14 @@ export class MockApi {
       }
     }
 
+    // ---------- the kirana counter (KiranaAccess: owner or helper of a kirana; salon people 409 NOT_A_KIRANA) ----------
+    if (p.startsWith('/kirana/')) {
+      if (!this.shop) return fail(404, 'NO_SHOP', "You haven't registered or joined a shop yet.")
+      if (this.shop.type !== 'KIRANA') return fail(409, 'NOT_A_KIRANA', 'This is only for kirana shops.')
+      this.kirana.regDocFile = (id) => this.files.some((f) => f.id === id && f.purpose === 'REG_DOC')
+      return this.kirana.handle(p, method, url, body, { userId: this.user.id, name: this.user.name ?? '', role: this.role, shopName: this.shop.name as string, editLocked: this.editLocked(), status: this.shop.status as string }, (st, j) => ok(st, j), fail)
+    }
+
     // ---------- changing the phone number (AuthService.sendPhoneChangeCode, changePhone), in its order ----------
     if (p === '/auth/me/phone/send-code') {
       const phone = normalize(body.newPhone)
@@ -1174,7 +1202,7 @@ export class MockApi {
       if (!this.user.emailVerified || !this.user.name) return fail(403, 'PROFILE_INCOMPLETE', 'Add your email and name first.')
       if (!/^[1-9]\d{5}$/.test(body.pincode)) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { pincode: 'must be a 6-digit pincode' })
       this.role = 'OWNER'
-      this.shop = MockApi.shopOf({ ...body, status: 'DRAFT', myRole: 'OWNER', type: body.type ?? 'KIRANA', ownerPhotoFileId: null, shopPhotoFileId: null, shopVideoFileId: null, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, licenceCheck: null, licenceCheckReason: null, licenceValidUntil: null, gstin: null, udyamNumber: null, version: 0 })
+      this.shop = MockApi.shopOf({ ...body, status: 'DRAFT', myRole: 'OWNER', type: body.type ?? 'KIRANA', ownerPhotoFileId: null, shopPhotoFileId: null, shopVideoFileId: null, registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, licenceCheck: null, licenceCheckReason: null, licenceValidUntil: null, gstin: body.type === 'SALON' || !body.gstin ? null : String(body.gstin).toUpperCase(), udyamNumber: null, version: 0 })
       // A new salon has no services, hours or barbers yet
       this.services = []
       this.hours = []
@@ -1186,6 +1214,13 @@ export class MockApi {
       if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
       // A salon has no GSTIN or Udyam number now: anything sent for them is ignored (ShopService.update)
       const { version: _v, gstin: _g, udyamNumber: _u, ...change } = body
+      // A kirana's GSTIN stays optional ("" removes it); the backend checks its form
+      if (this.shop.type === 'KIRANA' && typeof body.gstin === 'string') {
+        if (body.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(body.gstin)) {
+          return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { gstin: 'is not a valid GSTIN (15 characters, e.g. 27AAPFU0939F1ZV); check for a typo' })
+        }
+        change.gstin = body.gstin || null
+      }
       // ShopService.update: a verified address can't be moved by the owner (409 ADDRESS_LOCKED)
       const moved = ['addressLine', 'area', 'city', 'pincode', 'latitude', 'longitude'].some((k) => change[k] !== undefined && change[k] !== this.shop![k])
       if (moved && this.shop.addressLocked) return fail(409, 'ADDRESS_LOCKED', 'Your address was verified by our field team, so only they can change it. Ask them with Request address change.')
@@ -1194,7 +1229,7 @@ export class MockApi {
       if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
       // The trade licence was matched against the name, owner and address: changing one checks it again
       const matched = ['name', 'ownerName', 'addressLine', 'area', 'pincode'].some((k) => change[k] !== undefined && change[k] !== this.shop![k])
-      const recheckLicence = matched && Boolean(this.shop.registrationDocFileId) && this.shop.registrationDocType === 'TRADE_LICENCE'
+      const recheckLicence = matched && Boolean(this.shop.registrationDocFileId) && this.checkable(this.shop.type as string, this.shop.registrationDocType as string | null)
       this.shop = { ...this.shop, ...change, ...(recheckLicence ? MockApi.licencePending : {}), version: (this.shop.version as number) + 1 }
       return ok(200, this.shop)
     }
@@ -1219,7 +1254,6 @@ export class MockApi {
     }
     if (p === '/shops/me/video' && method === 'PUT') {
       if (!this.shop || this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can change these details.')
-      if (this.shop.type !== 'SALON') return fail(409, 'NOT_A_SALON', 'The salon video is only for salons.')
       if (this.shopChangedOnVideo > 0) {
         // Someone else saved the shop just now: its version moved on
         this.shopChangedOnVideo--
@@ -1236,9 +1270,11 @@ export class MockApi {
     }
     if (p === '/shops/me/registration-document' && method === 'PUT') {
       if (!this.shop || this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can change these details.')
-      if (this.shop.type !== 'SALON') return fail(409, 'NOT_A_SALON', 'The registration document is only for salons.')
       if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
-      if (body.type !== 'TRADE_LICENCE') return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { type: 'must be TRADE_LICENCE: only a municipal trade licence counts' })
+      // A salon's trade licence; a kirana's trade licence or Shops and Establishments certificate (Shop.checkable)
+      if (!this.checkable(this.shop.type as string, body.type)) {
+        return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { type: this.shop.type === 'KIRANA' ? 'must be TRADE_LICENCE or SHOPS_ESTABLISHMENT' : 'must be TRADE_LICENCE: only a municipal trade licence counts' })
+      }
       const f = this.files.find((x) => x.id === body.fileId && x.purpose === 'REG_DOC')
       if (!f) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { fileId: 'must be a photo or PDF uploaded with purpose REG_DOC' })
       // The same licence again: as it is, unless it wasn't accepted (then checked again)
@@ -1250,7 +1286,6 @@ export class MockApi {
     }
     if (p === '/shops/me/registration-document' && method === 'DELETE') {
       if (!this.shop || this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can change these details.')
-      if (this.shop.type !== 'SALON') return fail(409, 'NOT_A_SALON', 'The registration document is only for salons.')
       if (Number(url.searchParams.get('version')) !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
       if (this.shop.registrationDocFileId) {
         if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
@@ -1309,16 +1344,55 @@ export class MockApi {
       this.shop = { ...this.shop, version: (this.shop.version as number) + 1 }
       return ok(201, made)
     }
+    // ShopService.changeType: the owner, a draft never approved; a kirana loses the video and trade licence
+    if (p === '/shops/me/type' && method === 'PUT') {
+      if (!this.shop || this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can change these details.')
+      if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
+      if (body.type === this.shop.type) return ok(200, this.shop)
+      if (this.shop.status !== 'DRAFT' || this.shop.addressLocked) return fail(409, 'WRONG_STATUS', "The kind of shop can only be changed while you're registering, before you submit it.")
+      if (body.type === 'KIRANA' && (this.members.some((m) => m.role === 'BARBER') || this.shopInvites.some((v) => v.role === 'BARBER'))) {
+        return fail(409, 'HAS_BARBERS', 'Your barbers have their own sign-in. Remove it, and cancel their invitations, before changing to a kirana.')
+      }
+      if (body.type === 'SALON' && (this.members.some((m) => m.role === 'HELPER') || this.shopInvites.some((v) => v.role === 'HELPER') || this.kirana.bills.length || this.kirana.products.some((x) => x.active) || this.kirana.customers.some((c) => c.active))) {
+        return fail(409, 'HAS_COUNTER_DATA', 'Your shop already has bills, products, khata customers or helpers (or a helper invited), so it stays a kirana. If it really is a salon, write to support.')
+      }
+      if (++this.typeChanges > 10) return fail(429, 'TOO_MANY_REQUESTS', "You've changed the kind of shop many times today. Try again tomorrow, or write to support.")
+      // Shop.changeType: the photos and video stay (every kind has them); a document this kind checks is checked
+      // again, any other (a kirana's Shops and Establishments certificate going to a salon) is dropped; GSTIN stays
+      const doc = this.shop.registrationDocType as string | null
+      const keepDoc = !doc || doc === 'UDYAM' || this.checkable(body.type, doc)
+      this.shop = {
+        ...this.shop, type: body.type, version: (this.shop.version as number) + 1,
+        ...(!doc || doc === 'UDYAM' ? {} : keepDoc ? MockApi.licencePending : { registrationDocType: null, registrationDocFileId: null, registrationDocCheckedAt: null, licenceCheck: null, licenceCheckReason: null, licenceValidUntil: null }),
+      }
+      return ok(200, this.shop)
+    }
     if (p === '/shops/me/submit') {
       if (!this.shop) return fail(404, 'NO_SHOP', 'You have no shop yet.')
-      // ShopService.submitForVisit: the version first (ownedShop), then what is missing
+      // ShopService.submitForVisit: the owner and the version first (ownedShop), then the status, then what is missing
+      if (this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can change these details.')
       if (body.version !== this.shop.version) return fail(409, 'SHOP_CHANGED', 'Someone changed your shop. Reload and try again.')
-      if (!this.shop.ownerPhotoFileId || !this.shop.shopPhotoFileId || (this.shop.type === 'SALON' && !this.shop.shopVideoFileId)) {
+      if (this.shop.status !== 'DRAFT') return fail(409, 'WRONG_STATUS', `Only a shop still in DRAFT can be submitted; this one is ${this.shop.status as string}.`)
+      const salon = this.shop.type === 'SALON'
+      if (!this.shop.ownerPhotoFileId || !this.shop.shopPhotoFileId || !this.shop.shopVideoFileId) {
         const missing: Json = {}
         if (!this.shop.ownerPhotoFileId) missing.ownerPhotoFileId = "add the owner's photo"
         if (!this.shop.shopPhotoFileId) missing.shopPhotoFileId = 'add a photo of the shop'
-        if (this.shop.type === 'SALON' && !this.shop.shopVideoFileId) missing.shopVideoFileId = 'add a short video of the salon'
-        return fail(409, 'PHOTOS_REQUIRED', "Add the owner's photo, a photo of the shop and a short video of the salon first.", missing)
+        if (!this.shop.shopVideoFileId) missing.shopVideoFileId = salon ? 'add a short video of the salon' : 'add a short video of the shop'
+        return fail(409, 'PHOTOS_REQUIRED', `Add the owner's photo, a photo of the shop and a short video of the ${salon ? 'salon' : 'shop'} first.`, missing)
+      }
+      if (!salon) {
+        // KiranaFacts.registrationGaps: the UPI ID, the food answer, and (selling food) an FSSAI licence not refused
+        const gaps: Json = {}
+        const k = this.kirana
+        if (!k.upiId) gaps.upiId = "add the shop's UPI ID"
+        if (k.sellsFood === null) gaps.sellsFood = 'say whether the shop sells any food items'
+        else if (k.sellsFood && k.fssai.status === 'NONE') gaps.fssai = "add the shop's FSSAI licence: it sells food"
+        else if (k.sellsFood && k.fssai.status === 'REJECTED') gaps.fssai = "the FSSAI certificate wasn't accepted: add the right one"
+        else if (k.sellsFood && k.fssai.status === 'VERIFIED' && k.fssai.validUntil && String(k.fssai.validUntil) < todayIst()) gaps.fssai = 'the FSSAI licence has expired: add the renewed one'
+        if (Object.keys(gaps).length) {
+          return fail(409, 'REGISTRATION_INCOMPLETE', gaps.upiId ? "Add the shop's UPI ID first." : gaps.sellsFood ? 'Say whether the shop sells any food items first.' : `Fix the shop's FSSAI licence first: ${gaps.fssai as string}.`, gaps)
+        }
       }
       if (this.shop.type === 'SALON') {
         const missing: Json = {}
@@ -1346,6 +1420,17 @@ export class MockApi {
       const invite = { id: `i${++this.n}`, phone, role: 'HELPER', staffId: null, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 7 * 86400_000).toISOString() }
       this.shopInvites.push(invite)
       return ok(202, { message: INVITE_ANSWER, invite })
+    }
+    // ShopMembersService: everyone in the shop (owner first); removing a helper signs them out of it
+    if (p === '/shops/me/members' && method === 'GET') {
+      if (this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can do this.')
+      return ok(200, this.members.map((m) => ({ userId: m.userId, name: m.name, phone: m.phone, role: m.role, joinedAt: m.joinedAt ?? '2026-11-01T00:00:00Z' })))
+    }
+    const helperOut = p.match(/^\/shops\/me\/helpers\/([^/]+)$/)
+    if (helperOut && method === 'DELETE') {
+      if (this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can do this.')
+      this.members = this.members.filter((m) => !(m.userId === helperOut[1] && m.role === 'HELPER'))
+      return ok(200, this.members)
     }
     if (p === '/shops/me/invites' && method === 'GET') {
       if (this.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can do this.')
@@ -1497,7 +1582,6 @@ export class MockApi {
       const type = String(body?.contentType ?? '').split(';')[0].trim().toLowerCase()
       if (!['video/mp4', 'video/quicktime', 'video/webm'].includes(type)) return fail(400, 'UNSUPPORTED_FILE_TYPE', 'The video must be MP4, MOV or WebM')
       if (body.sizeBytes > 100 * 1024 * 1024) return fail(413, 'FILE_TOO_LARGE', 'A video can be at most 100 MB')
-      if (this.shop?.type !== 'SALON') return fail(409, 'NOT_A_SALON', 'The salon video is only for salons.')
       // durationSeconds may be null (the phone couldn't read it): then only the size counts
       if (body.durationSeconds !== null && (body.durationSeconds < 14 || body.durationSeconds > 46)) return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { durationSeconds: 'must be 15 to 45 seconds' })
       if (this.videoUploads.size >= 5) return fail(429, 'TOO_MANY_UPLOADS', 'This shop started 5 video uploads today. Try again tomorrow.')
