@@ -5,6 +5,8 @@ import { Page } from '../../components/ui'
 import { useT } from '../../i18n'
 import { can } from '../../lib/roles'
 import { licenceSummary } from '../shop/RegistrationDoc'
+import { FirstTimeHint } from '../guide/FirstTimeHint'
+import { SkippedStepsRow } from '../guide/SkippedStepsRow'
 
 /** The salon's setup: what it offers, who works, and the booking rules. Owner edits; helpers look. */
 export function SetupHub() {
@@ -67,11 +69,15 @@ export function SetupHub() {
   ]
   return (
     <Page title={t('setup.hubTitle')}>
+      <FirstTimeHint screen="salon" text={edit ? t('guide.hintSalon') : t('guide.hintSalonHelper')} />
+      {/* The setup steps skipped on Today, to bring back once that card is gone */}
+      <SkippedStepsRow />
       {!edit && <p className="text-sm text-muted">{t('setup.ownerOnlyChange')}</p>}
       <ul className="flex flex-col gap-2">
         {rows.map((r) => (
           <li key={r.to}>
-            <Link to={r.to} className="flex items-center justify-between rounded-2xl border border-line bg-surface p-4 hover:bg-raised">
+            {/* Each screen's back arrow comes back here (they are opened from Today's setup card and More too) */}
+            <Link to={r.to} state={{ from: '/setup' }} className="flex items-center justify-between rounded-2xl border border-line bg-surface p-4 hover:bg-raised">
               <span className="flex flex-col">
                 <span className="font-semibold">{r.title}</span>
                 <span className="text-sm text-muted">{r.sub}</span>

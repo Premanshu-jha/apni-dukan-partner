@@ -1,17 +1,18 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { messageOf } from '../../api/errors'
-import { useDay, useServices, useStaff } from '../../api/salon'
+import { useDay } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import type { Appointment, BarberColumn } from '../../api/types'
 import { OFFSCREEN_CHEAP } from '../../components/ShowMore'
-import { Banner, Button, Card, Chip, EmptyState, ErrorState, Loading, Page, Pill } from '../../components/ui'
+import { Banner, Button, Chip, EmptyState, ErrorState, Loading, Page, Pill } from '../../components/ui'
 import { addDays, clock12, dateOfIst, dayLabel, isDate, timeIst, todayIst } from '../../lib/ist'
 import { useTodayIst } from '../../lib/useNow'
 import { rupees } from '../../lib/money'
 import { can } from '../../lib/roles'
 import { language, useT } from '../../i18n'
 import { Bell } from '../notifications/Bell'
+import { HelpButton } from '../help/HelpButton'
 import { NotificationsPrompt } from '../profile/Notifications'
 import { HandoverOffers } from '../shop/HandoverOffers'
 import { InviteOffers } from '../shop/InviteOffers'
@@ -24,6 +25,10 @@ import { isLive, pillText, servicesText, statusTone, totalPaise, whoText } from 
 import { NO_ICONS, useServiceIcons, type ServiceIconMap } from './serviceIconMap'
 import { ServiceIcon } from '../../components/ServiceIcon'
 import { iconOf } from '../../lib/serviceIcons'
+import { SetupChecklist, type ChecklistState } from '../guide/SetupChecklist'
+import { Tips, tipsKey } from '../guide/Tips'
+import { useSeen } from '../guide/storage'
+import { useLanguageOffer } from '../guide/languageOffer'
 
 /** How far the board goes back and ahead (customers book up to 30 days ahead; closed days up to 90). */
 const PAST_DAYS = 31
@@ -103,6 +108,41 @@ export function Today() {
   const suspended = shop.status === 'SUSPENDED'
   const waiting = shop.status === 'PENDING_VISIT'
 
+  // The first-time tips: once per account and role, or again from Help (?tips=1, then out of the address so a
+  // reload doesn't open them again)
+  const [tipsSeen, markTipsSeen] = useSeen(tipsKey(shop.myRole))
+  const [tipsAsked, setTipsAsked] = useState(false)
+  const tipsParam = params.get('tips') === '1'
+  if (tipsParam && !tipsAsked) setTipsAsked(true)
+  useEffect(() => {
+    if (!tipsParam) return
+    setParams(
+      (p) => {
+        const next = new URLSearchParams(p)
+        next.delete('tips')
+        return next
+      },
+      { replace: true },
+    )
+  }, [tipsParam, setParams])
+  // One guide card at a time, so a first open is calm. The language offer at the top (someone who never chose one)
+  // comes first: nothing else until it is answered, so a 740 px phone still shows the board's buttons. Then the
+  // owner's needed setup steps (the board is empty until they are done); then the tips (not while waiting for the
+  // visit or off the app: no booking can arrive yet); then the setup card's good-to-do steps. Helpers and barbers:
+  // the tips first (using the board is their job). Tips asked for from Help come at once.
+  const languageOffer = useLanguageOffer((s) => s.open)
+  const [checklist, setChecklist] = useState<ChecklistState>('loading')
+  const setupCard = shop.myRole !== 'BARBER'
+  const tipsFirst = shop.myRole !== 'OWNER' || checklist === 'good' || checklist === 'none'
+  const showTips = tipsAsked || (!tipsSeen && !suspended && !waiting && !languageOffer && tipsFirst)
+  // The salon can take bookings (no needed setup step left): only then is pausing them worth offering. Barbers
+  // have no setup card (and can't pause).
+  const bookable = !setupCard || checklist === 'good' || checklist === 'none'
+  const closeTips = useCallback(() => {
+    setTipsAsked(false)
+    markTipsSeen()
+  }, [markTipsSeen])
+
   const columns = useMemo(() => day.data?.barbers ?? [], [day.data])
   const barber =
     chosenBarber === 'all' || (chosenBarber !== null && columns.some((c) => c.staffId === chosenBarber))
@@ -149,13 +189,17 @@ export function Today() {
   }
 
   return (
-    <Page>
+    <Page ownHelp>
+      {/* Help beside the bell, not in a row of its own above them: the board keeps its room */}
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm text-muted">{shop.name}</p>
           <h1 className="text-xl font-bold">{dayLabel(date)}</h1>
         </div>
-        <Bell />
+        <div className="flex shrink-0 items-center gap-1">
+          <HelpButton />
+          <Bell />
+        </div>
       </div>
 
       {suspended && (
@@ -174,9 +218,12 @@ export function Today() {
       {shop.myRole !== 'OWNER' && <HandoverOffers />}
       {/* An invitation to another shop (accepting says to leave this one first) */}
       {shop.myRole !== 'OWNER' && <InviteOffers />}
-      {!suspended && <NotificationsPrompt />}
-      {shop.myRole === 'OWNER' && <SetupChecklist />}
-      {!suspended && !waiting && rights.pause && <PauseControl />}
+      {showTips && <Tips role={shop.myRole} onClose={closeTips} />}
+      {/* The owner's and helpers' setup card asks about notifications itself (one of its steps): only barbers get this */}
+      {!suspended && !showTips && !languageOffer && !setupCard && <NotificationsPrompt />}
+      {setupCard && <SetupChecklist hidden={showTips || languageOffer} onState={setChecklist} />}
+      {/* Paused: always said, with Resume. "Too busy?" only once customers can book (one next step at a time) */}
+      {!suspended && !waiting && rights.pause && <PauseControl offer={bookable} />}
 
       <div className="flex items-center gap-2">
         <Button variant="secondary" aria-label={t('day.previousDay')} onClick={() => go(addDays(date, -1))} disabled={date <= addDays(today, -PAST_DAYS)}>
@@ -205,7 +252,8 @@ export function Today() {
           title={t('day.noBarbersTitle')}
           body={rights.editSetup ? t('day.noBarbersOwner') : t('day.noBarbersOther')}
           action={
-            rights.editSetup ? (
+            // While the setup card has a needed step, it is the one next step: no second "Add barbers" here
+            rights.editSetup && checklist !== 'needed' ? (
               <Link to="/setup/staff" className="text-link underline">
                 {t('day.addBarbers')}
               </Link>
@@ -410,40 +458,5 @@ function CardServiceIcons({ a, icons }: { a: Appointment; icons: ServiceIconMap 
         <ServiceIcon key={icon} icon={icon} size={18} />
       ))}
     </span>
-  )
-}
-
-/** The owner's to-do list until customers can book: services, barbers, and barbers' skills and hours. */
-function SetupChecklist() {
-  const t = useT()
-  const services = useServices()
-  const staff = useStaff()
-  if (!services.data || !staff.data) return null
-  const anyService = services.data.some((s) => s.active)
-  const activeStaff = staff.data.filter((s) => s.active)
-  const ready = activeStaff.some((s) => s.hours.length > 0 && s.serviceIds.some((id) => services.data.some((v) => v.id === id && v.active)))
-  if (anyService && ready) return null
-  const items = [
-    { done: anyService, text: t('day.setupServices'), to: '/setup/services' },
-    { done: activeStaff.length > 0, text: t('day.setupBarbers'), to: '/setup/staff' },
-    { done: ready, text: t('day.setupHours'), to: '/setup/staff' },
-  ]
-  return (
-    <Card className="flex flex-col gap-2">
-      <p className="font-semibold">{t('day.setupTitle')}</p>
-      <ul className="flex flex-col gap-1">
-        {items.map((i) => (
-          <li key={i.text}>
-            <Link to={i.to} className="flex items-center gap-2 text-sm">
-              <span aria-hidden className={i.done ? 'text-good' : 'text-muted'}>
-                {i.done ? '✓' : '○'}
-              </span>
-              <span className={i.done ? 'text-muted line-through' : 'text-link underline'}>{i.text}</span>
-              <span className="sr-only">{i.done ? t('day.setupDone') : t('day.setupToDo')}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </Card>
   )
 }

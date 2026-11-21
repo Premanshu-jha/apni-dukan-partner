@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { offerKeys, offersApi, refreshOffers, type NewOffer as NewOfferBody, type OfferPreview, type OfferView } from '../../api/offers'
 import { useSalonHours, useServices, useSettings } from '../../api/salon'
@@ -10,6 +10,8 @@ import { addDays, todayIst, weekdayName } from '../../lib/ist'
 import { rupees } from '../../lib/money'
 import { checkOffer, endTime, MAX_DAYS_AHEAD, offerPrice, offerWhen } from './offerText'
 import { serviceName } from '../../lib/serviceName'
+import { unsavedWarning } from '../../lib/unsaved'
+import { cameFrom } from '../shop/Register'
 
 /** The offer in the list is this very one (a lost answer, then a second tap). */
 function sameOffer(o: OfferView, b: NewOfferBody): boolean {
@@ -54,6 +56,12 @@ export function NewOffer() {
   const [preview, setPreview] = useState<OfferPreview | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
+  const location = useLocation()
+  // Back where it was opened from (Today's setup card), else the offers
+  const back = cameFrom(location, '/salon/offers')
+  // Anything changed from how the form opened, not published yet: Back and Help ask first
+  const unsaved =
+    percentText !== '20' || !allServices || serviceIds.length > 0 || startsOn !== today || endsOn !== addDays(today, 2) || someHours || from !== '' || until !== ''
 
   const active = (services.data ?? []).filter((s) => s.active)
   const lastEnd = addDays(today, MAX_DAYS_AHEAD)
@@ -106,10 +114,10 @@ export function NewOffer() {
     }
   }
 
-  if (services.isPending || hours.isPending) return <Page back="/salon/offers" title={t('offers.newOffer')}><Loading /></Page>
+  if (services.isPending || hours.isPending) return <Page back={back} title={t('offers.newOffer')}><Loading /></Page>
   if (services.isError || hours.isError) {
     return (
-      <Page back="/salon/offers" title={t('offers.newOffer')}>
+      <Page back={back} title={t('offers.newOffer')}>
         <ErrorState message={messageOf(services.error ?? hours.error)} onRetry={() => { void services.refetch(); void hours.refetch() }} />
       </Page>
     )
@@ -117,7 +125,7 @@ export function NewOffer() {
 
   const toggle = (id: string) => change(setServiceIds)(serviceIds.includes(id) ? serviceIds.filter((x) => x !== id) : [...serviceIds, id])
   return (
-    <Page back="/salon/offers" title={t('offers.newOffer')}>
+    <Page back={back} title={t('offers.newOffer')} leaveWarning={unsavedWarning(unsaved)}>
       <Card className="flex flex-col gap-3">
         <p className="font-medium" id="percent-label">{t('offers.discount')}</p>
         <div className="flex flex-wrap gap-2" role="group" aria-labelledby="percent-label">

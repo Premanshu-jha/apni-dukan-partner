@@ -7,25 +7,31 @@ import type { Settings } from '../../api/types'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
 import { useT } from '../../i18n'
 import { can } from '../../lib/roles'
+import { useLocation } from 'react-router'
+import { unsavedWarning, useReportUnsaved, useUnsavedParts } from '../../lib/unsaved'
+import { cameFrom } from '../shop/Register'
 
 /** How much notice a booking needs, and how far ahead customers can book. */
 export function Rules() {
   const t = useT()
   const settings = useSettings()
+  const location = useLocation()
+  const [unsaved, report] = useUnsavedParts()
   return (
-    <Page back="/setup" title={t('setup.rulesTitle')}>
+    // Back where it was opened from, else the Salon tab; a changed rule not saved asks first
+    <Page back={cameFrom(location, '/setup')} title={t('setup.rulesTitle')} leaveWarning={unsavedWarning(unsaved)}>
       {settings.isPending ? (
         <Loading />
       ) : settings.isError ? (
         <ErrorState message={messageOf(settings.error)} onRetry={() => settings.refetch()} />
       ) : (
-        <RulesForm settings={settings.data} />
+        <RulesForm settings={settings.data} onDirty={report} />
       )}
     </Page>
   )
 }
 
-function RulesForm({ settings }: { settings: Settings }) {
+function RulesForm({ settings, onDirty }: { settings: Settings; onDirty: (part: string, dirty: boolean) => void }) {
   const t = useT()
   const qc = useQueryClient()
   const edit = can(useShop().myRole).editSetup
@@ -38,6 +44,7 @@ function RulesForm({ settings }: { settings: Settings }) {
   const aheadN = Number(ahead)
   const leadBad = lead === '' || !Number.isInteger(leadN) || leadN < 0 || leadN > 1440
   const aheadBad = ahead === '' || !Number.isInteger(aheadN) || aheadN < 1 || aheadN > 30
+  useReportUnsaved(onDirty, 'rules', edit && (lead !== String(settings.minLeadMinutes) || ahead !== String(settings.maxDaysAhead)))
 
   async function save() {
     setBusy(true)

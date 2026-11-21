@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { explain, isApiError, messageOf } from '../../api/errors'
 import { setupApi, useSalonHours, useServices, useStaff, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
 import { salonShifts } from '../../lib/salonHours'
@@ -15,6 +15,8 @@ import { can } from '../../lib/roles'
 import { dayLink } from '../day/Today'
 import { loginText } from './Staff'
 import { useSession } from '../../store/session'
+import { unsavedWarning, useReportUnsaved, useUnsavedParts } from '../../lib/unsaved'
+import { cameFrom } from '../shop/Register'
 
 /** Every change on this page reloads the barber list, so the next change sends the newest version. */
 function useAfterChange() {
@@ -29,26 +31,31 @@ export function StaffDetail() {
   const staff = useStaff()
   const shop = useShop()
   const edit = can(shop.myRole).editSetup
+  const location = useLocation()
+  // Back where his page was opened from (Today's setup card: "Open Ravi"), else the barbers
+  const back = cameFrom(location, '/setup/staff')
+  // A name, phone, services or hours changed and not saved: Back and Help ask first
+  const [unsaved, report] = useUnsavedParts()
   if (staff.isPending) return <Loading />
   if (staff.isError) return <ErrorState message={messageOf(staff.error)} onRetry={() => staff.refetch()} />
   const s = staff.data.find((x) => x.id === id)
   if (!s) {
     return (
-      <Page back="/setup/staff" title={t('setup.barberTitle')}>
+      <Page back={back} title={t('setup.barberTitle')}>
         <EmptyState title={t('setup.barberGone')} />
       </Page>
     )
   }
   return (
-    <Page back="/setup/staff" title={s.name}>
+    <Page back={back} title={s.name} leaveWarning={unsavedWarning(unsaved)}>
       {/* Each form keeps what was typed; it saves with the newest version the list has. */}
       <Fragment key={s.id}>
-        <NameAndActive s={s} edit={edit} />
+        <NameAndActive s={s} edit={edit} onDirty={report} />
         {edit && <StaffPhoto s={s} />}
         {/* Barbers' sign-in phones come only to the owner */}
-        {edit && <Login s={s} edit={edit} />}
-        <Skills s={s} edit={edit} />
-        <Hours s={s} edit={edit} />
+        {edit && <Login s={s} edit={edit} onDirty={report} />}
+        <Skills s={s} edit={edit} onDirty={report} />
+        <Hours s={s} edit={edit} onDirty={report} />
         {shop.myRole === 'OWNER' && <RemoveBarber s={s} />}
       </Fragment>
     </Page>
@@ -157,11 +164,15 @@ function RemoveBarber({ s }: { s: Staff }) {
   )
 }
 
-function NameAndActive({ s, edit }: { s: Staff; edit: boolean }) {
+/** Told whether a part of the page holds changes not saved yet (the page asks before leaving then). */
+type OnDirty = (part: string, dirty: boolean) => void
+
+function NameAndActive({ s, edit, onDirty }: { s: Staff; edit: boolean; onDirty?: OnDirty }) {
   const t = useT()
   const [name, setName] = useState(s.name)
   const { busy, error, saved, run } = useSaver()
   const changed = name.trim() !== s.name
+  useReportUnsaved(onDirty, 'name', edit && changed)
   return (
     <Card className="flex flex-col gap-3">
       <Field id="staff-edit-name" label={t('setup.barberName')} value={name} maxLength={60} disabled={!edit} onChange={(e) => setName(e.target.value)} />
@@ -208,10 +219,12 @@ function StaffPhoto({ s }: { s: Staff }) {
   )
 }
 
-function Login({ s, edit }: { s: Staff; edit: boolean }) {
+function Login({ s, edit, onDirty }: { s: Staff; edit: boolean; onDirty?: OnDirty }) {
   const t = useT()
   const [phone, setPhone] = useState('')
   const { busy, error, saved, run } = useSaver()
+  // A number typed but not invited yet (it stays typed after inviting only when the invitation failed)
+  useReportUnsaved(onDirty, 'phone', edit && phone.trim() !== '' && !s.loginPhone && !s.invitedPhone)
   const myPhone = useSession((x) => x.user?.phone ?? null)
   const normalized = normalizePhone(phone)
   if (myPhone !== null && s.loginPhone === myPhone) {
@@ -260,12 +273,13 @@ function Login({ s, edit }: { s: Staff; edit: boolean }) {
   )
 }
 
-function Skills({ s, edit }: { s: Staff; edit: boolean }) {
+function Skills({ s, edit, onDirty }: { s: Staff; edit: boolean; onDirty?: OnDirty }) {
   const t = useT()
   const services = useServices()
   const [picked, setPicked] = useState<string[]>(s.serviceIds)
   const { busy, error, saved, inTheWay, run } = useSaver()
   const changed = picked.length !== s.serviceIds.length || picked.some((p) => !s.serviceIds.includes(p))
+  useReportUnsaved(onDirty, 'services', edit && changed)
   const list = services.data?.filter((v) => v.active || s.serviceIds.includes(v.id)) ?? []
   return (
     <Card className="flex flex-col gap-3">
@@ -370,7 +384,7 @@ export function checkWeek(w: Week): string | null {
   return null
 }
 
-function Hours({ s, edit }: { s: Staff; edit: boolean }) {
+function Hours({ s, edit, onDirty }: { s: Staff; edit: boolean; onDirty?: OnDirty }) {
   const t = useT()
   const [week, setWeek] = useState<Week>(() => toWeek(s.hours))
   const salonHours = useSalonHours()
@@ -378,6 +392,7 @@ function Hours({ s, edit }: { s: Staff; edit: boolean }) {
   const { busy, error, saved, inTheWay, run } = useSaver()
   const problem = checkWeek(week)
   const changed = JSON.stringify(fromWeek(week)) !== JSON.stringify(fromWeek(toWeek(s.hours)))
+  useReportUnsaved(onDirty, 'hours', edit && changed)
   const setShift = (d: number, i: number, k: 'start' | 'end', v: string) =>
     setWeek({ ...week, [d]: week[d].map((x, j) => (j === i ? { ...x, [k]: v } : x)) })
   const copyMonday = () => {

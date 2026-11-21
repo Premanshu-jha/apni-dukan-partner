@@ -14,6 +14,7 @@ import { can } from '../../lib/roles'
 import { AppointmentCard, dayLink } from './Today'
 import { statusTextOr } from './status'
 import { useServiceIcons } from './serviceIconMap'
+import { FirstTimeHint } from '../guide/FirstTimeHint'
 
 /** Groups appointments by India date, keeping their order. */
 export function byDate(list: Appointment[]): Array<{ date: string; items: Appointment[] }> {
@@ -34,6 +35,7 @@ export function Bookings() {
   const [tab, setTab] = useState<'upcoming' | 'history'>('upcoming')
   return (
     <Page title={t('day.bookingsTitle')}>
+      <FirstTimeHint screen="bookings" text={can(shop.myRole).history ? t('guide.hintBookingsHistory', { history: t('guide.quoted', { text: t('day.history') }) }) : t('guide.hintBookings')} />
       {can(shop.myRole).history && (
         <div className="flex gap-2" role="group" aria-label={t('day.show')}>
           <Chip selected={tab === 'upcoming'} onClick={() => setTab('upcoming')}>

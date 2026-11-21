@@ -10,6 +10,7 @@ import { Banner, Button, Card, Chip, ErrorState, Field, Loading, Page } from '..
 import { addDays, dateOfIst, dateTimeIst, isDate, istInstant, timeIst, todayIst } from '../../lib/ist'
 import { can } from '../../lib/roles'
 import { t, useT } from '../../i18n'
+import { unsavedWarning } from '../../lib/unsaved'
 
 type Kind = 'BREAK' | 'LEAVE'
 
@@ -76,6 +77,15 @@ export function TimeOff() {
   // A barber comes here from his own column (?staff=); the backend only lets him add breaks for himself.
   const chosen = barbers.find((b) => b.id === staffId) ?? null
   const ownOnly = shop.myRole === 'BARBER'
+  // Anything changed from how the screen opened and not saved: Back and Help ask first
+  const unsaved =
+    staffId !== params.get('staff') ||
+    kind !== 'BREAK' ||
+    date !== startDate ||
+    from !== '13:00' ||
+    to !== '14:00' ||
+    firstDay !== startDate ||
+    lastDay !== startDate
 
   async function save() {
     if (!chosen || busy) return
@@ -109,7 +119,7 @@ export function TimeOff() {
   }
 
   return (
-    <Page back="/salon/day" title={kind === 'BREAK' ? t('day.addBreakTitle') : t('day.addLeaveTitle')}>
+    <Page back="/salon/day" title={kind === 'BREAK' ? t('day.addBreakTitle') : t('day.addLeaveTitle')} leaveWarning={unsavedWarning(unsaved)}>
       {rights.leave && (
         <div className="flex gap-2" role="group" aria-label={t('day.kind')}>
           <Chip selected={kind === 'BREAK'} onClick={() => setKind('BREAK')}>

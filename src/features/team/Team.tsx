@@ -8,6 +8,9 @@ import { Banner, Button, Card, ErrorState, Field, Loading, Page, Sheet, Switch }
 import { useT } from '../../i18n'
 import { dateTimeIst } from '../../lib/ist'
 import { formatPhone, normalizePhone } from '../../lib/phone'
+import { useLocation } from 'react-router'
+import { unsavedWarning } from '../../lib/unsaved'
+import { cameFrom } from '../shop/Register'
 
 /** The words for each role: keys in the language files. */
 const roleText = { OWNER: 'team.roleOwner', HELPER: 'team.roleHelper', BARBER: 'team.roleBarber' } as const
@@ -28,6 +31,7 @@ export function Team() {
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState<Member | null>(null)
   const normalized = normalizePhone(phone)
+  const location = useLocation()
 
   async function act(id: string, call: () => Promise<unknown>, after?: () => void) {
     setBusy(id)
@@ -47,7 +51,8 @@ export function Team() {
   }
 
   return (
-    <Page back="/more" title={t('team.title')}>
+    // Back where it was opened from (Today's setup card), else More; a helper's number typed and not sent asks first
+    <Page back={cameFrom(location, '/more')} title={t('team.title')} leaveWarning={unsavedWarning(phone.trim() !== '')}>
       {members.isPending ? (
         <Loading />
       ) : members.isError ? (

@@ -18,9 +18,10 @@ export function pauseEnd(choice: Choice, now = new Date()): string | null {
 
 /**
  * Pausing stops new online bookings for a while (a rush, a power cut); bookings already made and walk-ins carry on.
- * Owner or helper.
+ * Owner or helper. `offer` false: the "Too busy?" link waits (the salon can't take bookings yet); a pause already on
+ * is still said, with Resume.
  */
-export function PauseControl() {
+export function PauseControl({ offer = true }: { offer?: boolean }) {
   const t = useT()
   const qc = useQueryClient()
   const pause = usePause()
@@ -58,11 +59,11 @@ export function PauseControl() {
             </Button>
           </span>
         </Banner>
-      ) : (
+      ) : offer ? (
         <button type="button" className="self-start text-sm text-muted underline" onClick={() => setOpen(true)}>
           {t('day.pauseLink')}
         </button>
-      )}
+      ) : null}
       {error && !open && <Banner tone="bad">{error}</Banner>}
       <Sheet open={open} title={t('day.pauseTitle')} onClose={() => setOpen(false)}>
         <div className="flex flex-col gap-3">
