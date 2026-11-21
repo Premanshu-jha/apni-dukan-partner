@@ -20,10 +20,7 @@ test('a new owner signs up, registers the salon in five steps and waits for the 
 
   // No shop yet: the start screen
   await expect(page).toHaveURL(/\/start$/)
-  await page.getByRole('button', { name: 'Register my shop' }).click()
-  // "What do you run?" first
-  await expect(page).toHaveURL(/\/register\/kind$/)
-  await page.getByRole('button', { name: /Salon \/ barber shop/ }).click()
+  await page.getByRole('button', { name: 'Register my salon' }).click()
 
   // Step 1: details and the GPS pin
   await expect(page).toHaveURL(/\/register$/)

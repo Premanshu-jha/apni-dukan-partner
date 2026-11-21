@@ -31,9 +31,16 @@ jobs:
         run: npm test
       - name: Build
         run: npx vite build
+      # The kirana switch on (VITE_KIRANA_ENABLED=true) must build too; the default build above has it off
+      - name: Build with the kirana switch on
+        run: npx vite build --outDir dist-kirana
+        env:
+          VITE_KIRANA_ENABLED: 'true'
 
   e2e:
     # A real browser drives the app through the main journeys, against the fake backend in e2e/mockApi.ts.
+    # Two builds (playwright.config.ts): the default one, kirana switch off, runs the salon specs; one built with
+    # VITE_KIRANA_ENABLED=true runs only the kirana specs (e2e/kirana-*.spec.ts).
     # Pinned to 24.04: Playwright 1.56 has no Chromium build for ubuntu-latest (26.04) yet.
     runs-on: ubuntu-24.04
     steps:

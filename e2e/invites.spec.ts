@@ -78,8 +78,8 @@ test('declining, an invitation gone meanwhile, and the message that opens the in
   await expect(page.getByText('The owner cancelled this invitation.')).toBeVisible()
   await expect(page.getByText('Join Hair Studio?')).toHaveCount(0)
 
-  // "I work at a shop": no invitation now
-  await page.getByRole('button', { name: 'I work at a shop' }).click()
+  // "I work at a salon": no invitation now
+  await page.getByRole('button', { name: 'I work at a salon' }).click()
   await page.getByRole('button', { name: "I've been invited, check again" }).click()
   await expect(page.getByText('No invitation for this number yet.')).toBeVisible()
 

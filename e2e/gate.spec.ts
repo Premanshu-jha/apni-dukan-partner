@@ -5,7 +5,7 @@ test('someone who works at a salon sees the number to give the owner, and gets i
   await signedIn(context, api)
   await page.goto('/')
   await expect(page).toHaveURL(/\/start$/)
-  await page.getByRole('button', { name: 'I work at a shop' }).click()
+  await page.getByRole('button', { name: 'I work at a salon' }).click()
   await expect(page.getByText('+91 98480 12345')).toBeVisible()
   await page.getByRole('button', { name: "I've been invited, check again" }).click()
   await expect(page.getByText('No invitation for this number yet.')).toBeVisible()
@@ -16,23 +16,6 @@ test('someone who works at a salon sees the number to give the owner, and gets i
   await expect(page).toHaveURL(/\/salon\/day$/)
   // A fresh token was fetched so it carries the shop
   expect(api.calls.filter((c) => c.path === '/api/v1/auth/refresh').length).toBeGreaterThanOrEqual(2)
-})
-
-test("a kirana's people see only kirana screens, and a salon's only salon screens", async ({ page, context, api }) => {
-  await signedIn(context, api)
-  api.kiranaShop('OWNER')
-  for (const path of ['/', '/salon/day', '/setup', '/salon/walk-in', '/subscription']) {
-    await page.goto(path)
-    await expect(page).toHaveURL(/\/kirana\/counter$/)
-  }
-  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Khata' })).toBeVisible()
-  expect(api.calls.some((c) => c.path.startsWith('/api/v1/salon'))).toBe(false)
-
-  api.approvedSalon('OWNER')
-  const before = api.calls.length
-  await page.goto('/kirana/counter')
-  await expect(page).toHaveURL(/\/salon\/day$/)
-  expect(api.calls.slice(before).some((c) => c.path.startsWith('/api/v1/kirana'))).toBe(false)
 })
 
 test('a helper of a salon not approved yet waits; the owner meanwhile sets up', async ({ page, context, api }) => {
