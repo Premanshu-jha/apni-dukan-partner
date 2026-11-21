@@ -113,5 +113,6 @@
   "emailCodeSentBefore": "हमने कोड इस ईमेल पर भेजा है:",
   "emailCodeSentAfter": ".",
   "emailCode": "ईमेल वाला कोड",
-  "verify": "वेरिफ़ाई करें"
+  "verify": "वेरिफ़ाई करें",
+  "howToAnswers": "कैसे करें…? जवाब"
 }
