@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { fieldError, messageOf } from '../../api/errors'
 import { addOwnerAsBarber, ownProfile, setupApi, useStaff, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
 import { useShop } from '../../api/shop'
@@ -11,6 +11,9 @@ import { formatPhone } from '../../lib/phone'
 import { can } from '../../lib/roles'
 import { useSession } from '../../store/session'
 import type { Shift } from '../../api/types'
+import { FirstTimeHint } from '../guide/FirstTimeHint'
+import { SheetHelpLink } from '../help/HelpButton'
+import { cameFrom } from '../shop/Register'
 
 /** The owner who cuts hair too: one tap adds him (once he is one, nothing shows). */
 function AddMe() {
@@ -59,8 +62,14 @@ export function StaffList() {
   const edit = can(shop.myRole).editSetup
   const staff = useStaff()
   const [adding, setAdding] = useState(false)
+  const location = useLocation()
   return (
-    <Page back="/setup" title={t('setup.barbersTitle')}>
+    // Back where it was opened from (Today's setup card, More), else the Salon tab
+    <Page back={cameFrom(location, '/setup')} title={t('setup.barbersTitle')}>
+      <FirstTimeHint
+        screen="barbers"
+        text={edit ? t('guide.hintBarbers', { add: t('guide.quoted', { text: t('setup.addBarber') }) }) : t('guide.hintBarbersHelper')}
+      />
       {staff.isPending ? (
         <Loading />
       ) : staff.isError ? (
@@ -128,6 +137,8 @@ function AddStaff({ onClose }: { onClose: () => void }) {
         <Button variant="ghost" onClick={onClose}>
           {t('common.cancel')}
         </Button>
+        {/* The sheet covers the screen's Help: its own, here (last, so the sheet still opens on the name) */}
+        <SheetHelpLink dirty={name.trim() !== ''} />
       </div>
     </Sheet>
   )

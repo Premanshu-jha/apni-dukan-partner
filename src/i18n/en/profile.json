@@ -113,5 +113,6 @@
   "emailCodeSentBefore": "We sent a code to",
   "emailCodeSentAfter": ".",
   "emailCode": "Email code",
-  "verify": "Verify"
+  "verify": "Verify",
+  "howToAnswers": "How do I…? Answers"
 }

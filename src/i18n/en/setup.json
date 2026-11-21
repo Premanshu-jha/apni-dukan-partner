@@ -180,5 +180,6 @@
   "toMidnight": "To midnight",
   "removeShift": "Remove {day} shift",
   "tillMidnight": "Till midnight",
-  "saveBarberHours": "Save hours"
+  "saveBarberHours": "Save hours",
+  "minutesHint": "How long one customer takes. The barber is kept free for them that long."
 }

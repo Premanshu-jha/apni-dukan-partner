@@ -1,5 +1,5 @@
 import { addDays, minutesFromNow, todayIst } from './mockApi'
-import { atSalon, expect, signedIn, test } from './helpers'
+import { atSalon, expect, languageKept, signedIn, test } from './helpers'
 
 test('the owner adds a service, edits its price and switches one off', async ({ page, context, api }) => {
   await atSalon(page, context, api)
@@ -36,11 +36,12 @@ test('the owner adds a service, edits its price and switches one off', async ({ 
 })
 
 test('a new owner’s checklist leads through barbers, skills and hours', async ({ page, context, api }) => {
+  await languageKept(context)
   await signedIn(context, api)
   api.approvedSalon()
   api.staff = []
   await page.goto('/salon/day')
-  await expect(page.getByText('Before customers can book')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Get your salon ready' })).toBeVisible()
   await page.getByRole('link', { name: 'Add your barbers' }).click()
   await page.getByRole('button', { name: '+ Add a barber' }).click()
   await page.getByLabel('Name').fill('Ravi')
@@ -71,8 +72,13 @@ test('a new owner’s checklist leads through barbers, skills and hours', async 
   await expect(page.getByText('Invited: +91 90000 00009, waiting for him to accept', { exact: false })).toBeVisible()
   expect(api.calls.find((c) => c.path.endsWith('/login'))!.body).toEqual({ phone: '9000000009' })
 
+  // Customers can book now: the needed steps are gone (the first-time tips come first, then only good-to-do steps)
   await page.goto('/salon/day')
-  await expect(page.getByText('Before customers can book')).toBeHidden()
+  await expect(page.getByRole('region', { name: 'Tips for using the app' })).toBeVisible()
+  await page.getByRole('button', { name: 'Skip tips' }).click()
+  await expect(page.getByRole('heading', { name: 'Get your salon ready' })).toBeVisible()
+  await expect(page.getByText('Needed before customers can book')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Next step' })).not.toContainText(/Add your|Give .* his services|opening hours/)
 })
 
 test('two people editing a barber: the stale save says so and the next one works', async ({ page, context, api }) => {

@@ -5,9 +5,11 @@ import { Banner, Button, Card } from '../../components/ui'
 import { storage } from '../../lib/storage'
 import { t, useT } from '../../i18n'
 
-const DISMISSED = 'adp.pushPromptDismissed'
+/** "Not now" on the day board's card; the setup card's Skip sets it too (one answer, never asked twice). */
+export const DISMISSED = 'adp.pushPromptDismissed'
 
-function useSubscribed() {
+/** Whether this phone gets booking notifications (null while checking). Also the setup card's step. */
+export function useSubscribed() {
   const [on, setOn] = useState<boolean | null>(null)
   useEffect(() => {
     void currentSubscription().then((s) => setOn(Boolean(s)))
@@ -15,7 +17,7 @@ function useSubscribed() {
   return [on, setOn] as const
 }
 
-function resultText(r: PushResult): string | null {
+export function resultText(r: PushResult): string | null {
   if (r === 'denied') return t('profile.pushDenied')
   if (r === 'unsupported') return t('profile.pushUnsupported')
   if (r === 'not-configured') return t('profile.pushNotConfigured')

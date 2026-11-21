@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { explain, isApiError, messageOf } from '../../api/errors'
 import { dayApi, salonKeys, refreshSalonWork } from '../../api/salon'
 import type { InTheWay } from '../../api/types'
@@ -8,12 +8,15 @@ import { AHEAD_DAYS } from './Today'
 import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
 import { useT } from '../../i18n'
 import { addDays, dateOfIst, dateTimeIst, dayLabel, timeIst, todayIst } from '../../lib/ist'
+import { cameFrom } from '../shop/Register'
 
 /** Close the whole salon for a day (a festival, a family function). Owner only. */
 export function Closures() {
   const t = useT()
+  const location = useLocation()
   return (
-    <Page back="/more" title={t('day.closedDays')}>
+    // Back where it was opened from (the Salon tab, More), else More
+    <Page back={cameFrom(location, '/more')} title={t('day.closedDays')}>
       <ClosedDaysEditor />
     </Page>
   )

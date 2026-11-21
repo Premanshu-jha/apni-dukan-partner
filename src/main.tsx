@@ -11,6 +11,7 @@ import { UpdatePrompt } from './components/UpdatePrompt'
 import { forgetThisPerson } from './features/profile/signOut'
 import { refreshSalonWork } from './api/salon'
 import { shopKeys } from './api/shop'
+import { helpKeys } from './api/help'
 import { restoreLanguage } from './i18n'
 import { startKiranaTexts } from './i18n/kirana'
 import { LanguageToast } from './i18n/LanguageToast'
@@ -87,11 +88,18 @@ async function start() {
   void registerWorker()
   // A message arrived while the app is open: refresh the bell, the day and the shop it may be about.
   // Only what the message is about: a booking (SALON_*) → the day in view and one delta of the coming-up list;
-  // shop news (SHOP_*) → the shop and hand-over requests. Never every page of every list.
+  // shop news (SHOP_*) → the shop and hand-over requests; support's reply (PARTNERHELP_*) → My requests (one read,
+  // shared by Help's dot). Never every page of every list.
   navigator.serviceWorker?.addEventListener('message', (e: MessageEvent<{ kind?: string; type?: string | null }>) => {
     if (e.data?.kind !== 'push') return
     void queryClient.invalidateQueries({ queryKey: ['inbox'] })
     const type = e.data.type ?? ''
+    // Support replied (PARTNERHELP_*): My requests, so Help's dot shows on a counter phone left open all day; that
+    // one list only (the day and the shop aren't what it is about)
+    if (type.startsWith('PARTNERHELP_')) {
+      void queryClient.invalidateQueries({ queryKey: helpKeys.mine, exact: true })
+      return
+    }
     if (!type.startsWith('SHOP_')) refreshSalonWork(queryClient)
     if (!type.startsWith('SALON_')) {
       void queryClient.invalidateQueries({ queryKey: shopKeys.mine, exact: true })

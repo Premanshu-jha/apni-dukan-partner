@@ -12,6 +12,8 @@ import { ServiceIcon } from '../../components/ServiceIcon'
 import { priceNow, walkInTotal } from '../../lib/walkIn'
 import { newIdempotencyKey } from './status'
 import { serviceName } from '../../lib/serviceName'
+import { FirstTimeHint } from '../guide/FirstTimeHint'
+import { unsavedWarning } from '../../lib/unsaved'
 
 /**
  * A customer who walked in: pick the services, then a barber who is free now (or see when each is next free), and
@@ -41,6 +43,8 @@ export function WalkIn() {
   const [toldPrice, setToldPrice] = useState<number | null>(null)
   // One key per walk-in being added: a retry after a lost answer can't add it twice.
   const key = useRef(newIdempotencyKey())
+  // Something ticked, typed or picked and not added yet: Back and Help ask first
+  const unsaved = chosenIds.length > 0 || name.trim() !== '' || staffId !== null
 
   const active = services.data?.filter((s) => s.active) ?? []
   // A service the owner switched off meanwhile drops out of the choice (it can't be booked any more).
@@ -137,6 +141,7 @@ export function WalkIn() {
     <Page
       back="/salon/day"
       title={t('day.walkInTitle')}
+      leaveWarning={unsavedWarning(unsaved)}
       footer={
         active.length > 0 && !notAllowed ? (
           <div className="flex flex-col gap-2">
@@ -188,6 +193,8 @@ export function WalkIn() {
         ) : undefined
       }
     >
+      {/* Only where a walk-in can be added (not to a barber the owner hasn't allowed) */}
+      <FirstTimeHint screen="walkIn" text={t('guide.hintWalkIn')} show={!services.isPending && active.length > 0 && !notAllowed} />
       {services.isPending ? (
         <Loading />
       ) : services.isError ? (

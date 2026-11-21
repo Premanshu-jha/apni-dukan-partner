@@ -13,6 +13,7 @@ import { formatPhone } from '../../lib/phone'
 import { can } from '../../lib/roles'
 import { t, useT } from '../../i18n'
 import { useNow } from '../../lib/useNow'
+import { helpHref } from '../help/links'
 import { kindText, servicesText, statusText, statusTextOr, totalPaise, whoText } from './status'
 
 type Mode = 'menu' | 'start' | 'finish' | 'noShow' | 'reassign' | 'cancel' | 'removeBlock'
@@ -308,6 +309,26 @@ export function AppointmentSheet({
             }
             onNo={() => setMode('menu')}
           />
+        )}
+        {/* Help from the booking itself (the sheet covers the screen's Help button): its number and time go with it */}
+        {mode === 'menu' && !block && (
+          <button
+            type="button"
+            className="min-h-11 text-sm text-link underline"
+            onClick={() =>
+              navigate(
+                helpHref({
+                  // Back to this booking's day after sending (not today's)
+                  from: `/salon/day?date=${dateOfIst(a.startsAt)}`,
+                  about: a.bookingNo ? t('help.topicBooking', { number: a.bookingNo }) : t('help.topicWalkIn'),
+                  text: `${a.bookingNo ? `${a.bookingNo} · ` : ''}${dateTimeIst(a.startsAt)} · ${servicesText(a)}${barberName ? ` · ${barberName}` : ''}\n`,
+                  write: true,
+                }),
+              )
+            }
+          >
+            {t('help.sheetHelp')}
+          </button>
         )}
       </div>
     </Sheet>

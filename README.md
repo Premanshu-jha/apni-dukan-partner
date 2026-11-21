@@ -142,8 +142,44 @@ there, and reviews walk the list against the code.
 | Hand over the shop | `/shop/handover` | Owner (any status) |
 | Take over a shop (requests to my number) | `/handover`, and at the top of Start and the day board | Anyone signed in, shop or not |
 | Messages | `/notifications` | Everyone |
+| Help: Write to us, My requests, searchable answers (`?write=1` opens the form; `from`, `topic`, `about`, `text` fill it) | `/help`, `/help/requests` | Everyone signed in (answers only for the screens each role can open) |
+| Share your salon: link (WhatsApp, share sheet, copy), QR poster (share, download, print) | `/salon/share` | Everyone in a salon |
 
 ## Flows
+
+### The app guides itself
+
+Nobody should need training, so every screen says where help is and what to do next:
+
+- **Help on every screen.** `Page` puts "? Help" at the top right of every screen (Today: beside the bell). Signed
+  out it opens Contact. A dot on it says support replied and the reply hasn't been opened yet (`lastReplyAt` newer
+  than when the person last opened that request, also when the reply resolved it): one cached read of My requests
+  when the app opens, when it comes back to the front (2-minute stale time, no polling) and when support's reply
+  arrives as a notification while the app is open. A screen with changes not saved (opening hours, walk-in, a
+  barber's page, new offer, break, booking rules, team, salon details) asks "Leave without saving?" before Help or
+  Back; the add/edit sheets (New service, New barber) have their own Help link, asking the same when something was
+  typed.
+- **The help page answers first.** "Write to us" (the existing form, drafts and files), My requests with counts,
+  then about 30 how-to answers you can search, for the person's role, each with "Take me there". Answers quote the screens' own button texts
+  (filled in from their text keys), so they stay right in every language. Opened from a screen, its answers come
+  first and a question is already about that screen. A screen's own "Write to us" opens the form directly.
+- **Every error offers support.** `ErrorState` adds "Still not working? Write to us" with the error filled in.
+- **Get your salon ready** (Today, owner and helpers): what customers need before they can book (services, barbers,
+  one barber customers can book — the Share page's rule — and opening hours), then what is good to do (every other
+  working barber's services and hours, opening the exact barber; notifications; team sign-in; sharing; a first offer),
+  with "3 of 7 done" and one next step. Skipped steps can be brought back (on the card, or on the Salon tab once the
+  card is gone). Each step's screen comes back to Today with its back arrow. A list it needs that fails to load is
+  said ("Couldn't check your setup. Try again"); nothing says "ready" while the salon is off the app.
+- **First-time tips** on Today per role (owner and helper, barber), once per account; Help's "Show the app tips
+  again" opens them (`/salon/day?tips=1`). One-line hints, once each, on Bookings, Salon, Services, Barbers,
+  Walk-in, Offers and Opening hours. Only one guide card shows on Today at a time, and the language offer (someone
+  who never chose a language) counts as the first; while needed steps are left there is no second "Add barbers" and
+  no "Too busy? Pause online bookings".
+- **Share your salon** (Salon tab, More, the setup card): the customer link on WhatsApp or the share sheet, and a QR
+  poster for the counter drawn on the phone (A5 at 300 dpi, black on white, error correction Q). It says plainly
+  when customers can't find or book the salon yet (waiting for approval, off the app, unpaid, paused, nothing to book).
+
+Marks for "seen" and skips are kept on the phone per account (a shared phone keeps each person's own).
 
 ### Who sees what after sign-in
 
@@ -525,6 +561,26 @@ and keeps whatever was typed.
   (`docs/translation-review.md` lists what to look at first).
 
 ## Changelog
+
+### Unreleased — the app guides itself
+
+The reply dot reads `lastReplyAt` from `GET /helpdesk/tickets` (apni-dukan-backend, this round); an older backend
+without it still works (a WAITING request counts as replied). The customer app's salon search uses the backend's new
+`q` (apni-dukan-backend V85).
+
+- **Help on every screen** (beside the bell on Today), with a dot when support replied; signed out it opens Contact.
+- **The help page answers first:** Write to us, My requests with counts, about 30 searchable how-to answers by role
+  with "Take me there" and "Show the app tips again". Help opened from a screen fills in what it is about, and a
+  draft someone typed is never replaced. Screens' own "Write to us" links open the form directly.
+- **Errors offer support:** "Still not working? Write to us" under every error, the error filled in.
+- **More:** Need help right under the salon card; Services and prices, Opening hours and Barbers linked there too.
+- **Get your salon ready** on Today: needed and good-to-do steps, progress, the exact barber still missing services
+  or hours (needed until one barber can be booked, then good to do), skips that can be brought back; the old "Before
+  customers can book" list is replaced. Its screens come back to Today; the Salon tab's and More's come back there.
+- **Nothing typed is lost to Help:** screens with a form ask before leaving; form sheets have their own Help.
+- **First-time tips** on Today per role, and one-line hints on the main screens.
+- **Share your salon:** WhatsApp, share sheet, copy link, and a printable QR poster, with what customers will see in
+  every state.
 
 ### Unreleased — kirana switch
 

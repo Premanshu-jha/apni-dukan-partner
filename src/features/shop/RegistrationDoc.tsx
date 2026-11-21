@@ -8,6 +8,7 @@ import { Banner, Card, Spinner } from '../../components/ui'
 import { t, useT } from '../../i18n'
 import { shrinkPhoto } from '../../lib/image'
 import { fullDate } from '../../lib/ist'
+import { useWriteToUsHref } from '../help/HelpButton'
 
 /** The backend takes files up to 10 MB. */
 export const MAX_DOC_BYTES = 10 * 1024 * 1024
@@ -188,6 +189,7 @@ function CheckingBanner({ since, now }: { since?: string | null; now: number }) 
 
 /** The licence's state, in a banner (and, when it wasn't accepted for a name or an address, what was read). */
 export function LicenceStatus({ shop, now = Date.now() }: { shop: LicenceShop; now?: number }) {
+  const writeToUs = useWriteToUsHref()
   const t = useT()
   switch (licenceState(shop)) {
     case 'NONE':
@@ -218,7 +220,7 @@ export function LicenceStatus({ shop, now = Date.now() }: { shop: LicenceShop; n
                   : t('shop.licenceReadNames', { names: names || t('shop.licenceReadNoName') })}
               </span>
             )}
-            <Link to="/help" className="text-link underline">
+            <Link to={writeToUs} className="text-link underline">
               {t('shop.writeToSupport')}
             </Link>
           </span>

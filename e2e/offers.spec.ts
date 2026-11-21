@@ -93,7 +93,8 @@ test('the form checks itself before asking: a last day before the first, missing
   await page.getByRole('switch', { name: 'All services' }).click()
   await expect(page.getByText('Pick at least one service, or choose all services.')).toBeVisible()
   await expect(preview).toBeDisabled()
-  expect(api.calls.some((c) => c.path.startsWith('/api/v1/salon/offers'))).toBe(false)
+  // (Today's setup card reads the offers list: GET, not the form asking)
+  expect(api.calls.some((c) => c.path.startsWith('/api/v1/salon/offers') && !(c.method === 'GET' && c.path === '/api/v1/salon/offers'))).toBe(false)
 })
 
 test('the owner ends a running offer early, after a second tap; a helper sees offers but cannot make or end them', async ({ page, context, api }) => {
