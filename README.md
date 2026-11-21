@@ -12,8 +12,9 @@ One app for everyone in a salon, each seeing only their part:
 | Helper | The owner invites their number in Team; they accept | The day board and its actions, breaks, pause; setup to look at, not change |
 | Barber | The owner invites his number on his barber page; he accepts | His own bookings and his own breaks (everyone's day if the owner gave him walk-in access) |
 
-On `main` the app is for salons. Kiranas (grocery and general stores) are built on the `kirana-partner` branch: a
-kirana's people see only kirana screens (counter, bills, products, khata) and a salon's only salon screens. Customers use [apni-dukan-customer](https://github.com/Premanshu-jha/apni-dukan-customer);
+There is one app branch, `main`. As released it is for salons; the kiranas' side (grocery and general stores: the
+counter, bills, products, khata) is in it too, behind the [kirana switch](#kirana-switch), off by default. With it
+on, a kirana's people see only kirana screens and a salon's only salon screens. Customers use [apni-dukan-customer](https://github.com/Premanshu-jha/apni-dukan-customer);
 the field team (approvals, strike support) will use the admin app.
 
 ## Run it on your laptop
@@ -33,7 +34,39 @@ npm run dev                    # http://localhost:5174 (5173 is the customer app
 | `VITE_SUPPORT_EMAIL` | The support address shown under "Need help" (More, the form). Default `support@clozest.in` | `support@clozest.in` |
 | `VITE_MAP_TILES` | Map tiles for the location pin. Default OpenStreetMap's, fine for low traffic (see its tile policy) | empty |
 
+| `VITE_KIRANA_ENABLED` | The [kirana switch](#kirana-switch): `true` turns the kiranas' side on. Off when unset (anything but `true` is off) | `false` |
+
 All are public values baked into the page at build time. No secret ever goes in this app.
+
+### Kirana switch
+
+`VITE_KIRANA_ENABLED` (build-time) decides whether this build serves kiranas. **Off by default**: unset, empty or
+anything but `true` is off.
+
+- **Off** (production today): the salon app, nothing of the kiranas'. Start says "I own a salon" and goes straight to
+  the salon's details (no "What do you run?"); there are no kirana tabs, routes or links (an old `/kirana/...` link is
+  "Page not found"); the app makes no `/kirana/...` call and never downloads a kirana screen. A shop that is a kirana
+  anyway sees only "Kirana shops aren't on Clozest yet", with help and Sign out.
+- **On**: the kirana partner app as it was on the `kirana-partner` branch: "What do you run?", kirana registration,
+  the counter, bills, products, khata, Team, UPI ID and Licences.
+
+To turn it on, set `VITE_KIRANA_ENABLED=true` where the app is built (`.env.local` for `npm run dev`, the host's
+variables on Railway) and build again: the value is baked in, so changing it needs a new build. **It must match the
+backend's `KIRANA_ENABLED`**: with the backend's off, its kirana paths answer 404 `KIRANA_OFF`, and a kirana screen
+would only show errors.
+
+In the code the switch is asked in a few places only: `kiranaOn()` and `shopTypeOn()` in `src/lib/config.ts`; the
+kirana routes in `src/app/kiranaRoutes.tsx` (each kirana screen there is a `React.lazy` download of its own); the
+bottom bar (`tabsFor` in `src/app/Shell.tsx`); the type picker (`pickedKind` in `src/features/shop/Register.tsx`,
+always a salon when off, and its "Registering a … · Change" line); Start's words (`startWords`); the shop gate
+(`ShopGate`, and `RegisterLayout` for a draft); and forgetting the counter's cart at sign-out. Everything else that is
+a kirana's shows only for a shop of type `KIRANA`, which never gets past the gate when off.
+
+Tests: `src/lib/config.test.ts` (the switch) and `src/kiranaSwitch.test.tsx` (the routes, tabs, type picker, Start and
+the gate, both ways). Playwright builds the app twice: the `salon` project (the default build, switch off, port 4173)
+runs every spec but `e2e/kirana-*.spec.ts`, among them `e2e/no-kirana.spec.ts` (no kirana choice, no `/kirana/...`
+page, no kirana call or download); the `kirana` project (built with `VITE_KIRANA_ENABLED=true` into `dist-kirana`,
+port 4174) runs only `e2e/kirana-*.spec.ts`. `npm run e2e` runs both; `--project=salon` or `--project=kirana` one.
 
 The backend must allow this app's address in `CORS_ALLOWED_ORIGINS`: add `http://localhost:5174` for local work,
 and the deployed address once it is online.
@@ -79,11 +112,11 @@ there, and reviews walk the list against the code.
 | Contact, Terms, Privacy, Refund policy, Delivery | `/contact`, `/terms`, `/privacy`, `/refunds`, `/delivery` | Public (Razorpay's website check) |
 | Sign in, code, email, name | `/signin`, `/signin/code`, `/welcome/*` | Everyone (same as the customer app); links to the public pages at the bottom |
 | Start (no shop yet) | `/start` | New people |
-| What do you run? (Kirana or Salon; again from "Change" on any step until Submit) | `/register/kind` | New owners, owner of a draft |
+| What do you run? (Kirana or Salon; again from "Change" on any step until Submit) | `/register/kind` | New owners, owner of a draft (kirana switch on only) |
 | Register: details, photos, submit (a salon also services and hours; a kirana its UPI ID) | `/register`, `/register/photos`, `/register/services`, `/register/hours`, `/register/upi`, `/register/review` | Owner of a draft |
-| Kirana: Counter, Bills, Products, Khata (the bottom bar) | `/kirana/counter`, `/kirana/bills`, `/kirana/products`, `/kirana/khata` | A kirana's owner and helpers |
-| Kirana: a bill, the day's totals, a product, a new product, a khata customer | `/kirana/bills/:id`, `/kirana/day?date=`, `/kirana/products/:id`, `/kirana/products/new?barcode=&name=&from=`, `/kirana/khata/:id` | A kirana's owner and helpers (owner-only changes hidden from helpers) |
-| Kirana: Team, UPI ID | `/kirana/team`, `/kirana/upi` | A kirana's owner |
+| Kirana: Counter, Bills, Products, Khata (the bottom bar) | `/kirana/counter`, `/kirana/bills`, `/kirana/products`, `/kirana/khata` | A kirana's owner and helpers (kirana switch on only) |
+| Kirana: a bill, the day's totals, a product, a new product, a khata customer | `/kirana/bills/:id`, `/kirana/day?date=`, `/kirana/products/:id`, `/kirana/products/new?barcode=&name=&from=`, `/kirana/khata/:id` | A kirana's owner and helpers (owner-only changes hidden from helpers; kirana switch on only) |
+| Kirana: Team, UPI ID | `/kirana/team`, `/kirana/upi` | A kirana's owner (kirana switch on only) |
 | Today (the day board) | `/salon/day?date=` | Everyone |
 | New walk-in | `/salon/walk-in` | Owner; others with walk-in access |
 | Add a break or leave | `/salon/time-off` | Breaks: everyone (a barber for himself); leave: owner |
@@ -225,7 +258,8 @@ docs/         scenarios.md
 `ShopGate` loads `GET /shops/me` once (re-read when the app comes back into view, every 30 s at most) and gives
 the shop to every screen through `ShopContext`. `Home` sends each state and role to its first screen (the first
 flow above); `PastRegistration` keeps board screens closed until the salon is submitted (owner) or approved
-(others); `RoleOnly` keeps a role out of screens it can't use. The backend checks the same rules and has the final
+(others); `RoleOnly` keeps a role out of screens it can't use; with the kirana switch off a kirana shop sees only
+"Kirana shops aren't on Clozest yet" (`shopTypeOn`). The backend checks the same rules and has the final
 say (`OWNER_ONLY`, `WALK_INS_NOT_ALLOWED`, `NOT_ALLOWED`).
 
 ### Files and the token
@@ -476,6 +510,13 @@ and keeps whatever was typed.
   (`docs/translation-review.md` lists what to look at first).
 
 ## Changelog
+
+### Unreleased — kirana switch
+
+- **One app branch.** The kirana partner app is merged into `main` behind the [kirana switch](#kirana-switch)
+  (`VITE_KIRANA_ENABLED`, off by default; it must match the backend's `KIRANA_ENABLED`). Off, the app is the salon app
+  as in 0.29.0, and the kirana screens are separate downloads salon partners never fetch (the main download is
+  about 30% smaller than with them in it). No more `kirana-partner` branch.
 
 ### Kirana branch — 2026-11-20, languages (not released; `kirana-partner` only)
 

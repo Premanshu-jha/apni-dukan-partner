@@ -2,6 +2,8 @@
 
 Scope: everything a kirana owner or helper can run into in the partner app's round 1. That covers "What do you run?", registering as a kirana (and changing the kind by mistake), the counter, products and stock, the khata book, bills and the day's totals, the team, and the UPI ID. Each row is checked against the backend (`kirana` branch, README "The kirana counter" and "How shops work") and this app.
 
+All of it needs the kirana switch on (`VITE_KIRANA_ENABLED=true`, and the backend's `KIRANA_ENABLED`); off (the default) the app is the salon app (`docs/scenarios.md` rows 3 and 4). These rows' e2e tests run in the Playwright `kirana` project.
+
 How to read the columns:
 - **API behaviour** comes from the backend's code.
 - **App behaviour** comes from this app (`src/features/kirana/**`, `src/features/shop/KiranaRegister.tsx`, `src/api/kirana.ts`, `src/lib/kirana.ts`).
@@ -23,7 +25,7 @@ Rounds 2 (online orders, earnings and payouts) and 3 (stock from distributors' b
 |---|---|---|---|---|---|---|
 | 1.1 | A new owner on Start | `GET /shops/me` 404 NO_SHOP | "I own a shop" leads to `/register/kind`, which offers two big cards: Kirana / general store, Salon / barber shop | — | e2e:kirana-register "a kirana owner answers…" | OK-tested |
 | 1.2 | Picks one before anything is saved | nothing is sent | The answer is kept on this phone, tagged with the person (`adp.registerKind`), and step 1 opens in that kind's words | — | same | OK-tested |
-| 1.3 | Opens `/register` without having picked | — | Sent to "What do you run?" first | — | e2e:edges "an unsaved registration draft…" | OK-tested |
+| 1.3 | Opens `/register` without having picked | — | Sent to "What do you run?" first | — | e2e:kirana-gate "with the switch on, Start says…" | OK-tested |
 | 1.4 | Shared phone: the next person signs in | — | The kind and the typed draft are forgotten at sign-out, and the next person is asked again | — | same | OK-tested |
 | 1.5 | Picked the wrong kind: changes it from any step before Submit | `PUT /shops/me/type` 200; photos and video stay, a trade licence is checked again for the new kind | Every step shows "Registering a … · Change". Changing asks first and says what stays and what goes; afterwards the owner lands on the first step the new kind still needs (a kirana: Licences) | SIT theOwnerChangesKiranaToSalon…, theVideoAndATradeLicenceStay… | e2e:kirana-register "picked salon by mistake…" | OK-tested |
 | 1.6 | Changes back to a salon | 200; a Shops and Establishments certificate (a kirana's only) is removed, unless it is also the FSSAI certificate's file | The question says so; a UPI ID and food answer stay saved in case they change back | SIT theVideoAndATradeLicenceStay…, oneUploadUsedAsBoth… | e2e:kirana-register "picked salon by mistake…" (the question) | OK-tested (removal); OK-untested (the salon's steps after) |
@@ -143,7 +145,7 @@ Rounds 2 (online orders, earnings and payouts) and 3 (stock from distributors' b
 | 7.2 | Owner removes a helper | DELETE 200 | Asks first; the helper is signed out of the shop at once; a refusal shows inside the question | ShopIT | e2e:kirana-book "the owner invites a helper…" (the name goes; signing out and the refusal untested) | OK-tested (removal) |
 | 7.3 | More for a kirana | — | Team, Day's totals, UPI ID, Licences (owner); "Photos and video"; no subscription or salon links | — | e2e:gate (helper's More) | OK-tested |
 | 7.4 | Verified shop changes its UPI ID | 403 EDIT_LOCKED without the code | The UPI ID page is inside EditGate (the phone code first) | KIT aVerifiedKiranasUpiId… | — | OK-untested (app) |
-| 7.5 | A salon's people at `/kirana/*`, a kirana's at salon paths | 409 NOT_A_KIRANA / NOT_A_SALON | Sent home; no call of the other kind is made | KIT, SalonIT | e2e:gate "a kirana's people see only kirana screens…" | OK-tested |
+| 7.5 | A salon's people at `/kirana/*`, a kirana's at salon paths | 409 NOT_A_KIRANA / NOT_A_SALON | Sent home; no call of the other kind is made | KIT, SalonIT | e2e:kirana-gate "a kirana's people see only kirana screens…" | OK-tested |
 
 ## 8. Languages on the kirana screens
 
