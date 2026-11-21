@@ -44,9 +44,10 @@ import {
 } from './addressPin'
 import { signOutHere } from '../profile/signOut'
 import { kiranaOn, shopTypeOn } from '../../lib/config'
+import { withKiranaTexts } from '../../i18n/kirana'
 
 /** A kirana's last step: its own download (kirana switch on only; off, no kirana reaches registration). */
-const KiranaReview = lazy(() => import('./KiranaRegister').then((m) => ({ default: m.KiranaReview })))
+const KiranaReview = lazy(() => withKiranaTexts(import('./KiranaRegister')).then((m) => ({ default: m.KiranaReview })))
 
 /** The map library is big and only registration needs it: loaded when this screen shows the map. */
 const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ default: m.PinMap })))

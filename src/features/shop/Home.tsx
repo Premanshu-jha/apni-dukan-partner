@@ -7,6 +7,7 @@ import { useShop } from '../../api/shop'
 import { Button, Card, EmptyState, Loading, Page } from '../../components/ui'
 import { CopyCode } from '../../components/CopyCode'
 import { useT } from '../../i18n'
+import { withKiranaTexts } from '../../i18n/kirana'
 import { readyForVisit } from '../../lib/salonVideo'
 import { signOutHere } from '../profile/signOut'
 import { HandoverOffers } from './HandoverOffers'
@@ -31,7 +32,9 @@ export function Home() {
 }
 
 /** A kirana's owner back to his registration (KiranaRegister): its own download, kirana switch on only. */
-const ResumeKiranaRegistration = lazy(() => import('./KiranaRegister').then((m) => ({ default: m.ResumeKiranaRegistration })))
+const ResumeKiranaRegistration = lazy(() =>
+  withKiranaTexts(import('./KiranaRegister')).then((m) => ({ default: m.ResumeKiranaRegistration })),
+)
 
 /**
  * An owner coming back to a registration he started: straight to the first step not done yet (photos and video,
