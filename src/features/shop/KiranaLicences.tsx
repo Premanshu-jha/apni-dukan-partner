@@ -10,6 +10,7 @@ import { hasText, language, t, useT } from '../../i18n'
 import { shrinkPhoto } from '../../lib/image'
 import { cameFrom, SentBack, Steps } from './Register'
 import { shopAsk } from './TeamReasons'
+import { useWriteToUsHref } from '../help/HelpButton'
 import {
   CHECK_AGAIN_REASONS,
   docKind,
@@ -579,12 +580,14 @@ export function KiranaLicencesPage() {
   const t = useT()
   const location = useLocation()
   const [busy, setBusy] = useState(false)
+  // Straight to the message form, and back here after sending (not the help page's start)
+  const writeToUs = useWriteToUsHref()
   return (
     <Page back={cameFrom(location, '/more')} title={t('kiranaRegister.licencesTitle')} leaveWarning={busy ? t('kiranaRegister.leaveDuringUpload') : null}>
       <KiranaLicences onBusy={setBusy} />
       <p className="text-sm text-muted">
         {t('kiranaRegister.licencesPageNote')}{' '}
-        <Link to="/help" className="text-link underline">
+        <Link to={writeToUs} className="text-link underline">
           {t('kiranaRegister.licencesPageSupport')}
         </Link>
       </p>

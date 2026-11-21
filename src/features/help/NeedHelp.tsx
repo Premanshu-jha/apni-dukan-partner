@@ -4,15 +4,20 @@ import { authApi } from '../../api/auth'
 import { useSession } from '../../store/session'
 import { AttachmentPicker, useAttachments } from './Attach'
 import { cleanedLength, sendError } from './text'
-import { helpApi, helpKeys } from '../../api/help'
+import { helpApi, helpKeys, useMyRequests } from '../../api/help'
+import { useMyShop } from '../../api/shop'
 import { useQueryClient } from '@tanstack/react-query'
 import { isApiError, messageOf } from '../../api/errors'
 import type { HelpTicket } from '../../api/types'
-import { Banner, Button, Field, Page, TextArea } from '../../components/ui'
+import { Banner, Button, Card, Field, Page, TextArea } from '../../components/ui'
 import { SUPPORT_EMAIL } from '../../lib/config'
 import { storage } from '../../lib/storage'
 import { rememberReturn } from '../auth/flow'
 import { spaceBefore, useT } from '../../i18n'
+import { HelpIcon } from './HelpButton'
+import { HowToAnswers } from './HowTo'
+import { safeFrom } from './links'
+import { unreadReplies, useHelpSeen } from './seen'
 
 /** The backend's limits (TicketService): a message of 10 to 5,000 characters, a subject of at most 100. */
 const MESSAGE_MIN = 10
@@ -21,15 +26,116 @@ const SUBJECT_MAX = 100
 /** What this person typed, kept until it's sent, so leaving or a failed send never loses it (never shown to another). */
 const draftKey = (userId: string) => `pd.helpDraft.${userId}`
 
-/**
- * /help: "Need help" — the partner writes to support; it becomes a ticket (CLZ-1042) and our reply comes by email.
- * Support sees their salon and role with the ticket, so they needn't type the shop code. Opened from More
- * (`?about=` fills the subject).
- */
 /** Set when leaving to finish the profile with files picked (they can't come along). */
 const FILES_DROPPED = 'pd.helpFilesDropped'
 
+/**
+ * A kept draft. `auto` is what the app itself filled in (the screen's subject, an error's words): a draft that is
+ * still only that is not the person's own writing, so a later Help from another screen may fill it in afresh.
+ */
+interface Draft {
+  subject: string
+  message: string
+  auto?: { subject: string; message: string }
+}
+
+/** The person typed (or changed) something in it: never replaced without asking. */
+export function typedByThem(d: Draft | null): boolean {
+  if (!d || (!d.subject.trim() && !d.message.trim())) return false
+  return !(d.auto && d.auto.subject === d.subject && d.auto.message === d.message)
+}
+
+/**
+ * /help: "Need help". First what can be done at once: "Write to us" (the message form), My requests with what's
+ * waiting, and the how-to answers for this person's role, searchable, each with "Take me there". The form opens at
+ * once when the address says what to write (`about`, `text` or `write=1`: an error's "Write to us", a booking's
+ * "Problem with this?", any other screen's link). See links.ts for everything /help takes.
+ */
 export function NeedHelp() {
+  const [params] = useSearchParams()
+  const writing = params.has('about') || params.has('text') || params.get('write') === '1'
+  return writing ? <WriteToUs /> : <HelpHome />
+}
+
+/** The help page's top: the actions first, then the answers. */
+function HelpHome() {
+  const t = useT()
+  const [params, setParams] = useSearchParams()
+  const user = useSession((s) => s.user)!
+  const shop = useMyShop()
+  const from = safeFrom(params.get('from'))
+  const topic = params.get('topic')?.slice(0, SUBJECT_MAX) || null
+  const started = typedByThem(storage.getJson<Draft>(draftKey(user.id)))
+  // Opens the form in this same page, as a step of its own: Back comes back here
+  const write = (extra: { about?: string; text?: string } = {}) =>
+    setParams((p) => {
+      const next = new URLSearchParams(p)
+      next.set('write', '1')
+      // Their own message waiting: just open it (the screen's subject would only ask whether to replace it)
+      const about = extra.about ?? (started ? null : topic)
+      if (about) next.set('about', about)
+      if (extra.text) next.set('text', extra.text)
+      return next
+    })
+  return (
+    <Page title={t('help.title')} back={from ? true : '/'}>
+      <div className="flex flex-col gap-1">
+        <Button className="min-h-14 text-lg" onClick={() => write()}>
+          <HelpIcon />
+          {started ? t('help.continueMessage') : t('help.writeToUs')}
+        </Button>
+        <p className="text-center text-sm text-muted">
+          {topic && !started ? `${t('help.writeAbout', { topic })} · ` : ''}
+          {t('help.writeHint')}
+        </p>
+      </div>
+      <RequestsCard userId={user.id} />
+      {/* What they searched for becomes the subject: the message is theirs to write (no "too short" before they do) */}
+      {shop.data && <HowToAnswers shop={shop.data} from={from} onAsk={(q) => write({ about: q.slice(0, SUBJECT_MAX) })} />}
+      <p className="text-center text-sm text-muted">
+        {t('help.orEmailUsAt')}{' '}
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="text-link underline [overflow-wrap:anywhere]">
+          {SUPPORT_EMAIL}
+        </a>
+      </p>
+    </Page>
+  )
+}
+
+/** My requests in one line: how many are with us and how many we answered (a new answer stands out). */
+function RequestsCard({ userId }: { userId: string }) {
+  const t = useT()
+  const list = useMyRequests()
+  const seen = useHelpSeen((s) => s.seen)
+  const load = useHelpSeen((s) => s.load)
+  useEffect(() => load(userId), [load, userId])
+  const open = list.data?.filter((r) => r.status === 'OPEN').length ?? 0
+  const replied = list.data?.filter((r) => r.status === 'WAITING').length ?? 0
+  const fresh = unreadReplies(list.data, seen).length
+  return (
+    <Link to="/help/requests" state={{ from: true }} className="block">
+      <Card className="flex items-center justify-between gap-3 hover:bg-raised">
+        <span className="flex min-w-0 flex-col">
+          <span className="font-semibold">{t('help.myRequests')}</span>
+          <span className="text-sm text-muted">
+            {list.data === undefined
+              ? t('help.requestsSub')
+              : list.data.length === 0
+                ? t('help.noRequests')
+                : t('help.requestsCounts', { open, replied })}
+          </span>
+          {fresh > 0 && <span className="text-sm font-semibold text-accent">{t('help.newReplies', { count: fresh })}</span>}
+        </span>
+        <span aria-hidden className="shrink-0 text-muted">
+          ›
+        </span>
+      </Card>
+    </Link>
+  )
+}
+
+/** The message form (as it always was), opened from Help's "Write to us" or straight from a link. */
+function WriteToUs() {
   const t = useT()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -39,12 +145,26 @@ export function NeedHelp() {
   const setUser = useSession((s) => s.setUser)
   const DRAFT_KEY = draftKey(user.id)
   const files = useAttachments()
-  // A link that says what it's about wins over an older, different draft (the same one, back from a detour, stays)
-  const draft = storage.getJson<{ subject: string; message: string }>(DRAFT_KEY)
-  const saved = !params.has('about') || draft?.subject === params.get('about') ? draft : null
-  const [subject, setSubject] = useState(saved?.subject || params.get('about') || '')
+  const from = safeFrom(params.get('from'))
+  // What the link fills in (subject at most what the backend takes)
+  const [offered] = useState(() => ({ subject: (params.get('about') ?? '').slice(0, SUBJECT_MAX), message: params.get('text') ?? '' }))
+  // A draft the person wrote is never replaced: it stays, and they are asked whether to start the linked one instead.
+  // The same one again (back from a detour), or one that is only what the app filled in, isn't asked about.
+  const [start] = useState(() => {
+    const draft = storage.getJson<Draft>(DRAFT_KEY)
+    const linked = Boolean(offered.subject || offered.message)
+    if (typedByThem(draft)) {
+      const same = draft!.subject === offered.subject || !offered.subject
+      const sameText = !offered.message || draft!.message.includes(offered.message.trim())
+      return { draft: draft!, ask: linked && !(same && sameText) }
+    }
+    return { draft: linked ? { ...offered, auto: offered } : draft, ask: false }
+  })
+  const [asking, setAsking] = useState(start.ask)
+  const [auto, setAuto] = useState(start.draft?.auto)
+  const [subject, setSubject] = useState(start.draft?.subject || '')
   const heading = useRef<HTMLHeadingElement | null>(null)
-  const [message, setMessage] = useState(saved?.message || '')
+  const [message, setMessage] = useState(start.draft?.message || '')
   const [busy, setBusy] = useState(false)
   // Back from finishing the profile: the words were kept, the files couldn't be (they go with the page)
   const [error, setError] = useState<string | null>(() => {
@@ -63,9 +183,9 @@ export function NeedHelp() {
 
   useEffect(() => {
     if (done) return
-    if (subject.trim() || message.trim()) storage.setJson(DRAFT_KEY, { subject, message })
+    if (subject.trim() || message.trim()) storage.setJson(DRAFT_KEY, { subject, message, auto } satisfies Draft)
     else storage.remove(DRAFT_KEY)
-  }, [subject, message, done, DRAFT_KEY])
+  }, [subject, message, auto, done, DRAFT_KEY])
 
   useEffect(() => {
     if (done) heading.current?.focus()   // the form is gone: screen readers hear the ticket number
@@ -140,7 +260,8 @@ export function NeedHelp() {
         >
           {t('help.seeInMyRequests')}
         </Button>
-        <Button variant="secondary" onClick={() => navigate('/', { replace: true })}>
+        {/* Back to the screen Help was opened from (else Home) */}
+        <Button variant="secondary" onClick={() => navigate(from ?? '/', { replace: true })}>
           {t('common.done')}
         </Button>
       </Page>
@@ -155,6 +276,28 @@ export function NeedHelp() {
       <p className="text-muted">
         {t('help.intro')}
       </p>
+      {asking && (
+        <Banner tone="info">
+          <p>{t('help.draftKept')}</p>
+          <div className="mt-2 flex flex-wrap gap-x-4">
+            <button
+              type="button"
+              className="min-h-11 text-left text-link underline"
+              onClick={() => {
+                setSubject(offered.subject)
+                setMessage(offered.message)
+                setAuto(offered)
+                setAsking(false)
+              }}
+            >
+              {offered.subject ? t('help.draftReplace', { about: offered.subject }) : t('help.draftReplacePlain')}
+            </button>
+            <button type="button" className="min-h-11 text-link underline" onClick={() => setAsking(false)}>
+              {t('help.draftKeep')}
+            </button>
+          </div>
+        </Banner>
+      )}
       <form onSubmit={send} className="flex flex-col gap-4" noValidate>
         <Field
           id="help-subject"

@@ -4,7 +4,7 @@ import { useRequestsForBadge } from '../../api/help'
 import { ShopContext } from '../../api/shop'
 import { useT } from '../../i18n'
 import { missingSteps, useSession } from '../../store/session'
-import { helpHref, isHelpPage, isKiranaScreen, topicFor } from './links'
+import { helpHref, isHelpPage, isKiranaScreen, shopKindHere, topicFor } from './links'
 import { unreadReplies, useHelpSeen } from './seen'
 
 /** A question mark in a circle: help, without reading. */
@@ -33,7 +33,9 @@ export function HelpButton({ topic, leaveWarning }: { topic?: string; leaveWarni
   const status = useSession((s) => s.status)
   const user = useSession((s) => s.user)
   const shop = useContext(ShopContext)
-  if (isHelpPage(location.pathname) || isKiranaScreen(location.pathname, shop?.type)) return null
+  // A kirana registering has no shop yet on step 1: what was picked says it is a kirana's screen
+  const kind = shopKindHere(location.pathname, shop?.type, user?.id)
+  if (isHelpPage(location.pathname) || isKiranaScreen(location.pathname, kind)) return null
   const ready = status === 'signedIn' && user !== null && missingSteps(user).length === 0
   const to = ready
     ? helpHref({ from: location.pathname + location.search, topic: topic ?? topicFor(location.pathname) ?? undefined })
@@ -52,6 +54,41 @@ export function HelpButton({ topic, leaveWarning }: { topic?: string; leaveWarni
       {ready && user && <RepliedDot userId={user.id} />}
     </Link>
   )
+}
+
+/**
+ * "Help" inside a form sheet (New service, New barber, editing one), which covers the screen's own Help at the top
+ * right: the same help page, about this screen, and back here after. Something typed in the sheet: it asks first,
+ * with the same question as leaving the screen (the sheet and what was typed in it go when the help page opens).
+ */
+export function SheetHelpLink({ dirty }: { dirty: boolean }) {
+  const t = useT()
+  const location = useLocation()
+  const to = helpHref({ from: location.pathname + location.search, topic: topicFor(location.pathname) ?? undefined })
+  return (
+    <Link
+      to={to}
+      onClick={(e) => {
+        if (dirty && !window.confirm(t('help.leaveUnsaved'))) e.preventDefault()
+      }}
+      className="inline-flex min-h-11 items-center gap-1.5 self-end px-1 text-sm text-link underline"
+    >
+      <HelpIcon />
+      {t('help.button')}
+    </Link>
+  )
+}
+
+/**
+ * Where a screen's own "Write to us" / "Ask us" link goes: straight to the form (not the answers first: the person has
+ * already said they want to write), about this screen, and back here after sending.
+ */
+export function useWriteToUsHref(): string {
+  const location = useLocation()
+  const shop = useContext(ShopContext)
+  const userId = useSession((s) => s.user?.id)
+  const kind = shopKindHere(location.pathname, shop?.type, userId)
+  return helpHref({ write: true, from: location.pathname + location.search, topic: topicFor(location.pathname, kind) ?? undefined })
 }
 
 function RepliedDot({ userId }: { userId: string }) {

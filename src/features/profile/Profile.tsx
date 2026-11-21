@@ -18,6 +18,7 @@ import { useSession } from '../../store/session'
 import { NotificationsRow } from './Notifications'
 import { licenceSummary } from '../shop/RegistrationDoc'
 import { signOutHere } from './signOut'
+import { helpHref } from '../help/links'
 import { LANGUAGES, useLanguage, useT } from '../../i18n'
 import { GlobeIcon, LanguagePicker } from '../../i18n/LanguagePicker'
 
@@ -96,6 +97,10 @@ export function Profile() {
     owner && { to: '/kirana/licences', text: t('profile.linkKiranaLicences') },
     { to: '/notifications', text: t('profile.linkMessages') },
   ] : [
+    // Where owners look for setup first (it is also the Salon tab): services, hours and barbers
+    rights.seeSetup && { to: '/setup/services', text: t('setup.servicesTitle') },
+    rights.seeSetup && { to: '/setup/hours', text: t('setup.hoursTitle') },
+    rights.seeSetup && { to: '/setup/staff', text: t('setup.barbersTitle') },
     rights.team && { to: '/team', text: t('profile.linkTeam') },
     rights.closures && { to: '/salon/closures', text: t('profile.linkClosures') },
     rights.seeSetup && { to: '/salon/offers', text: t('profile.linkOffers') },
@@ -103,6 +108,36 @@ export function Profile() {
     !rights.seeSetup && { to: '/salon/info', text: t('profile.linkSalonInfo') },
     { to: '/notifications', text: t('profile.linkMessages') },
   ]).filter(Boolean) as Array<{ to: string; text: string }>
+
+  // Help: for a salon right under the salon card; for a kirana where it always was
+  const helpCard = (
+    <Card className="flex flex-col gap-1">
+      <p className="font-medium">{t('profile.needHelp')}</p>
+      <p className="text-sm text-muted">
+        {t(kirana ? 'profile.needHelpBodyKirana' : 'profile.needHelpBody')}
+      </p>
+      <div className="flex flex-wrap gap-x-4">
+        <Link to={helpHref({ from: '/more', write: true })} className="inline-flex min-h-11 items-center text-sm text-link underline">
+          {t('profile.writeToSupport')}
+        </Link>
+        <Link to="/help/requests" state={{ from: true }} className="inline-flex min-h-11 items-center text-sm text-link underline">
+          {t('profile.myRequests')}
+        </Link>
+        {/* The how-to answers are for a salon's screens */}
+        {!kirana && (
+          <Link to={helpHref({ from: '/more' })} className="inline-flex min-h-11 items-center text-sm text-link underline">
+            {t('profile.howToAnswers')}
+          </Link>
+        )}
+      </div>
+      <p className="text-sm text-muted">
+        {t('profile.orEmailBefore')}{' '}
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="text-link underline [overflow-wrap:anywhere]">
+          {SUPPORT_EMAIL}
+        </a>
+      </p>
+    </Card>
+  )
 
   return (
     <Page title={t('profile.title')}>
@@ -186,6 +221,9 @@ export function Profile() {
         )}
       </Card>
 
+      {/* Help right under the salon card: seen without scrolling, the salon card still first (a kirana's More as before) */}
+      {!kirana && helpCard}
+
       <ul className="flex flex-col gap-2">
         {links.map((l) => (
           <li key={l.to}>
@@ -255,24 +293,7 @@ export function Profile() {
 
       {!kirana && <SubscriptionRow />}
 
-      <Card className="flex flex-col gap-1">
-        <p className="font-medium">{t('profile.needHelp')}</p>
-        <p className="text-sm text-muted">
-          {t(kirana ? 'profile.needHelpBodyKirana' : 'profile.needHelpBody')}
-        </p>
-        <Link to="/help" className="text-sm text-link underline">
-          {t('profile.writeToSupport')}
-        </Link>
-        <Link to="/help/requests" state={{ from: true }} className="text-sm text-link underline">
-          {t('profile.myRequests')}
-        </Link>
-        <p className="text-sm text-muted">
-          {t('profile.orEmailBefore')}{' '}
-          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-link underline [overflow-wrap:anywhere]">
-            {SUPPORT_EMAIL}
-          </a>
-        </p>
-      </Card>
+      {kirana && helpCard}
 
       <div className="flex flex-col gap-2">
         <Button variant="secondary" busy={busy} onClick={() => out(false)}>

@@ -10,6 +10,8 @@ import { storage } from '../../lib/storage'
 import { useSession } from '../../store/session'
 import { AttachmentPicker, MessageFiles, useAttachments } from './Attach'
 import { cleanedLength, sendError } from './text'
+import { unreadReplies, useHelpSeen } from './seen'
+import { helpHref } from './links'
 import { useT } from '../../i18n'
 
 /** The backend's limits for adding to a request (TicketService.addToMine). */
@@ -35,6 +37,11 @@ function StatusPill({ status }: { status: MyRequest['status'] }) {
 export function MyRequests() {
   const t = useT()
   const list = useMyRequests()
+  const user = useSession((s) => s.user)!
+  const seen = useHelpSeen((s) => s.seen)
+  const load = useHelpSeen((s) => s.load)
+  useEffect(() => load(user.id), [load, user.id])
+  const fresh = new Set(unreadReplies(list.data, seen).map((r) => r.id))
   // ← goes back where they came from (Profile, More, Need help); opened from a link or after sending, to Home
   const cameFrom = (useLocation().state as { from?: unknown } | null)?.from === true
   return (
@@ -51,7 +58,7 @@ export function MyRequests() {
           title={t('help.noRequests')}
           body={t('help.noRequestsBody')}
           action={
-            <Link to="/help" className="text-link underline">
+            <Link to={helpHref({ write: true })} className="text-link underline">
               {t('help.writeToSupport')}
             </Link>
           }
@@ -68,7 +75,10 @@ export function MyRequests() {
                 >
                   <span className="flex items-center justify-between gap-2">
                     <span className="text-sm text-muted">{r.number}</span>
-                    <StatusPill status={r.status} />
+                    <span className="flex items-center gap-2">
+                      {fresh.has(r.id) && <span className="text-xs font-semibold text-accent">{t('help.newReply')}</span>}
+                      <StatusPill status={r.status} />
+                    </span>
                   </span>
                   <span className="font-medium [overflow-wrap:anywhere]">{r.subject || t('help.yourQuestion')}</span>
                   <span className="text-sm text-muted">{t('help.lastMessage', { when: dateTimeIst(r.lastMessageAt) })}</span>
@@ -77,7 +87,7 @@ export function MyRequests() {
             ))}
           </ul>
           {list.data!.length >= 30 && <p className="text-center text-sm text-muted">{t('help.latest30')}</p>}
-          <Link to="/help" className="text-center text-link underline">
+          <Link to={helpHref({ write: true })} className="text-center text-link underline">
             {t('help.askNew')}
           </Link>
         </>
@@ -126,6 +136,13 @@ export function RequestDetail() {
     if (text.trim()) storage.setJson(key, text)
     else storage.remove(key)
   }, [text, key])
+
+  // Read: the Help button's "Support replied" dot goes for this reply (it comes back with support's next one)
+  const markSeen = useHelpSeen((s) => s.mark)
+  const seenTicket = detail.data?.ticket
+  useEffect(() => {
+    if (seenTicket) markSeen(user.id, seenTicket.id, seenTicket.lastMessageAt)
+  }, [markSeen, user.id, seenTicket])
 
   if (detail.isPending) {
     return (
