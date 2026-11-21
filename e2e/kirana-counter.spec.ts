@@ -149,7 +149,9 @@ test('the bill being made stays on this phone, and the next person signed in nev
   await page.goto('/more')
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
   await expect(page).toHaveURL(/\/signin$/)
-  expect(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('adp.kiranaCart')))).toEqual([])
+  // Forgotten by the kirana module, loaded on its own a moment after sign-out
+  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('adp.kiranaCart'))))
+    .toEqual([])
 })
 
 test('a helper can take up to ₹10 off; more is the owner’s', async ({ page, context, api }) => {

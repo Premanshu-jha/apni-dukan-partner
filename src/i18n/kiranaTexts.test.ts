@@ -60,6 +60,15 @@ describe("the kiranas' words", () => {
     expect(await i18n.setLanguage('hi')).toBe(true)
     expect(i18n.t('kiranaCounter.title')).toBe('kiranaCounter.title')
     expect(i18n.t('error.KHATA_LIMIT', {}, 'From the server')).toBe('From the server')
+    // Shared backend messages a salon meets stay with the salon's words (the helper limit: shops/ShopInvitesService)
+    for (const shared of [
+      'A shop can have up to 10 helpers, counting invitations still waiting. Remove or cancel one first.',
+      'Only the shop owner can add the shop video.',
+      'This shop uploaded 100 files today. Try again tomorrow.',
+    ]) {
+      expect(i18n.t(`server.${shared}`, {}, 'missing'), shared).not.toBe('missing')
+      expect(i18n.t(`server.${shared}`), shared).not.toBe(shared)
+    }
   })
 
   it('are there with the switch on: English at start-up, another language with its own download, and kept with it', async () => {
