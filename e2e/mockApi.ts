@@ -182,12 +182,14 @@ export interface MockTicket {
   status: 'OPEN' | 'WAITING' | 'RESOLVED'
   createdAt: string
   lastMessageAt: string
+  /** TicketService.MyTicket.lastReplyAt: support's latest message (null: none yet), whatever the status */
+  lastReplyAt: string | null
   messages: Array<{ seq: number; fromSupport: boolean; supportName: string | null; body: string; attachments: number; at: string; files?: ShownFile[] }>
 }
 
 /** TicketService.MyTicket */
 function myTicket(t: MockTicket) {
-  return { id: t.id, number: t.number, subject: t.subject, status: t.status, createdAt: t.createdAt, lastMessageAt: t.lastMessageAt }
+  return { id: t.id, number: t.number, subject: t.subject, status: t.status, createdAt: t.createdAt, lastMessageAt: t.lastMessageAt, lastReplyAt: t.lastReplyAt }
 }
 
 export class MockApi {
@@ -199,12 +201,18 @@ export class MockApi {
   /** Messages of theirs in the last hour, new questions included (TicketService: 429 TOO_MANY_MESSAGES past 20). */
   addedThisHour = 0
   /** A support reply on a ticket, as the admin website would add it (it then waits on the customer). */
-  supportReplies(ticket: MockTicket, body: string, name = 'Neha') {
-    ticket.messages.push({ seq: ticket.messages.length + 1, fromSupport: true, supportName: name, body, attachments: 0, at: new Date().toISOString() })
-    ticket.status = 'WAITING'
-    ticket.lastMessageAt = new Date().toISOString()
+  supportReplies(ticket: MockTicket, body: string, name = 'Neha', status: 'WAITING' | 'RESOLVED' = 'WAITING') {
+    const at = new Date().toISOString()
+    ticket.messages.push({ seq: ticket.messages.length + 1, fromSupport: true, supportName: name, body, attachments: 0, at })
+    ticket.status = status
+    ticket.lastMessageAt = at
+    ticket.lastReplyAt = at
     // TicketService.notifyReplied: "Support replied" in this app's list (never the reply's words)
     this.inbox.unshift({ id: `n${++this.n}`, type: 'PARTNERHELP_REPLIED', title: `Support replied on ${ticket.number}`, body: 'We replied to your question. Tap to read it.', url: `/help/requests/${ticket.id}`, sentAt: new Date().toISOString(), read: false })
+  }
+  /** A reply that also resolves the ticket (the admin website's "Reply and resolve"): lastReplyAt moves, status RESOLVED. */
+  supportRepliesAndResolves(ticket: MockTicket, body: string, name = 'Neha') {
+    this.supportReplies(ticket, body, name, 'RESOLVED')
   }
   /** Someone else's ticket (to check it is never shown). */
   addOthersTicket(): MockTicket {
@@ -215,7 +223,7 @@ export class MockApi {
     const n = 1001 + this.tickets.length
     const at = new Date().toISOString()
     const t: MockTicket = {
-      id: `t${n}`, number: `CLZ-${n}`, owner, app, subject, message, status: 'OPEN', createdAt: at, lastMessageAt: at,
+      id: `t${n}`, number: `CLZ-${n}`, owner, app, subject, message, status: 'OPEN', createdAt: at, lastMessageAt: at, lastReplyAt: null,
       messages: [{ seq: 1, fromSupport: false, supportName: null, body: message, attachments: 0, at }],
     }
     this.tickets.push(t)

@@ -288,3 +288,24 @@ test('a verified kirana changes its papers only after the phone code', async ({ 
   await expect(page.getByRole('dialog', { name: "Confirm it's you" })).toBeVisible()
   expect(api.kirana.sellsFood).toBe(false)
 })
+
+test('registering a kirana: no salon Help on step 1 before the draft exists, and its own help says "shop details"', async ({ page, context, api }) => {
+  await signedIn(context, api, 'KIRANA')
+  await page.goto('/register')
+  await expect(page.getByRole('heading', { name: 'Register your shop' })).toBeVisible()
+  // The salon's Help (salon answers, "salon details") isn't offered on a kirana's step
+  await expect(page.getByRole('link', { name: /^Help/ })).toHaveCount(0)
+  const help = page.getByRole('link', { name: 'Need help? Write to support' })
+  const q = new URLSearchParams((await help.getAttribute('href'))!.split('?')[1])
+  expect(q.get('topic')).toBe('Registering: shop details')
+  expect(q.get('write')).toBe('1')
+})
+
+test('More → Licences: "Write to support" opens the message form and comes back after sending', async ({ page, context, api }) => {
+  await atCounter(page, context, api)
+  await page.goto('/kirana/licences')
+  const link = page.getByRole('link', { name: 'Questions? Write to support' })
+  await expect(link).toHaveAttribute('href', /^\/help\?(?=.*write=1)(?=.*from=%2Fkirana%2Flicences)/)
+  await link.click()
+  await expect(page.getByLabel('Your message')).toBeVisible()
+})

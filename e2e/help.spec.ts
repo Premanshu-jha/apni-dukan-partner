@@ -16,7 +16,7 @@ test('More → Write to support: the message becomes a ticket, kept while typed,
   await page.getByRole('button', { name: 'Send to support' }).dblclick()
   await expect(page.getByRole('heading', { name: 'Sent: ticket CLZ-1001' })).toBeVisible()
   expect(api.tickets.map(({ app, subject, message }) => ({ app, subject, message }))).toEqual([{ app: 'PARTNER', subject: 'Payout', message: 'My payout for last week has not arrived yet.' }])
-  await page.goto('/help')
+  await page.goto('/help?write=1')
   await expect(page.getByLabel('Your message')).toHaveValue('')   // sent: the draft is gone
 })
 
@@ -62,14 +62,14 @@ test('My requests: from More or Need help; support replies show; adding sends it
   await page.getByRole('button', { name: 'Send' }).click()
   await expect(page.getByText('With our support team')).toBeVisible()
 
-  await page.goto('/help')
+  await page.goto('/help?write=1')
   await page.getByRole('link', { name: 'Asked before? See My requests and our replies' }).click()
   await expect(page).toHaveURL(/\/help\/requests$/)
 })
 
 test('after sending, "See it in My requests"; someone else\'s request is never shown', async ({ page, context, api }) => {
   await atSalon(page, context, api)
-  await page.goto('/help')
+  await page.goto('/help?write=1')
   await page.getByLabel('Your message').fill('The app shows the wrong opening hours.')
   await page.getByRole('button', { name: 'Send to support' }).click()
   await page.getByRole('button', { name: 'See it in My requests' }).click()
@@ -81,7 +81,7 @@ test('after sending, "See it in My requests"; someone else\'s request is never s
 
 test('the arrows never go round: after sending, the request ← list ← Home', async ({ page, context, api }) => {
   await atSalon(page, context, api)
-  await page.goto('/help')
+  await page.goto('/help?write=1')
   await page.getByLabel('Your message').fill('The app shows the wrong opening hours.')
   await page.getByRole('button', { name: 'Send to support' }).click()
   await page.getByRole('button', { name: 'See it in My requests' }).click()
@@ -104,7 +104,7 @@ test('"Support replied" is in the notifications and opens the request', async ({
 
 test('a photo and a video go with a question and show in My requests', async ({ page, context, api }) => {
   await atSalon(page, context, api)
-  await page.goto('/help')
+  await page.goto('/help?write=1')
   await page.getByLabel('Your message').fill('The day board shows the wrong barber.')
   await page.locator('#help-files').setInputFiles([
     { name: 'board.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]) },
