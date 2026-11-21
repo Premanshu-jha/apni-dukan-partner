@@ -32,6 +32,8 @@ export function SetupHub() {
       ]
     : []
   const rows = [
+    // First: how to bring customers in (also in More)
+    { to: '/salon/share', title: t('share.title'), sub: t('share.setupRowSub') },
     ...salonRows,
     {
       to: '/setup/services',

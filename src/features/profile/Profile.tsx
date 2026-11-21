@@ -101,6 +101,7 @@ export function Profile() {
     rights.seeSetup && { to: '/setup/services', text: t('setup.servicesTitle') },
     rights.seeSetup && { to: '/setup/hours', text: t('setup.hoursTitle') },
     rights.seeSetup && { to: '/setup/staff', text: t('setup.barbersTitle') },
+    { to: '/salon/share', text: t('share.moreLink') },
     rights.team && { to: '/team', text: t('profile.linkTeam') },
     rights.closures && { to: '/salon/closures', text: t('profile.linkClosures') },
     rights.seeSetup && { to: '/salon/offers', text: t('profile.linkOffers') },
@@ -227,7 +228,8 @@ export function Profile() {
       <ul className="flex flex-col gap-2">
         {links.map((l) => (
           <li key={l.to}>
-            <Link to={l.to} className="flex items-center justify-between rounded-2xl border border-line bg-surface p-4 hover:bg-raised">
+            {/* Each screen's back arrow comes back to More (the same screens open from the Salon tab too) */}
+            <Link to={l.to} state={{ from: '/more' }} className="flex items-center justify-between rounded-2xl border border-line bg-surface p-4 hover:bg-raised">
               {l.text}
               <span aria-hidden className="text-muted">
                 ›
