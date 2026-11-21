@@ -180,5 +180,6 @@
   "toMidnight": "आधी रात तक",
   "removeShift": "{day} की शिफ़्ट हटाएँ",
   "tillMidnight": "आधी रात तक",
-  "saveBarberHours": "समय सेव करें"
+  "saveBarberHours": "समय सेव करें",
+  "minutesHint": "एक ग्राहक में कितना समय लगता है। उतनी देर बार्बर उसी ग्राहक के लिए खाली रखा जाता है।"
 }
