@@ -38,6 +38,8 @@ vi.mock('../profile/Notifications', () => ({ NotificationsPrompt: () => null }))
 vi.mock('../shop/HandoverOffers', () => ({ HandoverOffers: () => null }))
 vi.mock('../shop/InviteOffers', () => ({ InviteOffers: () => null }))
 vi.mock('./Pause', () => ({ PauseControl: () => null }))
+// The setup card has its own tests (Today.guide.test.tsx); held at "loading" here, so the tips wait too
+vi.mock('../guide/SetupChecklist', () => ({ SetupChecklist: () => null }))
 vi.mock('../subscription/SubscriptionBanner', () => ({ SubscriptionBanner: () => null }))
 vi.mock('./AppointmentSheet', () => ({
   AppointmentSheet: ({ a, gone }: { a: Appointment; gone: boolean }) => (

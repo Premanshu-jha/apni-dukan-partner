@@ -41,6 +41,16 @@ export async function signedIn(context: BrowserContext, api: MockApi, registerin
   }, [session, registering, api.user.id] as const)
 }
 
+/**
+ * A language already chosen on this phone (English), so the language offer at the top of the tabs isn't open: what a
+ * returning person sees. Without it, the offer is the first thing on Today and the guide's cards wait for it.
+ */
+export async function languageKept(context: BrowserContext) {
+  await context.addInitScript(() => {
+    if (!localStorage.getItem('language')) localStorage.setItem('language', 'en')
+  })
+}
+
 /** Signed in as someone in an approved salon, on the day board. */
 export async function atSalon(page: Page, context: BrowserContext, api: MockApi, role: Role = 'OWNER') {
   await signedIn(context, api)
