@@ -34,12 +34,61 @@ const accountKey = (userId: string) => `language:${userId}`
 export const unsyncedKey = (userId: string) => `language.unsynced:${userId}`
 const english: Messages = {}
 for (const [path, content] of Object.entries(
-  import.meta.glob<Messages[string]>('./en/*.json', { eager: true, import: 'default' }),
+  // Not the areas some builds add ({@link addAreas}: kirana*.json, only with the kirana switch on)
+  import.meta.glob<Messages[string]>(['./en/*.json', '!./en/kirana*.json'], { eager: true, import: 'default' }),
 )) {
   english[path.slice(5, -5)] = content
 }
 const loaders = import.meta.glob<{ default: Messages }>('./{hi,te,mr,ta,kn}/index.ts')
 const loaded: Partial<Record<Lang, Messages>> = { en: english }
+
+/**
+ * The texts of areas only some builds have (a part of the app behind a build-time switch), for one language: area →
+ * texts. An area the app already has (error, server) gets these keys added to its own.
+ */
+export type AreaLoader = (lang: Lang) => Promise<Messages>
+/** Set by {@link addAreas}: null in a build that adds none. */
+let extraAreas: AreaLoader | null = null
+/** English's added areas: downloading or in (null: not asked for yet, or the download failed). */
+let englishAreas: Promise<void> | null = null
+
+function merge(base: Messages, extra: Messages): Messages {
+  const out: Messages = { ...base }
+  for (const [area, entries] of Object.entries(extra)) out[area] = { ...base[area], ...entries }
+  return out
+}
+
+/**
+ * Adds areas to every language, from their own downloads (call it at start-up, before {@link restoreLanguage}):
+ * English's start downloading at once; each other language's come in the same load as the language (so a language is
+ * shown with them or not at all, and its copy kept on the phone has them too). Resolves when English's are in.
+ */
+export function addAreas(loader: AreaLoader): Promise<void> {
+  extraAreas = loader
+  englishAreas = null
+  return areasReady()
+}
+
+/**
+ * Resolves once the added areas' English texts are in (at once when none were added): awaited before a screen that
+ * uses them is drawn, so it never shows a key. Rejects when they couldn't download; asking again tries again.
+ */
+export function areasReady(): Promise<void> {
+  const loader = extraAreas
+  if (!loader) return Promise.resolve()
+  englishAreas ??= loader('en').then(
+    (extra) => {
+      loaded.en = merge(loaded.en ?? english, extra)
+      show(current)
+    },
+    (error: unknown) => {
+      englishAreas = null
+      throw error
+    },
+  )
+  return englishAreas
+}
+
 /** Languages whose texts came from this version's download (not only the copy kept on the phone). */
 const downloaded = new Set<Lang>(['en'])
 
@@ -77,7 +126,8 @@ function show(lang: Lang) {
 async function load(lang: Lang, mayReload = true): Promise<boolean> {
   if (downloaded.has(lang)) return true
   try {
-    loaded[lang] = (await loaders[`./${lang}/index.ts`]()).default
+    const [own, extra] = await Promise.all([loaders[`./${lang}/index.ts`](), extraAreas?.(lang)])
+    loaded[lang] = extra ? merge(own.default, extra) : own.default
     downloaded.add(lang)
     return true
   } catch {
