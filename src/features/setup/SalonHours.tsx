@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { explain, isApiError, messageOf } from '../../api/errors'
 import { refreshSalonWork, salonKeys, setupApi, SETUP_KEYS, useSalonHours } from '../../api/salon'
 import { useShop } from '../../api/shop'
@@ -19,6 +19,9 @@ import {
   type SalonWeek,
 } from '../../lib/salonHours'
 import { BookingsInTheWay } from './StaffDetail'
+import { FirstTimeHint } from '../guide/FirstTimeHint'
+import { unsavedWarning, useReportUnsaved, useUnsavedParts } from '../../lib/unsaved'
+import { cameFrom } from '../shop/Register'
 
 /** Barbers whose hours fall outside the new week (409 STAFF_HOURS_OUTSIDE names them). */
 interface Outside {
@@ -36,12 +39,15 @@ export function SalonHoursEditor({
   saveLabel,
   onSaved,
   onSaving,
+  onDirty,
 }: {
   hours: SalonHours
   saveLabel: string
   onSaved: (saved: SalonHours) => void
   /** A save starts (a "Saved." shown for an earlier one goes) */
   onSaving?: () => void
+  /** Told whether the week on screen differs from the one saved (the screen asks before leaving then) */
+  onDirty?: (part: string, dirty: boolean) => void
 }) {
   const t = useT()
   const qc = useQueryClient()
@@ -61,6 +67,8 @@ export function SalonHoursEditor({
   }
 
   const problem = checkSalonWeek(week)
+  // Not saved yet: a changed week (the suggested week of a salon with none set isn't the owner's own yet)
+  useReportUnsaved(onDirty, 'week', JSON.stringify(week) !== JSON.stringify(startWeek()))
   const firstOpen = WEEKDAYS.find((d) => week[d])
 
   // Any change to the week: the list of barbers outside was for the week saved before, and "Cut their hours"
@@ -190,8 +198,12 @@ export function SalonHoursPage() {
   const edit = can(shop.myRole).editSetup
   const hours = useSalonHours()
   const [saved, setSaved] = useState(false)
+  const location = useLocation()
+  const [unsaved, report] = useUnsavedParts()
   return (
-    <Page back="/setup" title={t('setup.hoursTitle')}>
+    // Back where it was opened from (Today's setup card, More), else the Salon tab; a changed week asks first
+    <Page back={cameFrom(location, '/setup')} title={t('setup.hoursTitle')} leaveWarning={unsavedWarning(edit && unsaved)}>
+      <FirstTimeHint screen="hours" text={edit ? t('guide.hintHours') : t('guide.hintHoursHelper')} />
       {hours.isPending ? (
         <Loading />
       ) : hours.isError && !hours.data ? (
@@ -205,6 +217,7 @@ export function SalonHoursPage() {
             saveLabel={t('setup.saveSalonHours')}
             onSaved={() => setSaved(true)}
             onSaving={() => setSaved(false)}
+            onDirty={report}
           />
         </>
       ) : (

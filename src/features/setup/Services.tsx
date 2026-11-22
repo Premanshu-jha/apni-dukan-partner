@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useId, useRef, useState } from 'react'
+import { useLocation } from 'react-router'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
 import { salonKeys, setupApi, useServices, type ServiceIn, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
 import { useShop } from '../../api/shop'
@@ -11,6 +12,9 @@ import { can } from '../../lib/roles'
 import { ServiceIcon } from '../../components/ServiceIcon'
 import { ICON_LABELS, iconsFor, SERVICE_ICONS, type ServiceIconName } from '../../lib/serviceIcons'
 import { serviceName } from '../../lib/serviceName'
+import { FirstTimeHint } from '../guide/FirstTimeHint'
+import { SheetHelpLink } from '../help/HelpButton'
+import { cameFrom } from '../shop/Register'
 
 export interface ServiceForm {
   name: string
@@ -102,6 +106,7 @@ export function Services() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [picturesNoted, setPicturesNoted] = useState(picturesNoteSeen)
+  const location = useLocation()
 
   function hidePicturesNote() {
     setPicturesNoted(true)
@@ -126,7 +131,14 @@ export function Services() {
   }
 
   return (
-    <Page back="/setup" title={t('setup.servicesTitle')}>
+    // Back where it was opened from (Today's setup card, More), else the Salon tab
+    <Page back={cameFrom(location, '/setup')} title={t('setup.servicesTitle')}>
+      {/* Waits while the pictures note is up: one note at a time */}
+      <FirstTimeHint
+        screen="services"
+        text={edit ? t('guide.hintServices', { add: t('guide.quoted', { text: t('setup.addService') }) }) : t('guide.hintServicesHelper')}
+        show={!(edit && (services.data?.length ?? 0) > 0 && !picturesNoted)}
+      />
       {services.isPending ? (
         <Loading />
       ) : services.isError ? (
@@ -187,7 +199,7 @@ export function Services() {
 export function ServiceSheet({ service, onClose }: { service: ServiceItem | null; onClose: () => void }) {
   const t = useT()
   const qc = useQueryClient()
-  const [form, setForm] = useState<Form>(
+  const [start] = useState<Form>(() =>
     service
       ? {
           name: service.name,
@@ -200,6 +212,9 @@ export function ServiceSheet({ service, onClose }: { service: ServiceItem | null
         }
       : { name: '', minutes: '30', rupees: '', from: false, returnDays: '14', icon: null },
   )
+  const [form, setForm] = useState<Form>(start)
+  // Something typed or picked: the sheet's Help asks before the sheet (and this) goes
+  const dirty = (Object.keys(start) as Array<keyof Form>).some((k) => form[k] !== start[k])
   const [touched, setTouched] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
@@ -230,7 +245,7 @@ export function ServiceSheet({ service, onClose }: { service: ServiceItem | null
         <Field id="svc-name" label={t('setup.serviceName')} value={form.name} maxLength={60} onChange={(e) => setForm({ ...form, name: e.target.value })} error={problems.name ?? fieldError(error, 'name')} />
         <IconPicker name={form.name} value={pickedIcon(form)} onChange={(icon) => setForm({ ...form, icon })} error={fieldError(error, 'icon')} />
         <div className="grid grid-cols-2 gap-3">
-          <Field id="svc-minutes" label={t('setup.minutesLabel')} inputMode="numeric" value={form.minutes} onChange={(e) => setForm({ ...form, minutes: e.target.value.replace(/\D/g, '') })} error={problems.minutes ?? fieldError(error, 'durationMinutes')} />
+          <Field id="svc-minutes" label={t('setup.minutesLabel')} inputMode="numeric" value={form.minutes} onChange={(e) => setForm({ ...form, minutes: e.target.value.replace(/\D/g, '') })} error={problems.minutes ?? fieldError(error, 'durationMinutes')} hint={t('setup.minutesHint')} />
           <Field id="svc-price" label={t('setup.priceLabel')} inputMode="decimal" value={form.rupees} onChange={(e) => setForm({ ...form, rupees: e.target.value })} error={problems.rupees ?? fieldError(error, 'pricePaise')} />
         </div>
         <label className="flex items-center gap-3 text-sm">
@@ -253,6 +268,8 @@ export function ServiceSheet({ service, onClose }: { service: ServiceItem | null
         <Button variant="ghost" onClick={onClose}>
           {t('common.cancel')}
         </Button>
+        {/* The sheet covers the screen's Help: its own, here (last, so the sheet still opens on its first field) */}
+        <SheetHelpLink dirty={dirty} />
       </div>
     </Sheet>
   )

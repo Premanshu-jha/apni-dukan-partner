@@ -45,6 +45,7 @@ import { Start } from '../features/shop/Start'
 import { Team } from '../features/team/Team'
 import { SubscriptionPage } from '../features/subscription/SubscriptionPage'
 import { NeedHelp } from '../features/help/NeedHelp'
+import { SharePage } from '../features/share/SharePage'
 import { MyRequests, RequestDetail } from '../features/help/MyRequests'
 import { EmptyState, Page } from '../components/ui'
 import { useT } from '../i18n'
@@ -149,6 +150,8 @@ export function App() {
               <Route path="/salon/info" element={<SalonInfo />} />
               {/* Anyone in the salon sees the subscription; only the owner pays */}
               <Route path="/subscription" element={<SubscriptionPage />} />
+              {/* Anyone in the salon: its link and counter poster for customers (a barber shares with his regulars too) */}
+              <Route path="/salon/share" element={<SharePage />} />
               <Route element={<RoleOnly roles={['OWNER', 'HELPER']} />}>
                 <Route path="/setup/services" element={<Services />} />
                 <Route path="/setup/staff" element={<StaffList />} />

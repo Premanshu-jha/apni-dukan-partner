@@ -1,6 +1,10 @@
-import { useEffect, useRef, type ButtonHTMLAttributes, type Ref, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
-import { useNavigate } from 'react-router'
+import { useContext, useEffect, useRef, type ButtonHTMLAttributes, type Ref, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router'
+import { HelpButton } from '../features/help/HelpButton'
+import { helpHref, isKiranaScreen, shopKindHere, topicFor } from '../features/help/links'
+import { ShopContext } from '../api/shop'
 import { useT } from '../i18n'
+import { missingSteps, useSession } from '../store/session'
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost'
 
@@ -117,7 +121,37 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
           {t('common.retry')}
         </Button>
       )}
+      <ErrorSupportLink message={message} />
     </div>
+  )
+}
+
+/**
+ * Under every shared error: support, one tap away, with the error already in the message (and the screen as the
+ * subject), so nobody has to describe it. Signed out (or the profile not finished), Contact instead.
+ */
+function ErrorSupportLink({ message }: { message: string }) {
+  const t = useT()
+  const location = useLocation()
+  const ready = useSession((s) => s.status === 'signedIn' && s.user !== null && missingSteps(s.user).length === 0)
+  const shop = useContext(ShopContext)
+  const userId = useSession((s) => s.user?.id)
+  if (isKiranaScreen(location.pathname, shopKindHere(location.pathname, shop?.type, userId))) return null
+  const to = ready
+    ? helpHref({
+        from: location.pathname + location.search,
+        about: topicFor(location.pathname) ?? t('help.topicError'),
+        text: t('help.errorText', { message }),
+        write: true,
+      })
+    : '/contact'
+  return (
+    <p className="text-sm text-muted">
+      {t('help.stillNotWorking')}{' '}
+      <Link to={to} className="inline-flex min-h-11 items-center text-link underline">
+        {t('help.writeToUs')}
+      </Link>
+    </p>
   )
 }
 
@@ -131,7 +165,11 @@ export function EmptyState({ title, body, action }: { title: string; body?: stri
   )
 }
 
-/** A screen with a title bar; `back` shows a back arrow. */
+/**
+ * A screen with a title bar; `back` shows a back arrow. Every screen gets Help at the top right (HelpButton: not on
+ * the help pages, nor a kirana's); a screen without a title bar (Today, sign-in, Start) gets it in a slim row above
+ * its own top line, so it never sits on the screen's own buttons (Today's bell).
+ */
 export function Page({
   title,
   back,
@@ -139,6 +177,8 @@ export function Page({
   children,
   footer,
   leaveWarning,
+  helpTopic,
+  ownHelp = false,
 }: {
   title?: string
   back?: boolean | string
@@ -146,13 +186,22 @@ export function Page({
   backReplace?: boolean
   children: ReactNode
   footer?: ReactNode
-  /** When set, the back button asks first (e.g. an upload under way). */
+  /** When set, the back button asks first (e.g. an upload under way). Help asks the same. */
   leaveWarning?: string | null
+  /** What a question from this screen is about, when its address alone doesn't say enough (links.ts topicFor) */
+  helpTopic?: string
+  /** The screen draws Help itself, in its own header (Today, next to its bell), so Page adds none */
+  ownHelp?: boolean
 }) {
   const t = useT()
   const navigate = useNavigate()
   return (
     <div className="flex flex-1 flex-col">
+      {!(title || back) && !ownHelp && (
+        <div className="-mb-3 flex justify-end px-4 pt-3 empty:hidden">
+          <HelpButton topic={helpTopic} leaveWarning={leaveWarning} />
+        </div>
+      )}
       {(title || back) && (
         <header className="sticky top-0 z-10 flex min-h-14 items-center gap-2 border-b border-line bg-bg/95 px-2 backdrop-blur">
           {back && (
@@ -169,7 +218,9 @@ export function Page({
               ←
             </button>
           )}
-          {title && <h1 className={`font-display text-lg font-semibold ${back ? '' : 'px-2'}`}>{title}</h1>}
+          {/* Takes the room left beside Help and wraps (a long salon name on a 360px phone) instead of pushing it off */}
+          {title && <h1 className={`min-w-0 flex-1 font-display text-lg font-semibold break-words ${back ? '' : 'px-2'}`}>{title}</h1>}
+          <HelpButton topic={helpTopic} leaveWarning={leaveWarning} />
         </header>
       )}
       <main className="flex flex-1 flex-col gap-4 px-4 py-4">{children}</main>

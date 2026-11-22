@@ -101,7 +101,8 @@ test('the trade licence: checked automatically on a live salon, not accepted wit
   await expect(page.getByText('Not accepted. The name on it doesn’t match', { exact: false })).toBeVisible()
   // What was read, to compare with his own details; and support one tap away
   await expect(page.getByText('On the licence we read: Royal Cuts · Mohammed Ali; Shop 12, Ithum Tower 201309.')).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Write to support' })).toHaveAttribute('href', '/help')
+  // It opens the form itself (not the answers first), about the licence
+  await expect(page.getByRole('link', { name: 'Write to support' })).toHaveAttribute('href', /^\/help\?from=.*&write=1$/)
   // Checked again without uploading it again (the owner fixed his details elsewhere, or thinks it is right)
   await page.getByRole('button', { name: 'Check it again' }).click()
   await expect(page.getByText('Checking your trade licence.', { exact: false })).toBeVisible()

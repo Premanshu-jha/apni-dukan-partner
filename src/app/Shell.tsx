@@ -1,12 +1,13 @@
 import { NavLink, Outlet } from 'react-router'
 import { useShop } from '../api/shop'
 import type { ShopType } from '../api/types'
-import { useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { LANGUAGES, languageChosen, setLanguage, t, useLanguage, useT } from '../i18n'
 import { LanguagePicker } from '../i18n/LanguagePicker'
 import { announceLanguageChosen } from '../i18n/LanguageToast'
 import { kiranaOn } from '../lib/config'
 import { can } from '../lib/roles'
+import { useLanguageOffer } from '../features/guide/languageOffer'
 
 /**
  * The bottom bar's tabs for a role: barbers have no Salon tab (setup is for the owner and helpers). A kirana's owner
@@ -112,6 +113,11 @@ function LanguageOffer() {
   const t = useT()
   const shown = useLanguage()
   const [open, setOpen] = useState(() => !languageChosen())
+  // Told to Today before anything is drawn (its tips and setup card wait while this is open: one card at a time)
+  useLayoutEffect(() => {
+    useLanguageOffer.setState({ open })
+    return () => useLanguageOffer.setState({ open: false })
+  }, [open])
   if (!open) return null
   // The phone's own language showing (not chosen yet): keeping it is one tap too
   const name = LANGUAGES.find((l) => l.code === shown)?.name ?? ''

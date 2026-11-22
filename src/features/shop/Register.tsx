@@ -45,6 +45,7 @@ import {
 import { signOutHere } from '../profile/signOut'
 import { kiranaOn, shopTypeOn } from '../../lib/config'
 import { withKiranaTexts } from '../../i18n/kirana'
+import { useWriteToUsHref } from '../help/HelpButton'
 
 /** A kirana's last step: its own download (kirana switch on only; off, no kirana reaches registration). */
 const KiranaReview = lazy(() => withKiranaTexts(import('./KiranaRegister')).then((m) => ({ default: m.KiranaReview })))
@@ -57,6 +58,7 @@ const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ defau
  * Anyone else (a shop already submitted, a helper) goes back to the start.
  */
 export function RegisterLayout({ needShop }: { needShop: boolean }) {
+  const writeToUs = useWriteToUsHref()
   const t = useT()
   const shop = useMyShop()
   if (shop.isPending) return <Loading />
@@ -75,7 +77,7 @@ export function RegisterLayout({ needShop }: { needShop: boolean }) {
     <ShopContext.Provider value={mine}>
       <Outlet />
       {/* Stuck on a step, or sent back by the field team: help is one tap away on every step */}
-      <Link to="/help" className="pb-6 text-center text-sm text-link underline">
+      <Link to={writeToUs} className="pb-6 text-center text-sm text-link underline">
         {t('register.needHelp')}
       </Link>
     </ShopContext.Provider>

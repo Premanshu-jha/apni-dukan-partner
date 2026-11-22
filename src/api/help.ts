@@ -27,6 +27,30 @@ export function useMyRequests() {
   return useQuery({ queryKey: helpKeys.mine, queryFn: helpApi.mine })
 }
 
+/** How long the Help button's "Support replied" dot trusts what it has before a focus or app return reads again. */
+export const REPLIED_STALE_MS = 2 * 60_000
+
+/**
+ * The same list as My requests (one cache entry, one request), for the Help button in every screen's header. Read once
+ * when the app opens, then again only when the app comes back to the front (window focus, or the phone's app switcher)
+ * after two minutes: never on a timer, and moving between screens never asks again (each screen's Help button
+ * mounts a new observer, but refetchOnMount is off). Sending a question or a reply refreshes it (they invalidate
+ * helpKeys.mine). `enabled` is false when nobody is signed in, or the profile isn't finished (the backend answers
+ * PROFILE_INCOMPLETE then): no call at all.
+ */
+export function useRequestsForBadge(enabled: boolean) {
+  return useQuery({
+    queryKey: helpKeys.mine,
+    queryFn: helpApi.mine,
+    enabled,
+    staleTime: REPLIED_STALE_MS,
+    refetchOnMount: false,
+    refetchOnWindowFocus: true,
+    // A failed read just shows no dot; it is not worth retrying for a dot
+    retry: false,
+  })
+}
+
 /**
  * Re-read every 30 s while open and not resolved, so support's reply shows without leaving the page. A resolved one
  * isn't polled (thousands of open pages would otherwise keep asking); it is read again when you come back to the tab.

@@ -4,6 +4,8 @@ import type { RatingSummary, RatingTag, SalonRating } from '../../api/types'
 import { Banner, Button, Card, EmptyState, ErrorState, Loading, Page } from '../../components/ui'
 import { useT } from '../../i18n'
 import { dateTimeIst } from '../../lib/ist'
+import { useLocation } from 'react-router'
+import { cameFrom } from '../shop/Register'
 
 /** Each tag's words, as a key (translated where shown, so they follow the language). */
 export const TAG_LABELS: Record<RatingTag, string> = {
@@ -31,11 +33,13 @@ export function Stars({ stars }: { stars: number }) {
 export function Ratings() {
   const t = useT()
   const ratings = useRatings()
+  const location = useLocation()
   const pages = ratings.data?.pages ?? []
   const summary = pages[0]?.summary ?? null
   const items = pages.flatMap((p) => p.items)
   return (
-    <Page back="/more" title={t('ratings.title')}>
+    // Back where it was opened from (the Salon tab, More), else More
+    <Page back={cameFrom(location, '/more')} title={t('ratings.title')}>
       {ratings.isPending ? (
         <Loading />
       ) : ratings.isError && !ratings.data ? (

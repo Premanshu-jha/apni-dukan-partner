@@ -10,6 +10,8 @@ import { can } from '../../lib/roles'
 import { useLanguage, useT } from '../../i18n'
 import { offerWhat, offerWhen } from './offerText'
 import { serviceName } from '../../lib/serviceName'
+import { FirstTimeHint } from '../guide/FirstTimeHint'
+import { cameFrom } from '../shop/Register'
 
 /** Each state's words as a key (translated where shown, so they follow the language) and its colour. */
 const STATE: Record<OwnerOffer['state'], { text: string; tone: 'good' | 'brand' | 'muted' }> = {
@@ -27,7 +29,8 @@ export function Offers() {
   const offers = useOffers()
   const services = useServices()
   const owner = can(useShop().myRole).editSetup
-  const published = (useLocation().state as { published?: number } | null)?.published
+  const location = useLocation()
+  const published = (location.state as { published?: number } | null)?.published
   // Catalog names are shown in the app's language: worded again when it changes
   const language = useLanguage()
   const names = useMemo(
@@ -35,7 +38,9 @@ export function Offers() {
     [services.data, language], // serviceName reads the language
   )
   return (
-    <Page back="/more" title={t('offers.title')}>
+    // Back where it was opened from (the Salon tab, More), else More
+    <Page back={cameFrom(location, '/more')} title={t('offers.title')}>
+      <FirstTimeHint screen="offers" text={owner ? t('guide.hintOffers', { new: t('guide.quoted', { text: t('offers.newOffer') }) }) : t('guide.hintOffersHelper')} />
       <p className="text-sm text-muted">
         {t('offers.intro')}
       </p>

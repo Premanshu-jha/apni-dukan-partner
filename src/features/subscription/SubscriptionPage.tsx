@@ -10,6 +10,7 @@ import { spaceBefore, t, useLanguage, useT } from '../../i18n'
 import { CheckoutStopped, payWithRazorpay } from '../../lib/razorpay'
 import { screensBehind } from '../../lib/nav'
 import { dayIst, payByDay, whatEnded } from './text'
+import { useWriteToUsHref } from '../help/HelpButton'
 
 /** After a checkout, the page reads the subscription every 5 seconds for this long (Razorpay's word may lag). */
 const WATCH_MS = 90_000
@@ -70,6 +71,7 @@ function Details({
   onWatch: () => void
 }) {
   const t = useT()
+  const writeToUs = useWriteToUsHref()
   // Printed as it is ("₹1500"), not grouped
   const price = String(s.pricePerMonth)
   const qc = useQueryClient()
@@ -170,7 +172,7 @@ function Details({
       )}
       {suspended && (
         <Banner tone="warn" live={false}>
-          {t('subscription.suspendedBefore')} <Link to="/help" className="underline">{t('subscription.suspendedLink')}</Link>
+          {t('subscription.suspendedBefore')} <Link to={writeToUs} className="underline">{t('subscription.suspendedLink')}</Link>
           {spaceBefore(t('subscription.suspendedAfter'))}{t('subscription.suspendedAfter')}
         </Banner>
       )}
@@ -236,7 +238,7 @@ function Details({
         <div className="mt-1 flex flex-wrap gap-x-4">
           <Link to="/refunds" className="text-link underline">{t('subscription.refundPolicy')}</Link>
           <Link to="/terms" className="text-link underline">{t('subscription.terms')}</Link>
-          <Link to="/help" className="text-link underline">{t('subscription.askUs')}</Link>
+          <Link to={writeToUs} className="text-link underline">{t('subscription.askUs')}</Link>
         </div>
       </Card>
     </div>

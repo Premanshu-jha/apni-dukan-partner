@@ -13,6 +13,7 @@ import { signOutHere } from '../profile/signOut'
 import { HandoverOffers } from './HandoverOffers'
 import { InviteOffers } from './InviteOffers'
 import { useRecheckShop } from './ShopGate'
+import { useWriteToUsHref } from '../help/HelpButton'
 
 /** Where "/" goes: registration for a draft owner, a wait screen for staff of a salon not live yet, else today. */
 export function Home() {
@@ -58,6 +59,7 @@ function ResumeRegistration() {
 
 /** A helper or barber of a salon the field team hasn't approved yet: nothing to do until then. */
 function NotLiveYet() {
+  const writeToUs = useWriteToUsHref()
   const t = useT()
   const shop = useShop()
   const qc = useQueryClient()
@@ -83,7 +85,7 @@ function NotLiveYet() {
       <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
         {t('shop.signOut')}
       </Button>
-      <Link to="/help" className="py-2 text-center text-sm text-link underline">
+      <Link to={writeToUs} className="py-2 text-center text-sm text-link underline">
         {t('shop.needHelpWriteSupport')}
       </Link>
       <Link to="/profile/delete" className="py-2 text-center text-sm text-bad underline">

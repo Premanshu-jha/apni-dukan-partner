@@ -14,6 +14,7 @@ import { signOutHere } from '../profile/signOut'
 import { HandoverOffers } from './HandoverOffers'
 import { InviteOffers } from './InviteOffers'
 import { closedNotice, forgetClosed, startNotice } from './ownership'
+import { useWriteToUsHref } from '../help/HelpButton'
 
 /**
  * Start's words and where "Register" goes. Kirana switch on: "I own a shop", then "What do you run?". Off: the salon
@@ -38,6 +39,7 @@ export function startWords() {
  * you run?" comes next; off, a salon), or, for someone who works in one, show the number the owner must add.
  */
 export function Start() {
+  const writeToUs = useWriteToUsHref()
   const t = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -125,7 +127,7 @@ export function Start() {
       <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
         {t('register.signOut')}
       </Button>
-      <Link to="/help" className="py-2 text-center text-sm text-link underline">
+      <Link to={writeToUs} className="py-2 text-center text-sm text-link underline">
         {t('register.needHelp')}
       </Link>
       <Link to="/profile/delete" className="py-2 text-center text-sm text-bad underline">
