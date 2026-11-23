@@ -94,6 +94,82 @@ jobs:
         if: failure()
         run: docker logs caddy
 
+  android:
+    # The Play Store app: the website built for the app (APP_BUILD=true, see vite.config.ts) inside Capacitor's Android
+    # project (android/). Every run makes an installable test APK (app-debug.apk, under the run's Artifacts); with the
+    # upload key in the secrets it also makes the signed bundle for the Play Store (app-release.aab).
+    # Settings (Settings › Secrets and variables › Actions): variables VITE_API_URL, VITE_TURNSTILE_SITE_KEY,
+    # VITE_MAP_TILES, VITE_SUPPORT_EMAIL, PHOTO_ORIGIN (the website's, as on Railway); secrets GOOGLE_SERVICES_JSON
+    # (Firebase's app file: notifications), ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS,
+    # ANDROID_KEY_PASSWORD (the upload key). Without them the build still runs, pointing at a placeholder backend.
+    runs-on: ubuntu-24.04
+    env:
+      VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api.example.com' }}
+      VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+      VITE_MAP_TILES: ${{ vars.VITE_MAP_TILES }}
+      VITE_SUPPORT_EMAIL: ${{ vars.VITE_SUPPORT_EMAIL }}
+      PHOTO_ORIGIN: ${{ vars.PHOTO_ORIGIN }}
+      # Google compares this number to decide what is newer: it grows with every run
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad  # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - run: npm ci
+      - name: Firebase's app file, when it is set (notifications in the app)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            echo "VITE_APP_PUSH=true" >> "$GITHUB_ENV"
+          else
+            echo "::notice title=Android::No GOOGLE_SERVICES_JSON secret: the app is built without notifications"
+          fi
+      - name: Build the website for the app and copy it into android/
+        run: npm run android
+      - name: Build the test APK
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug
+      - name: The upload key, when it is set
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE" ]; then
+            echo "::notice title=Android::No upload key in the secrets: only the test APK is built"
+            exit 0
+          fi
+          printf '%s' "$KEYSTORE" | base64 -d > android/upload.jks
+          printf 'storeFile=upload.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > android/keystore.properties
+      - name: Build the signed Play Store bundle
+        if: hashFiles('android/keystore.properties') != ''
+        working-directory: android
+        run: ./gradlew --no-daemon bundleRelease
+      - name: Forget the upload key
+        if: always()
+        run: rm -f android/upload.jks android/keystore.properties android/app/google-services.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: clozest-partner-android
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: warn
+          retention-days: 30
+
   secrets:
     runs-on: ubuntu-latest
     steps:
