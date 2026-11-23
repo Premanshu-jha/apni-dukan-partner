@@ -6,7 +6,9 @@ import { useShop } from '../../api/shop'
 import { useSubscription } from '../../api/subscription'
 import { Banner, Button, Card, Page } from '../../components/ui'
 import { useLanguage, useT } from '../../i18n'
+import { savePngInApp, shareTextInApp, sharePngInApp } from '../../lib/appShare'
 import { dateTimeIst } from '../../lib/ist'
+import { isApp } from '../../lib/platform'
 import { can } from '../../lib/roles'
 import { useNow } from '../../lib/useNow'
 import { SubscriptionBanner } from '../subscription/SubscriptionBanner'
@@ -166,8 +168,10 @@ function LinkCard({ link, salon }: { link: string; salon: string }) {
   const timer = useRef<number | undefined>(undefined)
   useEffect(() => () => window.clearTimeout(timer.current), [])
   const message = t('share.message', { salon, link })
-  // The phone's own share sheet (Android, iPhone); a computer's browser often has none, and then no button
-  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+  // The phone's own share sheet (Android, iPhone; in the Play Store app Android's, through Capacitor); a computer's
+  // browser often has none, and then no button
+  const app = isApp()
+  const canShare = app || (typeof navigator !== 'undefined' && typeof navigator.share === 'function')
 
   async function copy() {
     setCopyFailed(false)
@@ -185,6 +189,7 @@ function LinkCard({ link, salon }: { link: string; salon: string }) {
   }
 
   async function share() {
+    if (app) return shareTextInApp(t('share.shareTitle', { salon }), message)
     try {
       await navigator.share({ title: t('share.shareTitle', { salon }), text: message })
     } catch {
@@ -283,8 +288,20 @@ function PosterCard({ link, salon }: { link: string; salon: string }) {
       ) : (
         // One under the other: "Download poster" is three words in Tamil or Kannada, cut short side by side
         <div className="flex flex-col gap-2">
-          {typeof drawn === 'object' && <SharePosterButton blob={drawn.blob} file={drawn.file} link={link} salon={salon} />}
           {typeof drawn === 'object' ? (
+            <SharePosterButton blob={drawn.blob} file={drawn.file} link={link} salon={salon} />
+          ) : (
+            // The app: the buttons are there (greyed) while the poster draws, as on the website
+            isApp() && (
+              <Button variant="secondary" disabled>
+                {t('share.sharePoster')}
+              </Button>
+            )
+          )}
+          {/* In the app: saved to the phone's pictures, to print from there (a web view can't download or print) */}
+          {isApp() ? (
+            <SavePosterButton blob={typeof drawn === 'object' ? drawn.blob : null} file={typeof drawn === 'object' ? drawn.file : ''} />
+          ) : typeof drawn === 'object' ? (
             <a
               href={drawn.url}
               download={drawn.file}
@@ -297,9 +314,11 @@ function PosterCard({ link, salon }: { link: string; salon: string }) {
               {t('share.download')}
             </Button>
           )}
-          <Button variant="secondary" className="flex-1" disabled={typeof drawn !== 'object'} onClick={() => window.print()}>
-            {t('share.print')}
-          </Button>
+          {!isApp() && (
+            <Button variant="secondary" className="flex-1" disabled={typeof drawn !== 'object'} onClick={() => window.print()}>
+              {t('share.print')}
+            </Button>
+          )}
         </div>
       )}
       {/* What the printer gets: only this, straight under <body> (share.css) */}
@@ -322,16 +341,24 @@ function PosterCard({ link, salon }: { link: string; salon: string }) {
 function SharePosterButton({ blob, file, link, salon }: { blob: Blob; file: string; link: string; salon: string }) {
   const t = useT()
   // Asked once per poster drawn (canShare can be slow-ish on some phones)
+  const app = isApp()
   const [png, able] = useMemo(() => {
     const f = new File([blob], file, { type: 'image/png' })
+    if (app) return [f, true] as const
     try {
       return [f, typeof navigator.share === 'function' && navigator.canShare?.({ files: [f] }) === true] as const
     } catch {
       return [f, false] as const
     }
-  }, [blob, file])
+  }, [blob, file, app])
+  const [failed, setFailed] = useState(false)
   if (!able) return null
   async function share() {
+    setFailed(false)
+    if (app) {
+      setFailed((await sharePngInApp(blob, file, t('share.shareTitle', { salon }), t('share.message', { salon, link }))) === 'failed')
+      return
+    }
     try {
       await navigator.share({ files: [png], title: t('share.shareTitle', { salon }), text: t('share.message', { salon, link }) })
     } catch {
@@ -339,8 +366,43 @@ function SharePosterButton({ blob, file, link, salon }: { blob: Blob; file: stri
     }
   }
   return (
-    <Button variant="secondary" onClick={() => void share()}>
-      {t('share.sharePoster')}
-    </Button>
+    <>
+      <Button variant="secondary" onClick={() => void share()}>
+        {t('share.sharePoster')}
+      </Button>
+      {failed && <Banner tone="warn">{t('share.shareFailed')}</Banner>}
+    </>
+  )
+}
+
+/**
+ * The app only: the poster saved in the phone's Pictures › Clozest, to print from the gallery (many cheap phones'
+ * share sheets have no "save"). Greyed while the poster draws; on Android 9 and older (no saving there) the share
+ * sheet opens instead.
+ */
+function SavePosterButton({ blob, file }: { blob: Blob | null; file: string }) {
+  const t = useT()
+  const [said, setSaid] = useState<'saved' | 'failed' | null>(null)
+  const [busy, setBusy] = useState(false)
+  async function save() {
+    if (!blob) return
+    setBusy(true)
+    setSaid(null)
+    const r = await savePngInApp(blob, file)
+    if (r === 'unsupported') {
+      setSaid((await sharePngInApp(blob, file, t('share.savePoster'), '')) === 'failed' ? 'failed' : null)
+    } else {
+      setSaid(r)
+    }
+    setBusy(false)
+  }
+  return (
+    <>
+      <Button variant="secondary" disabled={!blob} busy={busy} onClick={() => void save()}>
+        {t('share.savePoster')}
+      </Button>
+      {said === 'saved' && <Banner tone="good">{t('share.posterSaved')}</Banner>}
+      {said === 'failed' && <Banner tone="warn">{t('share.saveFailed')}</Banner>}
+    </>
   )
 }

@@ -8,12 +8,14 @@ import type { MyRequest, Shop, ShopRole } from '../../api/types'
 import { ErrorState, Page } from '../../components/ui'
 import { useSession } from '../../store/session'
 import { HOWTOS, howToFor, matches } from './howto'
+import { isApp } from '../../lib/platform'
 import { helpHref, isHelpPage, isKiranaScreen, safeFrom, topicFor } from './links'
 import { typedByThem } from './NeedHelp'
 import { unreadReplies, useHelpSeen } from './seen'
 
 const state = vi.hoisted(() => ({ mine: vi.fn() }))
 // GET /helpdesk/tickets (My requests); nothing else is asked for here
+vi.mock('../../lib/platform', () => ({ isApp: vi.fn(() => false) }))
 vi.mock('../../api/client', async (orig) => ({
   ...(await orig<typeof import('../../api/client')>()),
   api: (method: string, path: string) => (method === 'GET' && path === '/api/v1/helpdesk/tickets' ? state.mine() : Promise.reject(new Error(path))),
@@ -137,6 +139,16 @@ describe('the how-to answers', () => {
     expect(ids('BARBER')).toEqual(expect.arrayContaining(['startCode', 'walkIn', 'breaks', 'customersSee', 'leaveSalon']))
     // A barber's break starts from his own column on Today
     expect(howToFor(shop('BARBER')).find((h) => h.id === 'breaks')!.to).toBeTypeOf('function')
+  })
+
+  it('in the Play Store app the poster is shared (it has no Download button there)', () => {
+    vi.mocked(isApp).mockReturnValue(true)
+    try {
+      expect(howToFor(shop('OWNER')).find((h) => h.id === 'share')!.words!.poster).toBe('share.sharePoster')
+    } finally {
+      vi.mocked(isApp).mockReturnValue(false)
+    }
+    expect(howToFor(shop('OWNER')).find((h) => h.id === 'share')!.words!.poster).toBe('share.download')
   })
 
   it('none before the salon is past registration, nor for a kirana', () => {

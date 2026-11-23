@@ -18,6 +18,17 @@ const state = vi.hoisted(() => ({
   services: undefined as ServiceItem[] | undefined,
   staff: undefined as Staff[] | undefined,
   draw: vi.fn(),
+  app: false,
+  shareText: vi.fn(),
+  sharePng: vi.fn(),
+  savePng: vi.fn(),
+}))
+
+vi.mock('../../lib/platform', () => ({ isApp: () => state.app }))
+vi.mock('../../lib/appShare', () => ({
+  shareTextInApp: (...a: unknown[]) => state.shareText(...a),
+  sharePngInApp: (...a: unknown[]) => state.sharePng(...a),
+  savePngInApp: (...a: unknown[]) => state.savePng(...a),
 }))
 
 vi.mock('../../api/shop', async (orig) => ({
@@ -407,5 +418,60 @@ describe('Share poster', () => {
     show()
     await screen.findByRole('link', { name: 'Download poster' })
     expect(screen.queryByRole('button', { name: 'Share poster' })).toBeNull()
+  })
+})
+
+describe('sharing in the Play Store app', () => {
+  afterEach(() => {
+    state.app = false
+  })
+
+  it('Share and Share poster use Android’s share sheet with the same message; no Download or Print (a web view can’t)', async () => {
+    state.app = true
+    state.shareText.mockReset().mockResolvedValue(undefined)
+    state.sharePng.mockReset().mockResolvedValue('done')
+    // No navigator.share in the app's web view: the button is there all the same
+    Object.assign(navigator, { share: undefined, canShare: undefined })
+    show()
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
+    const message = `Book your time at Shine Unisex Salon on Clozest, no waiting at the salon: ${LINK}`
+    await waitFor(() => expect(state.shareText).toHaveBeenCalledWith('Shine Unisex Salon on Clozest', message))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Share poster' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Share poster' }))
+    await waitFor(() => expect(state.sharePng).toHaveBeenCalledWith(expect.any(Blob), 'shine-unisex-salon-clozest-poster.png',
+      'Shine Unisex Salon on Clozest', message))
+    expect(screen.queryByRole('link', { name: 'Download poster' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Print' })).toBeNull()
+    // WhatsApp is still a link (Android opens WhatsApp for it)
+    expect(screen.getByRole('link', { name: 'Share on WhatsApp' })).toHaveAttribute('target', '_blank')
+  })
+
+  it('a share that fails (the phone full) says so; Save to phone saves to the pictures, or says why not', async () => {
+    state.app = true
+    state.sharePng.mockReset().mockResolvedValue('failed')
+    state.savePng.mockReset().mockResolvedValueOnce('saved').mockResolvedValueOnce('failed')
+    Object.assign(navigator, { share: undefined, canShare: undefined })
+    show()
+    // Greyed while the poster draws, then there
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Share poster' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Share poster' }))
+    expect(await screen.findByText(/Couldn't share the poster\. Free some space/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Save to phone' }))
+    expect(await screen.findByText(/Saved in your phone's Pictures › Clozest/)).toBeInTheDocument()
+    expect(state.savePng).toHaveBeenCalledWith(expect.any(Blob), 'shine-unisex-salon-clozest-poster.png')
+    fireEvent.click(screen.getByRole('button', { name: 'Save to phone' }))
+    expect(await screen.findByText(/Couldn't save the poster/)).toBeInTheDocument()
+  })
+
+  it('an older phone that can’t save to its pictures gets the share sheet instead', async () => {
+    state.app = true
+    state.sharePng.mockReset().mockResolvedValue('done')
+    state.savePng.mockReset().mockResolvedValue('unsupported')
+    Object.assign(navigator, { share: undefined, canShare: undefined })
+    show()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save to phone' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Save to phone' }))
+    await waitFor(() => expect(state.sharePng).toHaveBeenCalled())
+    expect(screen.queryByText(/Couldn't save/)).toBeNull()
   })
 })
