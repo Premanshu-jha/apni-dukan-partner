@@ -1,3 +1,4 @@
+import { isApp } from './platform'
 import type { SubscriptionCheckout } from '../api/types'
 import { language, t } from '../i18n'
 
@@ -77,6 +78,9 @@ export async function payWithRazorpay(c: SubscriptionCheckout, stillWanted: () =
       image: c.image,
       prefill: c.prefill,
       theme: { color: c.themeColor },
+      // Inside the Play Store app: UPI apps (GPay, PhonePe...) open by intent for the AutoPay PIN (Razorpay's "UPI
+      // intent in WebView"; the app's UpiIntentsPlugin starts them)
+      ...(isApp() ? { webview_intent: true } : {}),
       handler: (answer: CheckoutAnswer) => resolve(answer),
       modal: {
         // Closed by the owner, or after a failure (Razorpay leaves its own error on screen until then)

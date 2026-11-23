@@ -55,6 +55,7 @@
   "nothingToPayYet": "अभी कुछ नहीं देना: आपका फ़्री ट्रायल तब शुरू होगा जब हमारी फ़ील्ड टीम आपका सैलून मंज़ूर करेगी।",
   "autoPayNothingToDo": "AutoPay चालू है: आपको कुछ नहीं करना।",
   "autoPayNothingToDoNext": "AutoPay चालू है: आपको कुछ नहीं करना। अगले ₹{price} {day} को कटेंगे।",
+  "googlePlayManage": "AutoPay Google Play से है। इसे बदलने या रोकने के लिए: Play Store › आपकी प्रोफ़ाइल फ़ोटो › Payments & subscriptions › Subscriptions.",
   "payingNotReady": "ऐप में पेमेंट करना अभी शुरू नहीं हुआ है। कुछ भी देना बने, उससे पहले हम आपको बता देंगे।",
   "setUpAutoPay": "AutoPay चालू करें",
   "payPrice": "₹{price} का पेमेंट करें",
@@ -63,6 +64,8 @@
   "testMode": "टेस्ट मोड: असल में कोई पैसा नहीं कटता।",
   "failedMoneyTaken": "{reason} अगर फिर भी पैसे कट गए हों, तो कुछ मिनट में यहाँ दिख जाएगा।",
   "couldntOpenPayment": "पेमेंट की स्क्रीन नहीं खुल पाई। अपना इंटरनेट देखें और फिर कोशिश करें।",
+  "inAppUnavailable": "इस फ़ोन पर Google Play से पेमेंट नहीं हो सकता। Play Store ऐप अपडेट करें और फिर कोशिश करें।",
+  "googlePlayDone": "हो गया: आपका सब्सक्रिप्शन Google Play से है और हर महीने अपने आप रिन्यू होगा।",
   "paymentFailed": "पेमेंट नहीं हो पाया।",
   "nextScreenEnglish": "अगली स्क्रीन अंग्रेज़ी में होगी: UPI चुनें, फिर अपने UPI PIN से मंज़ूरी दें।",
 
@@ -77,5 +80,18 @@
   "bannerEndedPay": "{what}। अपना सैलून Clozest पर बनाए रखने के लिए ₹{price} का पेमेंट करें।",
   "bannerAutoPayFailed": "आपका AutoPay पेमेंट नहीं हो पाया। अपना बैंक या UPI ऐप देखें, या किसी और तरीक़े से पेमेंट करें।",
   "bannerTrialEnds": "आपका फ़्री ट्रायल {day} को ख़त्म हो रहा है। AutoPay चालू कर लें (₹{price} महीना, उससे पहले कुछ नहीं कटेगा) ताकि ग्राहक आपके यहाँ बुकिंग करते रहें।",
-  "bannerPaidEnds": "आपका पेमेंट वाला महीना {day} को ख़त्म हो रहा है। AutoPay चालू कर लें (₹{price} महीना, उससे पहले कुछ नहीं कटेगा) ताकि ग्राहक आपके यहाँ बुकिंग करते रहें।"
+  "bannerPaidEnds": "आपका पेमेंट वाला महीना {day} को ख़त्म हो रहा है। AutoPay चालू कर लें (₹{price} महीना, उससे पहले कुछ नहीं कटेगा) ताकि ग्राहक आपके यहाँ बुकिंग करते रहें।",
+  "inAppNotOpen": "इस ऐप से पेमेंट अभी शुरू नहीं हुआ है। हमें लिखें, हम पेमेंट करने में आपकी मदद करेंगे।",
+  "inAppFrom": "अभी कुछ नहीं देना है। आप {day} से यहाँ पेमेंट कर सकते हैं।",
+  "inAppChoiceGuide": "अगली स्क्रीन पर Google पूछेगा कि कैसे पेमेंट करना है: Razorpay (UPI AutoPay) या Google Play. दोनों में ₹{price} महीना है।",
+  "payNowThenMonthlyApp": "अभी अगले महीने के ₹{price}, फिर हर महीने ₹{price} अपने आप (कभी भी रोक सकते हैं)।",
+  "googlePlayChecking": "आपका पेमेंट Google Play के पास है। हम उसे पक्का कर रहे हैं: कृपया दोबारा पेमेंट न करें।",
+  "googlePlayPending": "Google Play अभी आपका पेमेंट पक्का कर रहा है। पूरा होते ही यहाँ दिखेगा: कृपया दोबारा पेमेंट न करें।",
+  "googlePlayFailed": "Google Play का पेमेंट नहीं हुआ, इसलिए कुछ नहीं कटा। फिर से कोशिश करें, या Razorpay चुनें।",
+  "googlePlayManageButton": "Play Store में बदलें",
+  "goodStopGooglePlay": "AutoPay रोकने के लिए: Play Store में बदलें दबाएँ और Clozest रद्द करें। जिस महीने का पेमेंट हो चुका है वह आपका रहेगा; आगे कुछ नहीं कटेगा।",
+  "autoPayFailedGooglePlay": "Google Play इस महीने का पेमेंट नहीं ले पाया। Play Store में बदलें दबाएँ और पेमेंट का तरीका देखें।",
+  "bannerTrialEndsApp": "आपका मुफ़्त ट्रायल {day} को खत्म होगा। उसके बाद यहाँ ₹{price} महीना पेमेंट करें ताकि ग्राहक आपके यहाँ बुक करते रहें।",
+  "bannerPaidEndsApp": "आपका पेमेंट किया हुआ महीना {day} को खत्म होगा। उसके बाद यहाँ ₹{price} महीना पेमेंट करें ताकि ग्राहक आपके यहाँ बुक करते रहें।",
+  "googlePlayAlreadyOwned": "आपका Google अकाउंट पहले से एक Clozest सब्सक्रिप्शन के लिए पेमेंट कर रहा है। उसे Play Store › Payments & subscriptions में देखें, या हमें लिखें।"
 }
