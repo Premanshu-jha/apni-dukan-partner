@@ -13,5 +13,8 @@
   "tabKhata": "Khata",
   "approvalWaiting": "Waiting for approval",
   "approvalBody": "Customers can't book {name} until our field team approves it.",
-  "approvalBodyKirana": "Customers can't order from {name} until our field team approves it. Your counter works meanwhile."
+  "approvalBodyKirana": "Customers can't order from {name} until our field team approves it. Your counter works meanwhile.",
+  "webViewOldTitle": "Update one app to continue",
+  "webViewOldBody": "This phone's \"Android System WebView\" is too old for the app. Update it in the Play Store (it's free), then open the app again.",
+  "webViewOldButton": "Update in Play Store"
 }
