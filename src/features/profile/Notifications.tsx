@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { currentSubscription, needsHomeScreen, pushSupported, turnOffPush, turnOnPush, type PushResult } from '../../api/push'
+import { needsHomeScreen, pushIsOn, pushSupported, turnOffPush, turnOnPush, type PushResult } from '../../api/push'
+import { noTokenError, openNotificationSettings } from '../../api/appPush'
 import { messageOf } from '../../api/errors'
 import { Banner, Button, Card } from '../../components/ui'
 import { storage } from '../../lib/storage'
 import { t, useT } from '../../i18n'
+import { isApp } from '../../lib/platform'
 
 /** "Not now" on the day board's card; the setup card's Skip sets it too (one answer, never asked twice). */
 export const DISMISSED = 'adp.pushPromptDismissed'
@@ -12,16 +14,40 @@ export const DISMISSED = 'adp.pushPromptDismissed'
 export function useSubscribed() {
   const [on, setOn] = useState<boolean | null>(null)
   useEffect(() => {
-    void currentSubscription().then((s) => setOn(Boolean(s)))
+    void pushIsOn().then(setOn)
   }, [])
   return [on, setOn] as const
 }
 
 export function resultText(r: PushResult): string | null {
-  if (r === 'denied') return t('profile.pushDenied')
+  if (r === 'denied') return t(isApp() ? 'profile.pushDeniedApp' : 'profile.pushDenied')
   if (r === 'unsupported') return t('profile.pushUnsupported')
   if (r === 'not-configured') return t('profile.pushNotConfigured')
   return null
+}
+
+/** What went wrong turning notifications on, in plain words (no token from Firebase: its own line). */
+export function pushErrorText(e: unknown): string {
+  return noTokenError(e) ? t('profile.pushNoToken') : messageOf(e)
+}
+
+/**
+ * The problem line under a notifications switch or card; in the app, notifications turned off for it in Android's
+ * settings get a button straight there.
+ */
+export function PushProblem({ text }: { text: string }) {
+  const t = useT()
+  const settings = isApp() && text === t('profile.pushDeniedApp')
+  return (
+    <Banner tone="warn">
+      <p>{text}</p>
+      {settings && (
+        <Button variant="secondary" className="mt-2" onClick={() => void openNotificationSettings()}>
+          {t('profile.openSettings')}
+        </Button>
+      )}
+    </Banner>
+  )
 }
 
 /** On the day board until answered: one card offering a notification for each new booking. */
@@ -36,7 +62,7 @@ export function NotificationsPrompt() {
     <Card className="flex flex-col gap-3">
       <p className="font-semibold">{t('profile.pushPromptTitle')}</p>
       <p className="text-sm text-muted">{t('profile.pushPromptBody')}</p>
-      {error && <Banner tone="warn">{error}</Banner>}
+      {error && <PushProblem text={error} />}
       <div className="flex gap-2">
         <Button
           busy={busy}
@@ -49,7 +75,7 @@ export function NotificationsPrompt() {
               if (r === 'on') setOn(true)
               else setError(resultText(r))
             } catch (e) {
-              setError(messageOf(e))
+              setError(pushErrorText(e))
             } finally {
               setBusy(false)
             }
@@ -82,7 +108,7 @@ export function NotificationsRow() {
       <p className="text-sm text-muted">
         {needsHomeScreen()
           ? t('profile.pushIphoneHint')
-          : t('profile.pushCantShow')}
+          : t(isApp() ? 'profile.pushCantShowApp' : 'profile.pushCantShow')}
       </p>
     )
   }
@@ -112,7 +138,7 @@ export function NotificationsRow() {
                 else setError(resultText(r))
               }
             } catch (e) {
-              setError(messageOf(e))
+              setError(pushErrorText(e))
             } finally {
               setBusy(false)
             }
@@ -122,7 +148,7 @@ export function NotificationsRow() {
           <span className={`absolute top-1 h-6 w-6 rounded-full bg-ink transition ${on ? 'left-7' : 'left-1'}`} />
         </button>
       </div>
-      {error && <Banner tone="warn">{error}</Banner>}
+      {error && <PushProblem text={error} />}
     </div>
   )
 }

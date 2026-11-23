@@ -89,6 +89,7 @@
   "sendCodesAgain": "कोड पुन्हा पाठवा",
   "useDifferentNumber": "दुसरा नंबर वापरा",
   "pushDenied": "या साइटसाठी नोटिफिकेशन बंद केले आहेत. ब्राउझरच्या सेटिंग्जमध्ये त्यांना परवानगी द्या, मग पुन्हा प्रयत्न करा.",
+  "pushDeniedApp": "या फोनवर Clozest Partner चे नोटिफिकेशन बंद आहेत. फोनच्या Settings › Apps › Clozest Partner › Notifications मध्ये ते सुरू करा, मग पुन्हा प्रयत्न करा.",
   "pushUnsupported": "हा ब्राउझर नोटिफिकेशन दाखवू शकत नाही. iPhone वर आधी Clozest Partner तुमच्या Home Screen वर जोडा.",
   "pushNotConfigured": "सर्व्हरवर नोटिफिकेशन अजून सुरू केलेले नाहीत.",
   "pushPromptTitle": "कोणी बुकिंग केले की लगेच कळावे?",
@@ -97,6 +98,7 @@
   "notNow": "आत्ता नको",
   "pushIphoneHint": "iPhone वर बुकिंगचे नोटिफिकेशन मिळण्यासाठी Share वर टॅप करा, मग \"Add to Home Screen\", आणि तिथून Clozest Partner उघडा.",
   "pushCantShow": "हा ब्राउझर नोटिफिकेशन दाखवू शकत नाही. तरीही प्रत्येक मेसेज तुम्हाला घंटीखाली दिसेल.",
+  "pushCantShowApp": "ॲपच्या या व्हर्जनमध्ये नोटिफिकेशन अजून उपलब्ध नाहीत. तरीही प्रत्येक मेसेज तुम्हाला घंटीखाली दिसेल.",
   "bookingNotifications": "बुकिंगचे नोटिफिकेशन",
   "bookingNotificationsBody": "नवीन बुकिंग, बदल आणि रद्द झालेली बुकिंग, या डिव्हाइसवर",
   "deleteAccountTitle": "अकाउंट डिलीट करा",
@@ -114,5 +116,7 @@
   "emailCodeSentAfter": ".",
   "emailCode": "ईमेलचा कोड",
   "verify": "तपासा",
-  "howToAnswers": "कसे करायचे…? उत्तरे"
+  "howToAnswers": "कसे करायचे…? उत्तरे",
+  "pushNoToken": "हा फोन नोटिफिकेशनसाठी जोडला गेला नाही. नंतर पुन्हा प्रयत्न करा; नवीन बुकिंग तरीही दिवसाच्या बोर्डवर आणि घंटीखाली दिसतील.",
+  "openSettings": "सेटिंग्ज उघडा"
 }

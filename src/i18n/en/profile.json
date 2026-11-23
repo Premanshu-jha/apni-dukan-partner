@@ -89,6 +89,7 @@
   "sendCodesAgain": "Send the codes again",
   "useDifferentNumber": "Use a different number",
   "pushDenied": "Notifications are blocked for this site. Allow them in your browser settings, then try again.",
+  "pushDeniedApp": "Notifications are turned off for Clozest Partner on this phone. Turn them on in your phone's Settings › Apps › Clozest Partner › Notifications, then try again.",
   "pushUnsupported": "This browser can't show notifications. On iPhone, add Clozest Partner to your Home Screen first.",
   "pushNotConfigured": "Notifications aren't set up on the server yet.",
   "pushPromptTitle": "Know the moment someone books?",
@@ -97,6 +98,7 @@
   "notNow": "Not now",
   "pushIphoneHint": "To get booking notifications on iPhone, tap Share, then \"Add to Home Screen\", and open Clozest Partner from there.",
   "pushCantShow": "This browser can't show notifications. You'll still see every message under the bell.",
+  "pushCantShowApp": "Notifications aren't available in this version of the app yet. You'll still see every message under the bell.",
   "bookingNotifications": "Booking notifications",
   "bookingNotificationsBody": "New bookings, changes and cancellations, on this device",
   "deleteAccountTitle": "Delete account",
@@ -114,5 +116,7 @@
   "emailCodeSentAfter": ".",
   "emailCode": "Email code",
   "verify": "Verify",
-  "howToAnswers": "How do I…? Answers"
+  "howToAnswers": "How do I…? Answers",
+  "pushNoToken": "This phone couldn't connect for notifications. Try again later; new bookings still show on the day board and under the bell.",
+  "openSettings": "Open settings"
 }

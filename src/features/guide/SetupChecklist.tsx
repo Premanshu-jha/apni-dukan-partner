@@ -1,13 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
-import { messageOf } from '../../api/errors'
 import { turnOnPush } from '../../api/push'
 import { addOwnerAsBarber, ownProfile } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import { Banner, Button, Card } from '../../components/ui'
 import { t, useT } from '../../i18n'
-import { resultText } from '../profile/Notifications'
+import { PushProblem, pushErrorText, resultText } from '../profile/Notifications'
 import type { Step, StepId } from './setupSteps'
 import { useSeen } from './storage'
 import { useSetupState } from './useSetupState'
@@ -97,7 +96,7 @@ export function SetupChecklist({ hidden = false, onState }: { hidden?: boolean; 
     try {
       await call()
     } catch (e) {
-      setError(messageOf(e))
+      setError(pushErrorText(e))
     } finally {
       setBusy(null)
     }
@@ -132,7 +131,7 @@ export function SetupChecklist({ hidden = false, onState }: { hidden?: boolean; 
           <p className="text-sm text-muted">{t('day.setupBarbersLeft', { count: next.barbersLeft ?? 0 })}</p>
         )}
         {next.id === 'team' && <p className="text-sm text-muted">{t('day.setupTeamBody')}</p>}
-        {error && <Banner tone="warn">{error}</Banner>}
+        {error && <PushProblem text={error} />}
         {next.needed && !owner ? (
           <p className="text-sm text-muted">{t('day.setupOwnerOnly')}</p>
         ) : (
