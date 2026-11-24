@@ -22,6 +22,8 @@ import { linkTarget, notificationTarget, openInApp } from './lib/appEvents'
 import { BUSINESS } from './lib/business'
 import { appShellWithoutBridge, isApp } from './lib/platform'
 import { UpdateWebView } from './app/UpdateWebView'
+import { AppUpdateGate } from './app/AppUpdate'
+import { startAppUpdates, switchScreensAtStart } from './lib/appUpdates'
 import { App as CapApp } from '@capacitor/app'
 import { followOtherTabs, useSession } from './store/session'
 import '@fontsource/poppins/600.css'
@@ -99,6 +101,8 @@ async function start() {
     refreshForMessage(e.data.type ?? '')
   })
   if (isApp()) {
+    // Which screens to use from the next start, and whether this app is too old (lib/appUpdates.ts)
+    startAppUpdates()
     // A sign-out that couldn't tell Firebase (offline) finishes now
     void finishUnregister()
     // A tap on a notification opens its screen (by the service worker's rule); a link to the website opens in the app
@@ -144,8 +148,13 @@ if (appShellWithoutBridge()) {
   // The Play Store app on a too-old Android System WebView: only the screen asking for its update
   createRoot(document.getElementById('root')!).render(<UpdateWebView />)
 } else {
-  void start()
-  createRoot(document.getElementById('root')!).render(<Root />)
+  // The Play Store app first switches to the screens it downloaded last time, if any (it reloads into them, so
+  // nothing else starts); the website starts at once
+  void switchScreensAtStart().then((reloading) => {
+    if (reloading) return
+    void start()
+    createRoot(document.getElementById('root')!).render(<Root />)
+  })
 }
 
 function Root() {
@@ -154,7 +163,9 @@ function Root() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <ErrorBoundary>
-            <App />
+            <AppUpdateGate>
+              <App />
+            </AppUpdateGate>
           </ErrorBoundary>
           <UpdatePrompt />
           <NativeBridge />
