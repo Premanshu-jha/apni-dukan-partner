@@ -16,5 +16,17 @@
   "approvalBodyKirana": "जब तक हमारी फ़ील्ड टीम {name} को मंज़ूर नहीं करती, ग्राहक वहाँ से ऑर्डर नहीं कर सकते। तब तक आपका काउंटर चलता रहेगा।",
   "webViewOldTitle": "आगे बढ़ने के लिए एक ऐप अपडेट करें",
   "webViewOldBody": "इस फ़ोन का \"Android System WebView\" इस ऐप के लिए बहुत पुराना है। इसे Play Store में अपडेट करें (मुफ़्त है), फिर ऐप दोबारा खोलें।",
-  "webViewOldButton": "Play Store में अपडेट करें"
+  "webViewOldButton": "Play Store में अपडेट करें",
+  "updateRequiredTitle": "आगे बढ़ने के लिए कृपया ऐप अपडेट करें",
+  "updateRequiredBody": "Clozest Partner का यह वर्ज़न बहुत पुराना है। इसे Play Store से अपडेट करें (मुफ़्त है)। आपकी दुकान, बुकिंग और सेटिंग्स वैसे ही रहेंगी।",
+  "updateRequiredButton": "अभी अपडेट करें",
+  "playUpdateAvailable": "ऐप का नया वर्ज़न उपलब्ध है।",
+  "playUpdateButton": "अपडेट करें",
+  "playUpdateDownloading": "नया वर्ज़न आ रहा है। आप ऐप चलाते रह सकते हैं।",
+  "playUpdateReady": "नया वर्ज़न डाउनलोड हो गया है। इंस्टॉल करने के लिए \"दोबारा शुरू करें\" दबाएँ (कुछ सेकंड लगेंगे)।",
+  "playUpdateRestart": "दोबारा शुरू करें",
+  "playUpdateLater": "बाद में",
+  "updateRequiredHint": "अगर Play Store में अभी अपडेट नहीं दिखे, तो ऐप बंद करके कुछ घंटे बाद फिर कोशिश करें, या \"फिर से देखें\" दबाएँ।",
+  "updateRequiredCheck": "फिर से देखें",
+  "updateRequiredChecking": "देख रहे हैं…"
 }
