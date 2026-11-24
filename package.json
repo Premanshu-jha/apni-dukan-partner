@@ -11,9 +11,16 @@
     "test": "vitest run",
     "preview": "vite preview",
     "e2e": "playwright test",
-    "icons": "node scripts/icons.mjs"
+    "icons": "node scripts/icons.mjs",
+    "android": "APP_BUILD=true vite build && cap sync android",
+    "android-icons": "node scripts/android-icons.mjs"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/push-notifications": "^8.1.3",
+    "@capacitor/share": "^8.0.3",
     "@fontsource/poppins": "^5.3.0",
     "@tanstack/react-query": "^5.105.3",
     "@zxing/library": "^0.21.3",
@@ -27,6 +34,8 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/cli": "^8.6.2",
     "@playwright/test": "^1.56.0",
     "@tailwindcss/vite": "^4.3.4",
     "@testing-library/jest-dom": "^7.0.1",

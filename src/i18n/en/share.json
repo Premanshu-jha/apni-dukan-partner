@@ -42,5 +42,9 @@
   "fixBarbers": "Set up barbers",
   "notReadyAskOwner": "Ask {name} to set this up. You can still share the link now.",
   "notReadyShareAnyway": "You can still share the link now: it works as soon as this is done.",
-  "sharePoster": "Share poster"
+  "sharePoster": "Share poster",
+  "shareFailed": "Couldn't share the poster. Free some space on the phone and try again.",
+  "savePoster": "Save to phone",
+  "posterSaved": "Saved in your phone's Pictures › Clozest. Print it from there.",
+  "saveFailed": "Couldn't save the poster. Free some space on the phone and try again."
 }

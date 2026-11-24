@@ -1,14 +1,22 @@
+import { isApp } from '../lib/platform'
 import { watchForUpdates } from '../lib/swUpdate'
 import { api } from './client'
+import { appPushBuilt, appPushOn, claimAppPush, clearAppNotifications, dropAppPush, turnOffAppPush, turnOnAppPush } from './appPush'
 
-/** Browser notifications for booking messages, using the backend's VAPID key. */
+/**
+ * Notifications for booking messages. On the website: browser notifications (Web Push), with the backend's VAPID
+ * key. In the Play Store app: Firebase Cloud Messaging (appPush.ts); every function here hands over to it there, so
+ * the screens ask the same questions in both.
+ */
 
 export function pushSupported(): boolean {
+  if (isApp()) return appPushBuilt()
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
 /** iPhone Safari offers notifications only to an app added to the Home Screen. */
 export function needsHomeScreen(): boolean {
+  if (isApp()) return false
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent)
   const standalone =
     window.matchMedia?.('(display-mode: standalone)').matches ||
@@ -29,7 +37,9 @@ function keyBytes(base64url: string): Uint8Array<ArrayBuffer> {
  * wherever service workers exist, also where notifications don't (an iPhone browser tab).
  */
 export async function registerWorker(): Promise<ServiceWorkerRegistration | null> {
-  if (!('serviceWorker' in navigator)) return null
+  // The app: no service worker (it opens without the network from its own files, gets messages through Firebase and
+  // new versions through the Play Store)
+  if (isApp() || !('serviceWorker' in navigator)) return null
   try {
     const reg = await navigator.serviceWorker.register('/sw.js')
     watchForUpdates(reg)
@@ -39,9 +49,15 @@ export async function registerWorker(): Promise<ServiceWorkerRegistration | null
   }
 }
 
-/** The current subscription, if notifications are on for this browser. */
+/** Whether notifications are on for this browser, or for this phone in the app. */
+export async function pushIsOn(): Promise<boolean> {
+  if (isApp()) return appPushOn()
+  return Boolean(await currentSubscription())
+}
+
+/** The current subscription, if notifications are on for this browser (the website). */
 export async function currentSubscription(): Promise<PushSubscription | null> {
-  if (!pushSupported()) return null
+  if (isApp() || !pushSupported()) return null
   const reg = await navigator.serviceWorker.getRegistration()
   return (await reg?.pushManager.getSubscription()) ?? null
 }
@@ -50,6 +66,7 @@ export type PushResult = 'on' | 'denied' | 'unsupported' | 'not-configured'
 
 /** Asks for permission, subscribes and tells the backend. */
 export async function turnOnPush(): Promise<PushResult> {
+  if (isApp()) return turnOnAppPush()
   if (!pushSupported()) return 'unsupported'
   const { publicKey } = await api<{ publicKey: string | null }>('GET', '/api/v1/push/public-key')
   if (!publicKey) return 'not-configured'
@@ -73,6 +90,7 @@ export async function turnOnPush(): Promise<PushResult> {
 
 /** Stops notifications for this browser (also called before signing out). Never throws. */
 export async function turnOffPush(): Promise<void> {
+  if (isApp()) return turnOffAppPush()
   try {
     const sub = await currentSubscription()
     if (!sub) return
@@ -88,6 +106,7 @@ export async function turnOffPush(): Promise<void> {
  * this person (the backend moves an existing address to the caller), so nobody gets someone else's messages.
  */
 export async function claimSubscription(): Promise<void> {
+  if (isApp()) return claimAppPush()
   try {
     const sub = await currentSubscription()
     if (sub) await api<void>('POST', '/api/v1/me/push-subscriptions', { body: sub.toJSON() })
@@ -98,6 +117,7 @@ export async function claimSubscription(): Promise<void> {
 
 /** The session ended without a sign-out call (refused refresh): drop this browser's subscription. Never throws. */
 export async function dropBrowserSubscription(): Promise<void> {
+  if (isApp()) return dropAppPush()
   try {
     await (await currentSubscription())?.unsubscribe()
   } catch {
@@ -107,6 +127,7 @@ export async function dropBrowserSubscription(): Promise<void> {
 
 /** Closes this app's notifications still in the phone's tray (sign-out: the next person mustn't read them). */
 export async function closeShownNotifications(): Promise<void> {
+  if (isApp()) return clearAppNotifications()
   try {
     const reg = await navigator.serviceWorker?.getRegistration()
     for (const n of (await reg?.getNotifications()) ?? []) n.close()

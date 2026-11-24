@@ -55,6 +55,7 @@
   "nothingToPayYet": "Nothing to pay yet: your free trial starts when our field team approves your salon.",
   "autoPayNothingToDo": "AutoPay is on: nothing to do.",
   "autoPayNothingToDoNext": "AutoPay is on: nothing to do. The next ₹{price} is taken on {day}.",
+  "googlePlayManage": "AutoPay is through Google Play. To change or stop it: Play Store › your profile picture › Payments & subscriptions › Subscriptions.",
   "payingNotReady": "Paying in the app isn't available yet. We'll tell you before anything is due.",
   "setUpAutoPay": "Set up AutoPay",
   "payPrice": "Pay ₹{price}",
@@ -63,6 +64,8 @@
   "testMode": "Test mode: nothing real is charged.",
   "failedMoneyTaken": "{reason} If money was taken anyway, it shows here within a few minutes.",
   "couldntOpenPayment": "Couldn't open the payment screen. Check your internet and try again.",
+  "inAppUnavailable": "Paying through Google Play isn't available on this phone. Update the Play Store app and try again.",
+  "googlePlayDone": "Done: your subscription is with Google Play and renews each month by itself.",
   "paymentFailed": "The payment failed.",
   "nextScreenEnglish": "The next screen is in English: choose UPI, then approve with your UPI PIN.",
 
@@ -77,5 +80,18 @@
   "bannerEndedPay": "{what}. Pay ₹{price} to keep your salon on Clozest.",
   "bannerAutoPayFailed": "Your AutoPay payment didn't go through. Check your bank or UPI app, or pay another way.",
   "bannerTrialEnds": "Your free trial ends on {day}. Set up AutoPay (₹{price} a month, nothing taken before then) so customers can keep booking you.",
-  "bannerPaidEnds": "Your paid month ends on {day}. Set up AutoPay (₹{price} a month, nothing taken before then) so customers can keep booking you."
+  "bannerPaidEnds": "Your paid month ends on {day}. Set up AutoPay (₹{price} a month, nothing taken before then) so customers can keep booking you.",
+  "inAppNotOpen": "Paying from this app isn't open yet. Write to us and we'll help you pay.",
+  "inAppFrom": "Nothing to pay now. You can pay here from {day}.",
+  "inAppChoiceGuide": "Next, Google asks how you want to pay: Razorpay (UPI AutoPay) or Google Play. Both are ₹{price} a month.",
+  "payNowThenMonthlyApp": "₹{price} now for the next month, then ₹{price} each month by itself (stop any time).",
+  "googlePlayChecking": "Google Play has your payment. We're confirming it: please don't pay again.",
+  "googlePlayPending": "Google Play is still confirming your payment. It shows here once done: please don't pay again.",
+  "googlePlayFailed": "Google Play's payment didn't go through, so nothing was taken. Try again, or pick Razorpay.",
+  "googlePlayManageButton": "Manage in Play Store",
+  "goodStopGooglePlay": "To stop AutoPay: tap Manage in Play Store and cancel Clozest. You keep the month already paid; nothing more is taken.",
+  "autoPayFailedGooglePlay": "Google Play couldn't take this month's payment. Tap Manage in Play Store and check the payment method.",
+  "bannerTrialEndsApp": "Your free trial ends on {day}. From then, pay ₹{price} a month here so customers can keep booking you.",
+  "bannerPaidEndsApp": "Your paid month ends on {day}. From then, pay ₹{price} a month here so customers can keep booking you.",
+  "googlePlayAlreadyOwned": "Your Google account already pays for a Clozest subscription. See it in Play Store › Payments & subscriptions, or write to us."
 }

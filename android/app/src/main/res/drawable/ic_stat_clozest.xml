@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The status bar's small icon for notifications: the Clozest "C" pin from the logo (public/icon.svg), in one colour as
+     Android requires (it tints it itself). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="200"
+    android:viewportHeight="232">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M138.6,65.2 L166.9,39.8 A90,90 0 1,0 39.2,166.3 L100,222 L160.8,166.3 A90,90 0 0,0 166.9,160.2 L138.6,134.8 A52,52 0 1,1 138.6,65.2 Z M133.8,52.5 A19,19 0 1,0 171.8,52.5 A19,19 0 1,0 133.8,52.5 Z M133.8,147.5 A19,19 0 1,0 171.8,147.5 A19,19 0 1,0 133.8,147.5 Z" />
+</vector>

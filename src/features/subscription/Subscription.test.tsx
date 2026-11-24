@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import type { SubscriptionView } from '../../api/types'
+import { ApiError } from '../../api/errors'
 import { SubscriptionBanner } from './SubscriptionBanner'
 import { SubscriptionPage } from './SubscriptionPage'
 import { daysLeft, payByDay, summary } from './text'
@@ -12,11 +13,25 @@ const state = vi.hoisted(() => ({
   checkout: vi.fn(),
   confirm: vi.fn(),
   pay: vi.fn(),
+  app: false,
+  choose: vi.fn(),
+  googlePlay: vi.fn(),
+  unconfirmed: vi.fn(),
 }))
+
+vi.mock('../../lib/playBilling', async (orig) => ({
+  ...(await orig<typeof import('../../lib/playBilling')>()),
+  chooseInApp: (...a: unknown[]) => state.choose(...a),
+  unconfirmedPurchases: (...a: unknown[]) => state.unconfirmed(...a),
+  onLatePurchase: () => () => {},
+}))
+
+vi.mock('../../lib/platform', () => ({ isApp: () => state.app }))
 
 vi.mock('../../api/shop', async (orig) => ({
   ...(await orig<typeof import('../../api/shop')>()),
   useShop: () => ({
+    id: 'shop1',
     name: 'Style Studio',
     ownerName: 'Ramesh',
     myRole: state.role,
@@ -34,7 +49,8 @@ vi.mock('../../api/subscription', async (orig) => {
         queryFn: async () => state.sub,
         initialData: state.sub ?? undefined,
       }),
-    startCheckout: () => state.checkout(),
+    startCheckout: (token?: string) => state.checkout(token),
+    confirmGooglePlay: (token: string) => state.googlePlay(token),
     confirmPayment: (a: unknown) => state.confirm(a),
   }
 })
@@ -73,6 +89,11 @@ function show(node: React.ReactNode) {
 }
 
 beforeEach(() => {
+  state.app = false
+  state.choose.mockReset()
+  state.googlePlay.mockReset()
+  state.unconfirmed.mockReset()
+  state.unconfirmed.mockResolvedValue([])
   state.role = 'OWNER'
   state.checkout.mockReset()
   state.confirm.mockReset()
@@ -304,5 +325,211 @@ describe('the subscription page', () => {
     state.sub = sub({ paymentsReady: false, canPay: false })
     show(<SubscriptionPage />)
     expect(screen.getByText(/Paying in the app isn't available yet/)).toBeInTheDocument()
+  })
+})
+
+describe('in the Play Store app before in-app paying is set up (status only)', () => {
+  it('the owner sees the plan and until when it is paid, but no Pay or AutoPay button and nothing about Razorpay', () => {
+    state.app = true
+    for (const s of [sub({}), sub({ state: 'GRACE' }), sub({ state: 'HIDDEN' }), sub({ state: 'PAID', paidUntil: iso(10 * DAY) })]) {
+      state.sub = s
+      const { unmount } = show(<SubscriptionPage />)
+      expect(screen.getByText('₹500 a month')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /AutoPay|Pay/ })).toBeNull()
+      expect(screen.queryByText(/Razorpay|isn't available yet|English/)).toBeNull()
+      unmount()
+    }
+    expect(state.checkout).not.toHaveBeenCalled()
+  })
+
+  it('still says AutoPay is on, and that nothing is due before approval', () => {
+    state.app = true
+    state.sub = sub({ state: 'AUTOPAY', accessUntil: iso(9 * DAY) })
+    const { unmount } = show(<SubscriptionPage />)
+    expect(screen.getByText(/AutoPay is on/)).toBeInTheDocument()
+    unmount()
+    state.sub = sub({ state: 'NONE' })
+    show(<SubscriptionPage />)
+    expect(screen.queryByRole('button', { name: /AutoPay|Pay/ })).toBeNull()
+  })
+
+  it('the banner on Today links to the details, never to pay', () => {
+    state.app = true
+    state.sub = sub({ accessUntil: iso(5 * DAY) })
+    const { unmount } = show(<SubscriptionBanner />)
+    expect(screen.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/subscription')
+    expect(screen.queryByRole('link', { name: /AutoPay|Pay/ })).toBeNull()
+    unmount()
+    state.sub = sub({ state: 'GRACE' })
+    show(<SubscriptionBanner />)
+    expect(screen.queryByRole('link', { name: /Pay now/ })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Details' })).toBeInTheDocument()
+  })
+})
+
+describe('paying in the Play Store app (user choice billing)', () => {
+  const inApp = (over: Partial<SubscriptionView> = {}) => sub({ inAppProductId: 'clozest_salon_monthly', ...over })
+  /** The trial ended yesterday: the app offers paying (Google Play and Razorpay from the app charge at once). */
+  const due = (over: Partial<SubscriptionView> = {}) =>
+    inApp({ state: 'GRACE', accessUntil: iso(-DAY), hiddenFrom: iso(2 * DAY), inAppPayFrom: iso(-DAY), ...over })
+
+  it('during the free trial: nothing to pay, and from which day the app offers it; no button', () => {
+    state.app = true
+    state.sub = inApp({ inAppPayFrom: iso(20 * DAY) })
+    const { unmount } = show(<SubscriptionPage />)
+    expect(screen.getByText(/Nothing to pay now\. You can pay here from/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /AutoPay|Pay/ })).toBeNull()
+    unmount()
+    // Today's banner in the last week: from when, and the details (no "set up now")
+    state.sub = inApp({ accessUntil: iso(5 * DAY), inAppPayFrom: iso(5 * DAY) })
+    show(<SubscriptionBanner />)
+    expect(screen.getByText(/From then, pay ₹500 a month here/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/subscription')
+  })
+
+  it('Razorpay picked on Google’s choice screen: said before it opens, then Razorpay’s checkout with Google’s token', async () => {
+    state.app = true
+    state.sub = due()
+    state.choose.mockResolvedValue({ choice: 'RAZORPAY', externalTransactionToken: 'ext-1' })
+    state.checkout.mockResolvedValue({ keyId: 'k', subscriptionId: 'sub_1', firstChargeAt: null })
+    state.pay.mockResolvedValue({ razorpay_payment_id: 'pay_1', razorpay_subscription_id: 'sub_1', razorpay_signature: 'sig' })
+    state.confirm.mockImplementation(async () => {
+      state.sub = due({ state: 'AUTOPAY', canPay: false })
+      return state.sub
+    })
+    show(<SubscriptionPage />)
+    expect(screen.getByText(/Google asks how you want to pay: Razorpay \(UPI AutoPay\) or Google Play/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Pay ₹500' }))
+    await waitFor(() => expect(screen.getByText(/AutoPay is on: ₹500 is being paid now/)).toBeInTheDocument())
+    expect(state.choose).toHaveBeenCalledWith('clozest_salon_monthly', 'shop1')
+    expect(state.checkout).toHaveBeenCalledWith('ext-1')
+  })
+
+  it('Google Play picked: the purchase goes to the backend and the page says it is done; Razorpay never opens', async () => {
+    state.app = true
+    state.sub = due()
+    state.choose.mockResolvedValue({ choice: 'GOOGLE_PLAY', purchaseToken: 'gp-1' })
+    state.googlePlay.mockResolvedValue(due({ state: 'AUTOPAY', canPay: false, googlePlay: true }))
+    show(<SubscriptionPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Pay ₹500' }))
+    await waitFor(() => expect(screen.getByText(/your subscription is with Google Play/)).toBeInTheDocument())
+    expect(state.googlePlay).toHaveBeenCalledWith('gp-1')
+    expect(state.checkout).not.toHaveBeenCalled()
+    expect(state.pay).not.toHaveBeenCalled()
+    // Changed or stopped in the Play Store: one tap there, and Good to know says so
+    expect(screen.getByRole('link', { name: 'Manage in Play Store' })).toHaveAttribute(
+      'href',
+      'https://play.google.com/store/account/subscriptions?sku=clozest_salon_monthly&package=com.clozest.partner',
+    )
+    expect(screen.getByText(/To stop AutoPay: tap Manage in Play Store/)).toBeInTheDocument()
+  })
+
+  it('a slow Google Play payment (pending) is never called done, and Pay is gone meanwhile', async () => {
+    state.app = true
+    state.sub = due()
+    state.choose.mockResolvedValue({ choice: 'GOOGLE_PLAY', purchaseToken: 'gp-2', pending: true })
+    show(<SubscriptionPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Pay ₹500' }))
+    await waitFor(() => expect(screen.getByText(/Google Play is still confirming your payment/)).toBeInTheDocument())
+    expect(screen.queryByText(/your subscription is with Google Play/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Pay ₹500' })).toBeNull()
+    expect(state.googlePlay).not.toHaveBeenCalled()
+  })
+
+  it('Google charged but our confirm failed (network): "checking", never pay again; Check again sends the same purchase', async () => {
+    state.app = true
+    state.sub = due()
+    state.choose.mockResolvedValue({ choice: 'GOOGLE_PLAY', purchaseToken: 'gp-3' })
+    state.googlePlay.mockRejectedValueOnce(new Error('offline'))
+    show(<SubscriptionPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Pay ₹500' }))
+    await waitFor(() => expect(screen.getByText(/Google Play has your payment\. We're confirming it/)).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Pay ₹500' })).toBeNull()
+    state.googlePlay.mockResolvedValueOnce(due({ state: 'AUTOPAY', canPay: false, googlePlay: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Check again' }))
+    await waitFor(() => expect(screen.getByText(/your subscription is with Google Play/)).toBeInTheDocument())
+    expect(state.googlePlay).toHaveBeenLastCalledWith('gp-3')
+  })
+
+  it('a purchase on the phone the backend never got is confirmed when the page opens, and "already owned" finds it too', async () => {
+    state.app = true
+    state.sub = due()
+    state.unconfirmed.mockResolvedValue([{ purchaseToken: 'gp-lost' }])
+    state.googlePlay.mockResolvedValue(due({ state: 'AUTOPAY', canPay: false, googlePlay: true }))
+    const { unmount } = show(<SubscriptionPage />)
+    await waitFor(() => expect(state.googlePlay).toHaveBeenCalledWith('gp-lost'))
+    unmount()
+    // Pay tapped, Google says it is owned already: that purchase is confirmed, no second payment
+    state.unconfirmed.mockResolvedValueOnce([]).mockResolvedValueOnce([{ purchaseToken: 'gp-owned' }])
+    state.choose.mockRejectedValueOnce(Object.assign(new Error('owned'), { code: 'ALREADY_OWNED' }))
+    show(<SubscriptionPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Pay ₹500' }))
+    await waitFor(() => expect(state.googlePlay).toHaveBeenCalledWith('gp-owned'))
+    expect(screen.queryByText(/Couldn't open the payment screen/)).toBeNull()
+  })
+
+  it('"already owned" with nothing to confirm on this phone (another salon, or one replaced) says where to look', async () => {
+    state.app = true
+    state.sub = due()
+    state.choose.mockRejectedValueOnce(Object.assign(new Error('owned'), { code: 'ALREADY_OWNED' }))
+    show(<SubscriptionPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Pay ₹500' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/already pays for a Clozest subscription/))
+  })
+
+  it('a purchase found on the phone that the salon no longer has (replaced) says nothing when the page opens', async () => {
+    state.app = true
+    state.sub = due()
+    state.unconfirmed.mockResolvedValue([{ purchaseToken: 'gp-old' }])
+    state.googlePlay.mockRejectedValue(new ApiError(409, { code: 'PLAY_PURCHASE_TAKEN', message: 'Taken' }))
+    show(<SubscriptionPage />)
+    await waitFor(() => expect(state.googlePlay).toHaveBeenCalledWith('gp-old'))
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Pay ₹500' })).toBeInTheDocument()
+  })
+
+  it('closing Google’s choice screen says nothing; a failed Google Play payment and no Google Play each say what happened', async () => {
+    state.app = true
+    state.sub = due()
+    state.choose.mockResolvedValueOnce({ choice: 'CANCELLED' })
+    show(<SubscriptionPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Pay ₹500' }))
+    await waitFor(() => expect(state.choose).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(state.checkout).not.toHaveBeenCalled()
+    state.choose.mockRejectedValueOnce(Object.assign(new Error('no'), { code: 'ERROR_6' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pay ₹500' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/didn't go through, so nothing was taken/))
+    state.choose.mockRejectedValueOnce(Object.assign(new Error('no'), { code: 'BILLING_UNAVAILABLE' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pay ₹500' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/isn't available on this phone/))
+  })
+
+  it('Google Play couldn’t take a renewal: the page and Today send the owner to the Play Store, not the UPI app', () => {
+    state.app = true
+    state.sub = due({ state: 'AUTOPAY', googlePlay: true, autoPayFailed: true, accessUntil: iso(DAY) })
+    const { unmount } = show(<SubscriptionPage />)
+    expect(screen.getByText(/Google Play couldn't take this month's payment/)).toBeInTheDocument()
+    expect(screen.queryByText(/Check your bank or UPI app/)).toBeNull()
+    expect(screen.getByRole('link', { name: 'Manage in Play Store' })).toBeInTheDocument()
+    unmount()
+    show(<SubscriptionBanner />)
+    expect(screen.getByText(/Google Play couldn't take this month's payment/)).toBeInTheDocument()
+  })
+
+  it('the banner on Today links to paying once the trial is over', () => {
+    state.app = true
+    state.sub = due()
+    show(<SubscriptionBanner />)
+    expect(screen.getByRole('link', { name: /Pay/ })).toHaveAttribute('href', '/subscription')
+  })
+
+  it('before in-app paying is set up, the owner is told and can write to us (not a page with nothing to do)', () => {
+    state.app = true
+    state.sub = sub({ state: 'GRACE', accessUntil: iso(-DAY), hiddenFrom: iso(2 * DAY) })
+    show(<SubscriptionPage />)
+    expect(screen.getByText(/Paying from this app isn't open yet/)).toBeInTheDocument()
+    // Right under that line, not only in Good to know further down
+    expect(screen.getAllByRole('link', { name: 'Ask us' })).toHaveLength(2)
   })
 })

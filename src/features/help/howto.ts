@@ -1,4 +1,5 @@
 import type { Shop, ShopRole } from '../../api/types'
+import { isApp } from '../../lib/platform'
 
 /**
  * The how-to answers on the help page: what salon people ask most, each answered in 1–3 plain sentences with the
@@ -115,7 +116,14 @@ export function howToFor(shop: Shop | null | undefined): readonly HowTo[] {
   if (!shop || shop.type !== 'SALON' || shop.status === 'CLOSED') return []
   const past = shop.myRole === 'OWNER' ? shop.status !== 'DRAFT' : shop.status === 'APPROVED' || shop.status === 'SUSPENDED'
   if (!past) return []
-  return HOWTOS.filter((h) => h.roles.includes(shop.myRole))
+  return HOWTOS.filter((h) => h.roles.includes(shop.myRole)).map(inThisApp)
+}
+
+/** The answers as the Play Store app has them: the poster is shared there (it has no Download). */
+function inThisApp(h: HowTo): HowTo {
+  if (!isApp()) return h
+  if (h.id === 'share') return { ...h, words: { ...h.words, poster: 'share.sharePoster' } }
+  return h
 }
 
 /** Lower case, accents and joining marks kept (Indian scripts need them), spaces squeezed. */

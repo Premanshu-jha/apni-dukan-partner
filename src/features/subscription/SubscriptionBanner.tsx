@@ -3,6 +3,7 @@ import { useSubscription } from '../../api/subscription'
 import { useShop } from '../../api/shop'
 import { Banner } from '../../components/ui'
 import { useT } from '../../i18n'
+import { isApp } from '../../lib/platform'
 import { dayIst, daysLeft, payByDay, whatEnded } from './text'
 
 /**
@@ -14,14 +15,28 @@ export function SubscriptionBanner() {
   const shop = useShop()
   const sub = useSubscription()
   const s = sub.data
-  if (!s || s.state === 'NONE' || s.state === 'AUTOPAY') return null
+  if (!s || s.state === 'NONE') return null
   const owner = shop.myRole === 'OWNER'
+  // Google Play couldn't take a renewal: the owner fixes the payment method in the Play Store (the page links there)
+  if (s.state === 'AUTOPAY') {
+    return owner && s.googlePlay && s.autoPayFailed ? (
+      <Banner tone="warn" live={false}>
+        {t('subscription.autoPayFailedGooglePlay')}{' '}
+        <Link to="/subscription" className="font-medium underline">
+          {t('subscription.details')}
+        </Link>
+      </Banner>
+    ) : null
+  }
   const who = shop.ownerName
   // Printed as it is ("₹1500"), not grouped
   const price = String(s.pricePerMonth)
+  // The Play Store app before in-app paying is set up (Google Play's rules), or before its paying starts (the free or
+  // paid time is over): the link only shows the details
+  const app = isApp() && (!s.inAppProductId || (s.inAppPayFrom != null && Date.parse(s.inAppPayFrom) > Date.now()))
   const link = (label: string) => (
     <Link to="/subscription" className="font-medium underline">
-      {label}
+      {app ? t('subscription.details') : label}
     </Link>
   )
   if (s.state === 'HIDDEN' && s.enforced) {
@@ -65,7 +80,16 @@ export function SubscriptionBanner() {
   if (daysLeft(s.accessUntil!) > 7) return null
   return (
     <Banner tone="info" live={false}>
-      {t(s.state === 'TRIAL' ? 'subscription.bannerTrialEnds' : 'subscription.bannerPaidEnds', { day: dayIst(s.accessUntil!), price })}{' '}
+      {t(
+        isApp()
+          ? s.state === 'TRIAL'
+            ? 'subscription.bannerTrialEndsApp'
+            : 'subscription.bannerPaidEndsApp'
+          : s.state === 'TRIAL'
+            ? 'subscription.bannerTrialEnds'
+            : 'subscription.bannerPaidEnds',
+        { day: dayIst(s.accessUntil!), price },
+      )}{' '}
       {link(s.paymentsReady ? t('subscription.setUpAutoPay') : t('subscription.details'))}
     </Banner>
   )

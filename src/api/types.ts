@@ -643,6 +643,19 @@ export interface SubscriptionView {
   testMode: boolean
   /** The last AutoPay charge failed, or one is overdue: the owner is told and may pay another way */
   autoPayFailed?: boolean
+  /**
+   * The Play Store app may take the payment itself (Google's choice screen, then Razorpay or Google Play), buying this
+   * Google Play product; null (or missing, an older backend) while Google Play isn't set up: the app then only shows
+   * the subscription
+   */
+  inAppProductId?: string | null
+  /** AutoPay runs through Google Play (bought in the app): changed or stopped in the Play Store */
+  googlePlay?: boolean
+  /**
+   * From when the Play Store app offers paying: the free or paid time is then over (Google Play, and Razorpay from the
+   * app, charge at once); null when the app can't take payments
+   */
+  inAppPayFrom?: string | null
 }
 
 /** POST /shops/me/subscription/checkout: what Razorpay's checkout opens with. */

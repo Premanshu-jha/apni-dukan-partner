@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { lazy, Suspense, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router'
+import { useLeaveGuard } from '../../lib/leaveGuard'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
 import { fileApi, ShopContext, shopApi, shopKeys, useMyShop, usePhotoLink, useShop } from '../../api/shop'
 import type { AddressIn, AddressRequest, GeocodePrecision, RegistrationDocType, Shop, ShopDetailsIn, ShopType } from '../../api/types'
@@ -605,6 +606,8 @@ export function RegisterDetails({
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty, UNSAVED])
+  // The phone's Back button in the app asks too
+  useLeaveGuard(dirty, UNSAVED)
   // Field errors show under their fields; the banner is for everything else.
   // EDIT_LOCKED: the code sheet comes up instead (EditGate), and after the code Save works
   const generalError =

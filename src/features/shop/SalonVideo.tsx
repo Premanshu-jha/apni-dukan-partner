@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useVideoLink, videoApi } from '../../api/shop'
 import { isApiError } from '../../api/errors'
+import { useLeaveGuard } from '../../lib/leaveGuard'
 import { Banner, Button, Card } from '../../components/ui'
 import { useT } from '../../i18n'
 import {
@@ -97,6 +98,8 @@ export function SalonVideo({
       document.removeEventListener('click', link, true)
     }
   }, [uploading, t, kirana])
+  // The phone's Back button in the app asks too
+  useLeaveGuard(uploading, t(kirana ? 'shop.videoLeaveWarningKirana' : 'shop.videoLeaveWarning'))
 
   function reset() {
     abort.current?.abort()

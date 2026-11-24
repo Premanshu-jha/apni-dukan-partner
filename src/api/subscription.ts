@@ -21,9 +21,17 @@ export function useSubscription(watch = false) {
   })
 }
 
-/** Owner: the Razorpay subscription to open the checkout with (the same one again on a second tap). */
-export function startCheckout(): Promise<SubscriptionCheckout> {
-  return api<SubscriptionCheckout>('POST', `${S}/checkout`)
+/**
+ * Owner: the Razorpay subscription to open the checkout with (the same one again on a second tap). From the Play Store
+ * app after Razorpay was picked on Google's choice screen: with Google's token, so its payments are reported to Google.
+ */
+export function startCheckout(externalTransactionToken?: string): Promise<SubscriptionCheckout> {
+  return api<SubscriptionCheckout>('POST', `${S}/checkout`, externalTransactionToken ? { body: { externalTransactionToken } } : {})
+}
+
+/** Owner, in the Play Store app: the Google Play purchase just made; the salon shows as paid at once. */
+export function confirmGooglePlay(purchaseToken: string): Promise<SubscriptionView> {
+  return api<SubscriptionView>('POST', `${S}/google-play`, { body: { purchaseToken } })
 }
 
 /** The checkout's signed answer, as the backend takes it. */

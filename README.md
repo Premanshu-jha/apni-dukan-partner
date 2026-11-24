@@ -404,7 +404,8 @@ the first day's 00:00 to the 00:00 after the last day.
 
 The inbox asks for `app=partner` (salon and shop messages only). Push is per person, not per app, so someone who
 is also a customer can get a customer message on this phone: the service worker opens only this app's pages
-(`/salon/*`, and `/shops/*` as the start) and otherwise the board.
+(`/salon/*`, and `/shops/*` as the start) and otherwise the board. In the Play Store app the same messages come
+through Firebase, and a tap follows the same rule (see [The Play Store app](#the-play-store-app-android)).
 
 ### Copied from the customer app
 
@@ -460,6 +461,99 @@ switches over. Change `OFFLINE_CACHE` in `sw.js` when the offline page changes.
 
 Until the admin app exists, nobody can approve a salon: for a first real test, approve it by hand in the database
 (set `shops.status` to `APPROVED`).
+
+## The Play Store app (Android)
+
+The same app is also an Android app for the Play Store, made with [Capacitor](https://capacitorjs.com): the website's
+build runs inside an Android web view from the app's own files, under the website's own address
+(`https://partner.clozest.in`, `capacitor.config.ts` › `server.hostname`), so the backend's CORS list, Turnstile and
+everything else see the same site. The Android project is in `android/` (made by `npx cap add android`, then changed:
+see below). The website is built and served exactly as before; nothing here changes it.
+
+**One question decides what differs:** `isApp()` (`src/lib/platform.ts`, Capacitor's `isNativePlatform()`), false on
+the website.
+
+| | Website (Chrome, Safari) | Play Store app |
+| --- | --- | --- |
+| Notifications | Web Push (`sw.js`, `POST /me/push-subscriptions`) | Firebase Cloud Messaging (`src/api/appPush.ts`, `POST /me/push-devices`); the screens call the same functions in `push.ts`, which hand over to it |
+| A notification tapped | `sw.js` opens its page | the same rule (`notificationTarget`, `src/lib/appEvents.ts`), opened by `NativeBridge` |
+| A message while the app is open | the bell and the board refresh | the same (`refreshForMessage` in `main.tsx`); Android shows nothing then |
+| Service worker, offline page, "New version — Reload" | yes | none: the app opens from its own files and is updated through the Play Store |
+| Subscription | Pay / Set up AutoPay: Razorpay's checkout on the same screen (AutoPay can be set up before the trial ends) | Pay ₹500 once the free or paid time is over (`inAppPayFrom`; before it: "You can pay here from {day}") opens **Google's choice screen first** (user choice billing, India): Razorpay (then the same Razorpay checkout, UPI apps opening for the PIN) or Google Play (Google charges; changed or stopped in the Play Store: **Manage in Play Store**). Until Google Play is set up on the server (`inAppProductId` null) the app says paying from the app isn't open yet, with Ask us, as Google Play's payments rule requires |
+| Share your salon | browser share sheet, Download poster, Print | Android's share sheet for the link and the poster (`src/lib/appShare.ts`), and **Save to phone** (Pictures › Clozest, to print; `AppSettingsPlugin.savePicture`); no Download or Print buttons (a web view can't). A failed share or save says so |
+| Phone's Back button | the browser's | closes an open sheet, else goes back a screen (asking first on a screen with something unsaved: registration typed, the salon video uploading; `src/lib/leaveGuard.ts`), else puts the app in the background (`src/app/NativeBridge.tsx`) |
+| Notifications turned off for the app | the browser's settings | "Open settings" goes straight to the app's notification settings (`AppSettingsPlugin.openNotifications`); a phone that gets no token from Firebase is told so plainly; a sign-out offline drops the token at the next start |
+| An old Android System WebView | — | one screen asking to update it in the Play Store (`appShellWithoutBridge`, the app's user agent mark `ClozestAndroidApp`), never the website's behaviour inside the app |
+| A link to partner.clozest.in | opens the website | opens in the app once `assetlinks.json` is live (see below) |
+| Status bar | — | the app is kept below it (the app's build has no `viewport-fit=cover`), dark bars, light icons |
+
+**Building it.** `npm run android` builds the website for the app (`APP_BUILD=true`: no `viewport-fit=cover`, no web
+manifest, and the Content-Security-Policy as a meta tag, since nothing sends headers inside the app) and copies it into
+`android/` (`cap sync`). Then `cd android && ./gradlew assembleDebug` makes an installable test APK
+(`android/app/build/outputs/apk/debug/app-debug.apk`); Android Studio and JDK 21 are needed on a laptop. CI's
+`android` job does this on every run and keeps `app-debug.apk` (and, with the upload key, the signed
+`app-release.aab` for the Play Store) under the run's Artifacts.
+
+**CI's settings** (GitHub › Settings › Secrets and variables › Actions):
+- Variables, the website's own values (as on Railway): `VITE_API_URL`, `VITE_TURNSTILE_SITE_KEY`, `VITE_MAP_TILES`,
+  `VITE_SUPPORT_EMAIL`, `PHOTO_ORIGIN`. Without `VITE_API_URL` the app points at a placeholder and can't sign in.
+- Secret `GOOGLE_SERVICES_JSON`: the Firebase project's `google-services.json` for the Android app
+  `com.clozest.partner`. With it the build turns notifications on (`VITE_APP_PUSH=true`); without it the app says
+  notifications aren't available in this version. Never committed (`android/.gitignore`).
+- Secrets `ANDROID_KEYSTORE_BASE64` (the upload key's `.jks`, base64), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
+  `ANDROID_KEY_PASSWORD`: the key the Play Store bundle is signed with (Play App Signing keeps the real signing key).
+  Keep a copy of the `.jks` and its passwords somewhere safe. The version Google compares (`versionCode`) is CI's run
+  number; the version shown is `package.json`'s.
+- The backend needs `FIREBASE_SERVICE_ACCOUNT` to send to the app (its README).
+
+**Links that open the app.** `AndroidManifest.xml` asks Android to open `https://partner.clozest.in/...` in the app.
+Android does so only after checking `https://partner.clozest.in/.well-known/assetlinks.json`, which the website's
+build writes when Railway's `ANDROID_CERT_SHA256` holds the app's signing certificate fingerprint (Play Console ›
+App integrity › App signing; several, comma-separated). Until then links open in the browser.
+
+**Paying in the app (user choice billing).** Google Play's rule: an app may take payment for its own service only
+through Google Play's billing; in India it may offer its own (Razorpay) next to it, on Google's own choice screen, and
+report each such payment to Google (which charges a reduced fee on it). So in the app, Pay calls `chooseInApp`
+(`src/lib/playBilling.ts` → `PlayBillingPlugin.java`, Google's Play Billing Library 8 with `enableUserChoiceBilling`):
+- **When:** only once the salon's free or paid time is over (the backend's `inAppPayFrom`, 15 minutes before it).
+  Google Play has no free trial (a trial at Google would repeat the salon's own, once per Google account) and charges
+  at once, so Razorpay from the app does too: the same first payment whichever the owner picks. Before then the page
+  says from which day; Today's last-week banner says so too. On the website an owner can still set up AutoPay early.
+- **Before the button:** "Google asks how you want to pay: Razorpay (UPI AutoPay) or Google Play. Both are ₹500 a
+  month."
+- **Razorpay picked:** the plugin returns Google's `externalTransactionToken`; the app opens the checkout with it
+  (`POST /shops/me/subscription/checkout {externalTransactionToken}`), then Razorpay's checkout and its confirm exactly
+  as on the website (with `webview_intent: true`, and `UpiIntentsPlugin.java` starting the UPI app from Razorpay's
+  `intent://` link: only a `upi:` payment, never with access to the app's files; without that UPI app, its https
+  fallback opens in the browser). The backend reports each charge to Google.
+- **Google Play picked:** Google charges the base plan (never an offer with a free phase); the app sends the purchase
+  (`POST /shops/me/subscription/google-play`), the backend checks it with Google, marks the salon paid until its end and
+  acknowledges it. "Done" shows only once the backend says AutoPay is on; a slow (pending) payment says Google Play is
+  still confirming it; a confirm that fails (network) says Google Play has the payment, with Check again (never "pay
+  again"). A purchase the backend never got (the app closed, offline) is sent again when the subscription page opens
+  (`PlayBilling.purchases`: the phone's purchases not yet acknowledged), and Google's "already owned" on Pay finds and
+  sends it the same way. AutoPay then shows as "through Google Play" with **Manage in Play Store**; a failed renewal
+  says to fix the payment method there.
+- **Closed:** nothing happens. **Google Play billing missing on the phone:** "Paying through Google Play isn't
+  available on this phone. Update the Play Store app…". **Google Play's payment failed:** "…didn't go through, so
+  nothing was taken. Try again, or pick Razorpay."
+
+The website never shows Google's choice screen: `isApp()` is false there and the Pay button opens Razorpay at once.
+The choice screen only appears in a build installed from Play Console (internal testing is enough), never in a
+debug APK.
+
+**What was changed in `android/`** after `cap add`: the app id `com.clozest.partner` and name "Clozest Partner";
+`allowBackup="false"` (the session's tokens never go into a phone backup); the permissions, each asked when first
+needed: location (the salon's pin), camera (Take photo, Record), notifications; the link filter above; the
+notification icon (`res/drawable/ic_stat_clozest.xml`, the logo's "C" pin in one colour), colour and channel
+(`clozest`, "Clozest"); the dark theme and start screen (`res/values/`); the version and the upload key in
+`app/build.gradle`. The launcher icons and start screens come from `public/icon.svg` with `npm run android-icons`.
+
+**Before the first upload to the Play Store:** a Play Console account, the app `com.clozest.partner`, its store
+listing, the privacy policy address (`https://partner.clozest.in/privacy`), the data safety form (phone number, name,
+email, location, photos and the salon's video, the subscription's status; nothing sold or shared for ads), account
+deletion (in the app: More › Delete account; on the web: the same page), content rating and target audience (adults).
+With a personal developer account Google first wants a closed test with 12 testers for 14 days.
 
 ## Languages
 
@@ -561,6 +655,27 @@ and keeps whatever was typed.
   (`docs/translation-review.md` lists what to look at first).
 
 ## Changelog
+
+### Unreleased — the Play Store app (Android)
+
+Needs apni-dukan-backend's round (V89: `POST/DELETE /me/push-devices`, `appPush` in `GET /push/public-key`; V90: paying in the app) for
+notifications in the app; the website works with the old backend too.
+
+- **An Android app for the Play Store** from the same code (Capacitor, `android/`), built by CI as a test APK on every
+  run and as a signed Play Store bundle once the upload key is set. See [The Play Store app](#the-play-store-app-android).
+- **Notifications in the app through Firebase**, with the same switch, prompt and setup step as on the website; a tap
+  opens the screen the website's would.
+- **Paying in the app** once the free or paid time is over, through Google's choice screen (user choice billing):
+  Razorpay (the same checkout, reported to Google) or Google Play (no free trial there). A Google Play payment is never
+  lost: pending, unconfirmed and "already owned" purchases are confirmed, never paid twice. Until Google Play is set up
+  on the server, the app says paying from the app isn't open yet, with Ask us. The website still opens Razorpay
+  straight away.
+- **Sharing in the app** uses Android's share sheet for the link and the poster, plus Save to phone (to print).
+- **The phone's Back button** closes a sheet, goes back (asking first when something typed isn't saved), or puts the
+  app in the background.
+- **Notifications blocked:** Open settings goes straight there. An old Android System WebView gets one screen asking
+  for its update.
+- The website is unchanged: same notifications, service worker, Pay button and sharing.
 
 ### Unreleased — the app guides itself
 
