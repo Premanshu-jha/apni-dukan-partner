@@ -7,6 +7,11 @@ apply plugin: 'com.android.application'
 def webVersion = new JsonSlurper().parse(rootProject.file('../package.json')).version
 def versionNumber = (System.getenv('ANDROID_VERSION_CODE') ?: '1') as Integer
 
+// The native part's level (android/native-level): raised whenever the screens need native code an older app doesn't
+// have (a new plugin or a change to one of ours). A screen update is only offered to apps of at least its level (see
+// "App updates" in the README; CI's check-native-level refuses such a change without the raise).
+def nativeLevel = rootProject.file('native-level').text.trim() as Integer
+
 // The upload key for the Play Store (never committed): android/keystore.properties, which CI writes from GitHub
 // secrets. Without it the release build is unsigned and only the debug build can be installed.
 def keystoreFile = rootProject.file('keystore.properties')
@@ -24,6 +29,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode versionNumber
         versionName webVersion
+        buildConfigField "int", "NATIVE_LEVEL", "${nativeLevel}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -40,6 +46,9 @@ android {
                 keyPassword keystore['keyPassword']
             }
         }
+    }
+    buildFeatures {
+        buildConfig true
     }
     buildTypes {
         release {
