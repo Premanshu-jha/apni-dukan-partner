@@ -818,3 +818,39 @@ The Play Store app only (`isApp()`); the website never asks (`UD` row 760). Back
 | 767 | Play update | Google's download finished while the app was in the background (its events go to the app that started it) | `getAppUpdateInfo` → DOWNLOADED | Restart shows when the app comes back | — | UD "shows Restart when Google's download finished while the app was away" | OK-tested |
 | 768 | Play update | The banner and a screen's title and Back | — | The banner sits in the page above the screen (never over its header); Later in every state (until the next start) | — | UD "Later hides the offer…" | OK-tested |
 | 769 | CI | A re-run of a run that already sent its screens (same run number) | 409 `RELEASE_EXISTS` | The step says "already sent" and stays green | AR | (by reading `release-screens.mjs`) | OK-untested |
+
+## Analytics: what the app tells the backend — 2026-11-25
+
+Only counts leave the app; the admin's Analytics page is on the admin website (super admins only). Backend rows:
+apni-dukan-backend `docs/scenarios.md` §11. Test letters: **CL** = src/api/client.test.ts, **UD** =
+src/lib/appUpdates.test.tsx, **AN** = the backend's `AnalyticsIntegrationTest`.
+
+| # | Journey | Scenario | API behaviour (status + code) | App behaviour | Backend test | App test | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 780 | Activity | Any call to the backend | `X-Clozest-Client: partner-app` (Play Store app) or `partner-web` (website); the person is counted once a day per app/website | Nothing on screen | AN `eachPersonIsCountedOnce…` | CL "says which app it is on every call…" | OK-tested |
+| 781 | Activity | Many calls at once (the Day board, a reload) | one mark per person a day, kept in memory and written every 30 s | No slower: nothing waits for the count | AN (20 at once) | — | OK-tested |
+| 782 | Activity | The backend is older than this round (the header not allowed yet) | the browser's CORS check would refuse calls | Doesn't happen: the backend is merged and deployed first (see the PR) | — | — | N/A-v1 |
+| 783 | App versions | The first update check of the day (phone's date) | `GET /app-updates/partner?…&first=true` | Counted once in the admin's App versions; later checks that day leave `first` out | AN `appVersionsAreCounted…` | UD "says first=true on the first check of the day only…" | OK-tested |
+| 784 | App versions | That first check fails (offline, 503) | — | The next check still says `first=true` (the day is saved only once answered) | — | UD same | OK-tested |
+| 785 | App versions | Two checks at start at once (the quick look and the check) | — | Only one says `first=true` | — | (by reading: `counting` in `ask`) | OK-untested |
+| 786 | Kirana switch | The Play Store app is built | the android job reads the variable `VITE_KIRANA_ENABLED` (unset: off) | The app has no kirana screens, as the website | — | CI (build) | OK-untested |
+| 787 | Screen updates | The app is open all day (the Day board on the counter) | `GET /app-updates/…` every 10 minutes while on screen | New screens are downloaded quietly; no banner unless urgent | AR | UD "asks every 10 minutes while the app is on screen…" | OK-tested |
+| 788 | Screen updates | The phone asleep or the app in the background | — | No checks at all until it is back on screen | — | UD same | OK-tested |
+| 789 | Screen updates | Left for 2 minutes (a WhatsApp reply), new screens ready | — | Nothing changes: what they were doing is still there | — | UD "switches to downloaded screens when the app comes back after 5 minutes away…" | OK-tested |
+| 790 | Screen updates | Left for 5 minutes or more, new screens ready | quick look (≤ 2 s) that they are still offered | Switched to them on the same screen (address kept); half-typed unsaved text is cleared | — | UD same | OK-tested |
+| 791 | Screen updates | Back after 5 minutes, but the release was pulled back meanwhile | quick look → another bundle | Not switched; the right screens are fetched instead | AR | (by reading `switchNow`) | OK-untested |
+| 792 | Urgent fix | A release marked urgent, downloaded, these screens older than it | `urgentBuild` in the answer | "A fix for the app is ready" above the screen (never over it), Later / Restart; Restart switches at once, same screen | AR `anUrgentRelease…` | UD "shows A fix is ready only for an urgent release…" | OK-tested |
+| 793 | Urgent fix | Screens already as new as the urgent release | `urgentBuild` ≤ current | No banner | AR same | UD same | OK-tested |
+| 794 | Urgent fix | Later | — | Hidden until the next start; switched anyway when the app is left for 5 minutes | — | (by reading) | OK-untested |
+| 795 | Urgent fix | The super admin takes "urgent" back (marked by mistake) | `urgentBuild` null | The banner goes at the next check; the screens still come silently | AR same | — | OK-untested |
+| 796 | Urgent fix | A PR titled `[urgent] Fix …` merged | `urgentNote` sent with the release; urgent from the moment it is live | As above, within 10 minutes for open phones | AR same | unit `urgentNote.test.ts` | OK-tested |
+| 797 | Urgent fix | A PR title with tricky characters | passed to the script as a variable, never into the command | Nothing runs from it; note kept to 120 characters | AR (note checked) | unit same | OK-tested |
+| 798 | Screen updates | Back after 5+ minutes with text typed in a field, or a sheet open | — | Not switched; used from the next start (nothing typed is lost) | — | UD "never switches under an open sheet, typed text or the Subscription screen…" | OK-tested |
+| 799 | Screen updates | Back after 5+ minutes on the Subscription screen (paying: the UPI app took long) | — | Not switched, so the checkout's answer (Paid) comes through | — | UD same | OK-tested |
+| 800 | Screen updates | While switching | quick look (≤ 2 s) | "Updating the app…" covers the screen: nothing tapped is lost under a reload | — | (by reading `Switching`) | OK-untested |
+| 801 | Screen updates | The backend down for a while, the app open | 503 or no answer | One try every 10 minutes (never every minute) | AR | UD "after a failed check, the checks while open wait 10 minutes…" | OK-tested |
+| 802 | Screen updates | The backend just restarted and hasn't read its releases | 503 `SERVICE_BUSY` (never "no screens") | The screens the app has stay | AR `AppUpdatesBeforeLoadTest` | UD "goes back to the app's own screens only when the backend says so…" | OK-tested |
+| 803 | App versions | The quick look before switching (cut off after 2 s) | never `first=true` | A slow phone is counted once a day | AN | UD "never counts the quick look…" | OK-tested |
+| 804 | Urgent fix | Later, then a newer urgent fix the same day | — | Shown again for the newer one | — | UD "Later hides that fix only…" | OK-tested |
+| 805 | Urgent fix | Restart when the download is gone (pulled back, cleared) | quick look | The banner goes; nothing reloads | — | UD same | OK-tested |
+| 806 | Urgent fix | A PR whose description (not title) has a line starting [urgent] | no `urgentNote` | Silent, like any release | — | unit `urgentNote.test.ts` | OK-tested |

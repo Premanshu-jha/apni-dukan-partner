@@ -42,6 +42,17 @@ describe('api client', () => {
     expect(useSession.getState().refreshToken).toBe('refresh-2')
   })
 
+  it('says which app it is on every call (the website here), for the admin’s Analytics', async () => {
+    const seen: (string | undefined)[] = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      seen.push((init?.headers as Record<string, string> | undefined)?.['X-Clozest-Client'])
+      return json(200, { ok: true })
+    })
+    await api('GET', '/a')
+    await api('POST', '/b', { body: {}, auth: false })
+    expect(seen).toEqual(['partner-web', 'partner-web'])
+  })
+
   it('signs out when the refresh token is refused', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) =>
       String(url).endsWith('/auth/refresh')

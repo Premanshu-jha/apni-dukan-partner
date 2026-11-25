@@ -26,6 +26,8 @@
   "playUpdateReady": "The new version is downloaded. Tap Restart to install it (it takes a few seconds).",
   "playUpdateRestart": "Restart",
   "playUpdateLater": "Later",
+  "fixReady": "A fix for the app is ready. Save anything you're typing, then tap Restart (a few seconds; you stay on this screen).",
+  "switching": "Updating the app…",
   "updateRequiredHint": "If the Play Store shows no update yet, close the app and try again in a few hours, or tap Check again.",
   "updateRequiredCheck": "Check again",
   "updateRequiredChecking": "Checking…"

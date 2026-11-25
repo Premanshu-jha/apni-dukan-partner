@@ -1,4 +1,5 @@
 import { deviceName } from '../lib/device'
+import { isApp } from '../lib/platform'
 import { savedRefreshToken, useSession } from '../store/session'
 import { ApiError } from './errors'
 import type { ErrorBody, Tokens } from './types'
@@ -179,8 +180,13 @@ useSession.subscribe((now, before) => {
 })
 
 /** @param fresh ask for the whole answer: no If-None-Match, and past any cache on the way */
+/** Which app this is, for the admin's Analytics (how many use the Play Store app, how many the website). */
+export function clientName(): string {
+  return isApp() ? 'partner-app' : 'partner-web'
+}
+
 async function send<T>(method: string, path: string, opts: Options, fresh = false): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json', ...opts.headers }
+  const headers: Record<string, string> = { Accept: 'application/json', 'X-Clozest-Client': clientName(), ...opts.headers }
   const form = typeof FormData !== 'undefined' && opts.body instanceof FormData
   // A file upload: the browser sets the multipart Content-Type (with its boundary) itself.
   if (opts.body !== undefined && !form) headers['Content-Type'] = 'application/json'

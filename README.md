@@ -51,7 +51,9 @@ anything but `true` is off.
   the counter, bills, products, khata, Team, UPI ID and Licences.
 
 To turn it on, set `VITE_KIRANA_ENABLED=true` where the app is built (`.env.local` for `npm run dev`, the host's
-variables on Railway) and build again: the value is baked in, so changing it needs a new build. **It must match the
+variables on Railway; for the Play Store app, the GitHub variable `VITE_KIRANA_ENABLED`, read by the android job) and
+build again: the value is baked in, so changing it needs a new build (for the app, the android job's next run after a
+merge, whose screens reach phones as a screen update). **It must match the
 backend's `KIRANA_ENABLED`**: with the backend's off, its kirana paths answer 404 `KIRANA_OFF`, and a kirana screen
 would only show errors.
 
@@ -573,6 +575,22 @@ nothing of this runs on the website).
   ones by themselves, and that bundle is never downloaded again on that phone (nor one that failed to download three
   times). When the super admin pulls a release back, phones move back to the one before over their next two openings
   (the first fetches it, the next uses it).
+- **Faster than the next start:** the app also asks every 10 minutes while it is on screen (never in the background),
+  and when it comes back after being left for 5 minutes or more (Home, another app, the screen off) with new screens
+  ready, it switches to them on the same screen, under a short "Updating the app…" cover. Never while something is
+  open there: a sheet, text typed in a field, or the Subscription screen (a payment's answer would be lost); those wait
+  for the next start. A quick WhatsApp reply (under 5 minutes) changes nothing. When the backend is down, open apps
+  still ask only every 10 minutes; the quick look before switching (2 s at most) is never counted in App versions, and
+  going back to the app's own screens needs the backend to say so at that moment.
+- **Urgent fixes:** a release marked urgent (the super admin's **Mark urgent** on App releases, or a PR titled
+  `[urgent] …`: CI sends the rest of the title as the note, `scripts/urgent-note.mjs`) shows a banner once it is
+  downloaded, above the screen (never over it): "A fix for the app is ready. Save anything you're typing, then tap
+  Restart", **Later** (hides that fix; a newer urgent one shows again) or **Restart** (switches at once, same screen).
+  One banner at a time: Google Play's "new version" waits while it shows. Only on phones whose screens don't have that fix yet. Every other release stays silent. Use it for money,
+  bookings, crashes, privacy or wrong information people act on.
+- **Counted for the admin:** the first check of the day (the phone's date) adds `&first=true`, so the admin website's
+  Analytics shows how many phones run each version (only the number: nothing about the phone or the person). The day
+  is saved only once the backend answered, so a check that failed offline still counts the next time.
 - **The native level** (`android/native-level`): screens are offered only to apps whose native part can run them. Raise
   it by 1 in any change to the app's native files (`android/app/src/main/**`, the Gradle files, `capacitor.config.ts`)
   or when a native plugin (any package with Android code) is added, removed or moves to another major or minor
@@ -700,6 +718,20 @@ and keeps whatever was typed.
   (`docs/translation-review.md` lists what to look at first).
 
 ## Changelog
+
+### Unreleased — analytics
+
+Needs apni-dukan-backend's analytics round first (V93: the backend must allow the `X-Clozest-Client` header, or the
+browser refuses the website's calls). Nothing changes on screen.
+
+- **Every call says which app it is** (`X-Clozest-Client: partner-app` or `partner-web`, `src/api/client.ts`), so the
+  super admin's Analytics counts people using the Play Store app and the website (once a day each; only counts are kept).
+- **The first update check of the day says so** (`first=true`), for the Analytics' App versions.
+- **Screen updates arrive sooner:** a check every 10 minutes while the app is open, and new screens switched in when
+  the app comes back after 5 minutes away (same screen).
+- **"A fix for the app is ready" [Later] [Restart]** for a release marked urgent (on the admin website, or a PR titled
+  `[urgent] …`), in all six languages (Hindi, Telugu, Kannada, Tamil and Marathi to be checked by native speakers).
+- **CI:** the `android` job builds the app with the GitHub variable `VITE_KIRANA_ENABLED` (unset: off), like the website.
 
 ### Unreleased — app updates
 

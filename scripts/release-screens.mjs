@@ -10,10 +10,13 @@
 //
 // Needs: APP_RELEASE_TOKEN and CAPGO_PRIVATE_KEY (GitHub secrets), VITE_API_URL, ANDROID_VERSION_CODE (the run
 // number: the APK of this run carries the same one), GITHUB_SHA. Without the secrets it says so and does nothing.
+// RELEASE_MESSAGE (the merge's commit message): a PR titled "[urgent] …" sends the rest of the title as the note, and
+// the release is urgent from the moment it goes live (open phones show "A fix is ready").
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { urgentNote } from './urgent-note.mjs'
 
 const APP = 'partner'
 const APP_ID = 'com.clozest.partner'
@@ -23,6 +26,7 @@ const privateKey = process.env.CAPGO_PRIVATE_KEY?.trim()
 const api = process.env.VITE_API_URL?.replace(/\/$/, '')
 const build = Number(process.env.ANDROID_VERSION_CODE)
 const commit = (process.env.GITHUB_SHA ?? '').slice(0, 40)
+const note = urgentNote(process.env.RELEASE_MESSAGE)
 
 if (!token || !privateKey) {
   console.log('::notice title=Screen updates::APP_RELEASE_TOKEN or CAPGO_PRIVATE_KEY not set: no screen update sent')
@@ -61,6 +65,7 @@ try {
     sizeBytes,
     checksum: signed.checksum,
     sessionKey: signed.ivSessionKey,
+    ...(note ? { urgentNote: note } : {}),
   }).catch((e) => {
     // This run's screens were sent before (CI re-run with the same run number): nothing to do
     if (e.code === 'RELEASE_EXISTS') return null
@@ -70,6 +75,7 @@ try {
     console.log(`::notice title=Screen updates::Build ${build} was already sent: nothing to do`)
   } else {
     await send(started, file, sizeBytes)
+    if (note) console.log(`::notice title=Screen updates::Build ${build} is urgent: ${note}`)
   }
 } finally {
   // The key file and the zips never stay on the runner, whatever happened

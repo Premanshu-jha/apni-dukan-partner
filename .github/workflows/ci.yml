@@ -99,7 +99,7 @@ jobs:
     # project (android/). Every run makes an installable test APK (app-debug.apk, under the run's Artifacts); with the
     # upload key in the secrets it also makes the signed bundle for the Play Store (app-release.aab).
     # Settings (Settings › Secrets and variables › Actions): variables VITE_API_URL, VITE_TURNSTILE_SITE_KEY,
-    # VITE_MAP_TILES, VITE_SUPPORT_EMAIL, PHOTO_ORIGIN (the website's, as on Railway); secrets GOOGLE_SERVICES_JSON
+    # VITE_MAP_TILES, VITE_SUPPORT_EMAIL, PHOTO_ORIGIN, VITE_KIRANA_ENABLED (the website's, as on Railway); secrets GOOGLE_SERVICES_JSON
     # (Firebase's app file: notifications), ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS,
     # ANDROID_KEY_PASSWORD (the upload key). Without them the build still runs, pointing at a placeholder backend.
     # Screen updates (see "App updates" in the README): variable CAPGO_PUBLIC_KEY (built into the app: it installs
@@ -114,6 +114,9 @@ jobs:
       VITE_MAP_TILES: ${{ vars.VITE_MAP_TILES }}
       VITE_SUPPORT_EMAIL: ${{ vars.VITE_SUPPORT_EMAIL }}
       PHOTO_ORIGIN: ${{ vars.PHOTO_ORIGIN }}
+      # The kirana switch for the app, like the website's (see "Kirana switch" in the README): off unless the
+      # variable VITE_KIRANA_ENABLED is set to true, so the Play Store app follows the same setting
+      VITE_KIRANA_ENABLED: ${{ vars.VITE_KIRANA_ENABLED }}
       # Google compares this number to decide what is newer: it grows with every run
       ANDROID_VERSION_CODE: ${{ github.run_number }}
     steps:
@@ -174,6 +177,9 @@ jobs:
         env:
           APP_RELEASE_TOKEN: ${{ secrets.APP_RELEASE_TOKEN }}
           CAPGO_PRIVATE_KEY: ${{ secrets.CAPGO_PRIVATE_KEY }}
+          # A PR titled "[urgent] …" makes this release urgent (scripts/urgent-note.mjs); passed as a variable, never
+          # pasted into the command, so a title can't run anything
+          RELEASE_MESSAGE: ${{ github.event.head_commit.message }}
         run: node scripts/release-screens.mjs
       - name: Forget the upload key
         if: always()
