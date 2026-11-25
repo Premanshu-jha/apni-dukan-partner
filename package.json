@@ -38,7 +38,7 @@
     "@capacitor/android": "^8.6.2",
     "@capacitor/cli": "^8.6.2",
     "@capgo/cli": "8.110.0",
-    "@playwright/test": "^1.56.0",
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/vite": "^4.3.4",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
