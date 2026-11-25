@@ -2387,7 +2387,7 @@ export class MockApi {
   private cors() {
     return {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key, If-None-Match',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key, If-None-Match, X-Clozest-Client',
       'Access-Control-Expose-Headers': 'Retry-After, ETag',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     }
