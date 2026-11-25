@@ -4,7 +4,11 @@ import {
   check,
   finishPlayUpdate,
   markScreensWorking,
+  laterForFix,
+  laterForPlay,
+  playUpdateLater,
   startPlayUpdate,
+  switchNow,
   updateFromPlay,
   useAppUpdate,
 } from '../lib/appUpdates'
@@ -12,16 +16,20 @@ import {
 /**
  * The Play Store app's own updates (lib/appUpdates.ts; nothing on the website). Too old to use: only the "Please
  * update" screen. A newer version on Google Play: a banner above the screen (in the page, so it never covers a
- * screen's title or Back), which can be put off until the next start. Once this is drawn, the screens are marked as
+ * screen's title or Back), which can be put off until the next start. A fix the super admin marked urgent, once it
+ * is downloaded: "A fix is ready" with Restart (the app reloads into it on this same screen) and Later; it never
+ * covers the screen, so nobody is cut off in the middle of a booking. Once this is drawn, the screens are marked as
  * working (a screen update that never gets this far goes back to the previous screens by itself).
  */
 export function AppUpdateGate({ children }: { children: ReactNode }) {
-  const { required } = useAppUpdate()
+  const { required, urgent, switching } = useAppUpdate()
   useEffect(() => markScreensWorking(), [])
   if (required) return <UpdateRequired />
   return (
     <>
-      <PlayUpdateBanner />
+      {switching && <Switching />}
+      {/* One banner at a time: an urgent fix first (Google's install can wait until it is done) */}
+      {urgent ? <FixReadyBanner /> : <PlayUpdateBanner />}
       {children}
     </>
   )
@@ -59,11 +67,50 @@ function UpdateRequired() {
   )
 }
 
+/** While the app reloads into new screens: nothing to tap for a second or two. */
+function Switching() {
+  const t = useT()
+  return (
+    <div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-bg/95 p-6 text-center">
+      <p className="font-semibold">{t('app.switching')}</p>
+    </div>
+  )
+}
+
+function FixReadyBanner() {
+  const t = useT()
+  const [restarting, setRestarting] = useState(false)
+  return (
+    <div className="border-b border-line bg-raised pt-[env(safe-area-inset-top)]">
+      <div role="status" className="mx-auto flex max-w-lg flex-wrap items-center justify-between gap-2 px-4 py-2">
+        <p className="min-w-0 flex-1 text-sm">{t('app.fixReady')}</p>
+        <div className="flex shrink-0 gap-2">
+          <button type="button" className="min-h-10 rounded-xl px-3 text-sm text-muted" onClick={() => laterForFix()}>
+            {t('app.playUpdateLater')}
+          </button>
+          <button
+            type="button"
+            className="min-h-10 rounded-xl bg-brand px-4 font-semibold text-brand-ink disabled:opacity-60"
+            disabled={restarting}
+            onClick={() => {
+              setRestarting(true)
+              // Nothing to switch to any more (pulled back meanwhile): the banner goes by itself
+              void switchNow().finally(() => setRestarting(false))
+            }}
+          >
+            {t('app.playUpdateRestart')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PlayUpdateBanner() {
   const t = useT()
   const { play } = useAppUpdate()
-  const [later, setLater] = useState(false)
-  if (play === 'none' || later) return null
+  // Later is kept outside this banner: an urgent fix's banner shown meanwhile doesn't bring it back
+  if (play === 'none' || playUpdateLater()) return null
   return (
     <div className="border-b border-line bg-raised pt-[env(safe-area-inset-top)]">
       <div role="status" className="mx-auto flex max-w-lg flex-wrap items-center justify-between gap-2 px-4 py-2">
@@ -75,7 +122,7 @@ function PlayUpdateBanner() {
               : t('app.playUpdateAvailable')}
         </p>
         <div className="flex shrink-0 gap-2">
-          <button type="button" className="min-h-10 rounded-xl px-3 text-sm text-muted" onClick={() => setLater(true)}>
+          <button type="button" className="min-h-10 rounded-xl px-3 text-sm text-muted" onClick={() => laterForPlay()}>
             {t('app.playUpdateLater')}
           </button>
           {play === 'available' && (
