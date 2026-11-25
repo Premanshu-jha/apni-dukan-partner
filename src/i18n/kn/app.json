@@ -16,5 +16,17 @@
   "approvalBodyKirana": "ನಮ್ಮ ಫೀಲ್ಡ್ ಟೀಮ್ ಒಪ್ಪಿಗೆ ಕೊಡುವವರೆಗೆ ಗ್ರಾಹಕರು {name} ನಿಂದ ಆರ್ಡರ್ ಮಾಡಲು ಆಗುವುದಿಲ್ಲ. ಅಲ್ಲಿಯವರೆಗೆ ನಿಮ್ಮ ಕೌಂಟರ್ ಕೆಲಸ ಮಾಡುತ್ತದೆ.",
   "webViewOldTitle": "ಮುಂದುವರಿಯಲು ಒಂದು ಆ್ಯಪ್ ಅಪ್‌ಡೇಟ್ ಮಾಡಿ",
   "webViewOldBody": "ಈ ಫೋನ್‌ನ \"Android System WebView\" ಈ ಆ್ಯಪ್‌ಗೆ ತುಂಬಾ ಹಳೆಯದು. Play Store ನಲ್ಲಿ ಅದನ್ನು ಅಪ್‌ಡೇಟ್ ಮಾಡಿ (ಉಚಿತ), ನಂತರ ಆ್ಯಪ್ ಮತ್ತೆ ತೆರೆಯಿರಿ.",
-  "webViewOldButton": "Play Store ನಲ್ಲಿ ಅಪ್‌ಡೇಟ್ ಮಾಡಿ"
+  "webViewOldButton": "Play Store ನಲ್ಲಿ ಅಪ್‌ಡೇಟ್ ಮಾಡಿ",
+  "updateRequiredTitle": "ಮುಂದುವರಿಯಲು ದಯವಿಟ್ಟು ಆ್ಯಪ್ ಅಪ್‌ಡೇಟ್ ಮಾಡಿ",
+  "updateRequiredBody": "Clozest Partner ನ ಈ ಆವೃತ್ತಿ ತುಂಬಾ ಹಳೆಯದು. ಅದನ್ನು Play Store ನಿಂದ ಅಪ್‌ಡೇಟ್ ಮಾಡಿ (ಉಚಿತ). ನಿಮ್ಮ ಅಂಗಡಿ, ಬುಕಿಂಗ್‌ಗಳು ಮತ್ತು ಸೆಟ್ಟಿಂಗ್‌ಗಳು ಹಾಗೆಯೇ ಇರುತ್ತವೆ.",
+  "updateRequiredButton": "ಈಗ ಅಪ್‌ಡೇಟ್ ಮಾಡಿ",
+  "playUpdateAvailable": "ಆ್ಯಪ್‌ನ ಹೊಸ ಆವೃತ್ತಿ ಲಭ್ಯವಿದೆ.",
+  "playUpdateButton": "ಅಪ್‌ಡೇಟ್ ಮಾಡಿ",
+  "playUpdateDownloading": "ಹೊಸ ಆವೃತ್ತಿ ಬರುತ್ತಿದೆ. ನೀವು ಆ್ಯಪ್ ಬಳಸುತ್ತಲೇ ಇರಬಹುದು.",
+  "playUpdateReady": "ಹೊಸ ಆವೃತ್ತಿ ಡೌನ್‌ಲೋಡ್ ಆಗಿದೆ. ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಲು \"ಮತ್ತೆ ಪ್ರಾರಂಭಿಸಿ\" ಒತ್ತಿ (ಕೆಲವು ಸೆಕೆಂಡುಗಳು ಬೇಕು).",
+  "playUpdateRestart": "ಮತ್ತೆ ಪ್ರಾರಂಭಿಸಿ",
+  "playUpdateLater": "ನಂತರ",
+  "updateRequiredHint": "Play Store ನಲ್ಲಿ ಇನ್ನೂ ಅಪ್‌ಡೇಟ್ ಕಾಣಿಸದಿದ್ದರೆ, ಆ್ಯಪ್ ಮುಚ್ಚಿ ಕೆಲವು ಗಂಟೆಗಳ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ, ಅಥವಾ \"ಮತ್ತೆ ನೋಡಿ\" ಒತ್ತಿ.",
+  "updateRequiredCheck": "ಮತ್ತೆ ನೋಡಿ",
+  "updateRequiredChecking": "ನೋಡುತ್ತಿದ್ದೇವೆ…"
 }

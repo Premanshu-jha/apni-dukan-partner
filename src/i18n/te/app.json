@@ -16,5 +16,17 @@
   "approvalBodyKirana": "మా ఫీల్డ్ టీమ్ అప్రూవ్ చేసే వరకు కస్టమర్లు {name}లో ఆర్డర్ చేయలేరు. ఈ లోపు మీ కౌంటర్ పని చేస్తుంది.",
   "webViewOldTitle": "కొనసాగడానికి ఒక యాప్‌ను అప్‌డేట్ చేయండి",
   "webViewOldBody": "ఈ ఫోన్‌లోని \"Android System WebView\" ఈ యాప్‌కి చాలా పాతది. Play Store లో దాన్ని అప్‌డేట్ చేయండి (ఉచితం), తర్వాత యాప్‌ను మళ్లీ తెరవండి.",
-  "webViewOldButton": "Play Store లో అప్‌డేట్ చేయండి"
+  "webViewOldButton": "Play Store లో అప్‌డేట్ చేయండి",
+  "updateRequiredTitle": "కొనసాగడానికి దయచేసి యాప్‌ను అప్‌డేట్ చేయండి",
+  "updateRequiredBody": "Clozest Partner యొక్క ఈ వెర్షన్ చాలా పాతది. దాన్ని Play Store నుండి అప్‌డేట్ చేయండి (ఉచితం). మీ షాప్, బుకింగ్‌లు, సెట్టింగ్‌లు అలాగే ఉంటాయి.",
+  "updateRequiredButton": "ఇప్పుడే అప్‌డేట్ చేయండి",
+  "playUpdateAvailable": "యాప్ యొక్క కొత్త వెర్షన్ అందుబాటులో ఉంది.",
+  "playUpdateButton": "అప్‌డేట్ చేయండి",
+  "playUpdateDownloading": "కొత్త వెర్షన్ వస్తోంది. మీరు యాప్‌ను వాడుతూనే ఉండవచ్చు.",
+  "playUpdateReady": "కొత్త వెర్షన్ డౌన్‌లోడ్ అయింది. ఇన్‌స్టాల్ చేయడానికి \"మళ్లీ ప్రారంభించండి\" నొక్కండి (కొన్ని సెకన్లు పడుతుంది).",
+  "playUpdateRestart": "మళ్లీ ప్రారంభించండి",
+  "playUpdateLater": "తర్వాత",
+  "updateRequiredHint": "Play Store లో ఇంకా అప్‌డేట్ కనిపించకపోతే, యాప్‌ను మూసి కొన్ని గంటల తర్వాత మళ్లీ ప్రయత్నించండి, లేదా \"మళ్లీ చూడండి\" నొక్కండి.",
+  "updateRequiredCheck": "మళ్లీ చూడండి",
+  "updateRequiredChecking": "చూస్తున్నాం…"
 }

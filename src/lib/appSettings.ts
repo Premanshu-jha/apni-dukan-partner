@@ -8,6 +8,19 @@ interface AppSettingsPlugin {
   openNotifications(): Promise<void>
   dropPushToken(): Promise<void>
   savePicture(options: { data: string; name: string }): Promise<void>
+  nativeInfo(): Promise<NativeInfo>
+}
+
+/** This app's native part, as the update check tells the backend (AppSettingsPlugin.nativeInfo). */
+export interface NativeInfo {
+  /** android/native-level when it was built */
+  nativeLevel: number
+  /** The CI run that built it (versionCode): the screens it came with are that run's */
+  versionCode: number
+  /** A test APK (debug build), not the Play Store's */
+  debug: boolean
+  /** Built with the public key screen updates must be signed with: without it, none are downloaded */
+  updatesSigned: boolean
 }
 
 export const AppSettings = registerPlugin<AppSettingsPlugin>('AppSettings')

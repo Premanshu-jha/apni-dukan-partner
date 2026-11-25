@@ -555,6 +555,51 @@ email, location, photos and the salon's video, the subscription's status; nothin
 deletion (in the app: More › Delete account; on the web: the same page), content rating and target audience (adults).
 With a personal developer account Google first wants a closed test with 12 testers for 14 days.
 
+### App updates (screen updates and the update prompt)
+
+The app's screens are the website built for the app, packed inside it, so normally a fix would need a new Play Store
+release and Google's review. Instead the app updates its own screens, and asks for a Play Store update only when one
+is really needed (`src/lib/appUpdates.ts`, `src/app/AppUpdate.tsx`; the backend side is "App updates" in its README;
+nothing of this runs on the website).
+- **Screen updates (live updates):** after every merge to `main`, CI's `android` job signs the screens it built and
+  sends them to the backend (`scripts/release-screens.mjs`). The app asks the backend on every start (and when it comes
+  back after half an hour): `GET /api/v1/app-updates/partner?nativeLevel=&versionCode=&debug=`. A newer bundle is
+  downloaded quietly by [Capgo's updater](https://github.com/Cap-go/capacitor-updater) (self-hosted: it talks only to
+  our backend and storage, sends no statistics) and used **from the next time the app is opened** (`switchScreensAtStart`
+  in `main.tsx`, before anything shows, after a quick look of at most 2 s that the backend still offers it; offline, it
+  is used), never in the middle of a booking or a payment. Nothing on screen mentions it. A bundle is installed only if
+  it was signed with our private key. New screens are marked as working only once the app's first screen has been
+  drawn (`markScreensWorking`, `AppUpdate.tsx`); screens that don't get that far within 10 s go back to the previous
+  ones by themselves, and that bundle is never downloaded again on that phone (nor one that failed to download three
+  times). When the super admin pulls a release back, phones move back to the one before over their next two openings
+  (the first fetches it, the next uses it).
+- **The native level** (`android/native-level`): screens are offered only to apps whose native part can run them. Raise
+  it by 1 in any change to the app's native files (`android/app/src/main/**`, the Gradle files, `capacitor.config.ts`)
+  or when a native plugin (any package with Android code) is added, removed or moves to another major or minor
+  version; CI's `scripts/check-native-level.mjs` fails the PR otherwise, naming what changed. Phones with an older app
+  then keep their screens until they get the new app from the Play Store. Plugin patch updates (Dependabot) need no
+  raise.
+- **Must update:** when the super admin sets an "oldest allowed version" above this app's, the app shows only "Please
+  update the app to continue" from the next time it is opened (never over a screen someone is using). Update now opens
+  Google Play's full-screen update, or the Play Store page when Google can't; when the Play Store has no update for
+  this phone yet, the screen says to try again in a few hours, and Check again asks at once.
+- **A newer version on Google Play:** a banner above the screen (in the page, never over a title or Back), "A new
+  version of the app is available. [Later] [Update]": it downloads while the app is used, then "Restart" installs it;
+  Later puts it off until the next start. Only in a Play Store install (Google's in-app updates); never in a test APK.
+- **Google's review:** a version Google is still reviewing (newer than the "version on the Play Store" the super admin
+  set on the admin website) keeps the screens it was submitted with. After Google approves a release, set that number
+  on the admin website (App releases) so its phones get screen updates.
+- **Setting it up (once):** on a laptop, in this repo, `npx capgo key create` makes `.capgo_key_v2` (private) and
+  `.capgo_key_v2.pub` (public); it also writes the public key into `capacitor.config.ts`: undo that change
+  (`git checkout capacitor.config.ts`), the key comes from CI. Put the public key's text in the GitHub variable
+  `CAPGO_PUBLIC_KEY` and the private key's text in the secret `CAPGO_PRIVATE_KEY`, then delete both files from the
+  laptop (keep a safe copy of the private one: losing it means a new Play Store release before screen updates work
+  again). Make a long random token (`openssl rand -hex 32`) and put it in the GitHub secret `APP_RELEASE_TOKEN` and in
+  the backend's Railway variable `APP_RELEASE_TOKEN_PARTNER`. Without these the app downloads no screen updates and CI
+  sends none; everything else works.
+- **Test APKs** (`debug`) always get the newest screen update, before the app is on the Play Store, so a release can be
+  tried on a phone straight away.
+
 ## Languages
 
 The app is in English, Hindi, Telugu, Marathi, Tamil and Kannada. The language is chosen on the sign-in screen (each
@@ -655,6 +700,20 @@ and keeps whatever was typed.
   (`docs/translation-review.md` lists what to look at first).
 
 ## Changelog
+
+### Unreleased — app updates
+
+Needs apni-dukan-backend's app updates round (V92: `GET /app-updates/partner`, the releases CI sends) and the admin
+app's App releases page. The website is unchanged.
+
+- **The app updates its own screens:** each merge to `main` reaches phones the next time they open the app, without a
+  Play Store release (signed with our key; never in the middle of something; a release that fails to start goes back
+  by itself; the super admin can pull one back). See [App updates](#app-updates-screen-updates-and-the-update-prompt).
+- **"Please update the app to continue"** when this version is older than the oldest one allowed, with Google Play's
+  update in one tap.
+- **A banner when Google Play has a newer version:** Update downloads it while the app is used, then Restart.
+- **CI:** `android/native-level` must go up with any change to the app's native part (checked on every PR); after a
+  merge, the screens are sent as an update.
 
 ### Unreleased — the Play Store app (Android)
 

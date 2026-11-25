@@ -38,6 +38,26 @@ const config: CapacitorConfig = {
       // Android shows a message itself only while the app is in the background; open, the app refreshes instead
       presentationOptions: [],
     },
+    // Screen updates (src/lib/appUpdates.ts, "App updates" in the README): the app asks our backend itself, never
+    // Capgo's cloud, and sends nothing anywhere else (no stats). A bundle is installed only if it was signed with our
+    // private key (CI's secret); the public key comes from the GitHub variable CAPGO_PUBLIC_KEY when the app is built.
+    // Without it the app downloads no screen updates at all.
+    CapacitorUpdater: {
+      autoUpdate: false,
+      updateUrl: '',
+      statsUrl: '',
+      channelUrl: '',
+      publicKey: process.env.CAPGO_PUBLIC_KEY?.trim() || undefined,
+      // New screens that don't start (notifyAppReady not called within 10 s) go back to the previous ones by themselves
+      appReadyTimeout: 10000,
+      autoDeleteFailed: true,
+      autoDeletePrevious: true,
+      // A new app from the Play Store starts with its own screens (it may be newer than any downloaded)
+      resetWhenUpdate: true,
+      shakeMenu: false,
+      allowShakeChannelSelector: false,
+      allowPreview: false,
+    },
   },
 }
 

@@ -102,8 +102,13 @@ jobs:
     # VITE_MAP_TILES, VITE_SUPPORT_EMAIL, PHOTO_ORIGIN (the website's, as on Railway); secrets GOOGLE_SERVICES_JSON
     # (Firebase's app file: notifications), ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS,
     # ANDROID_KEY_PASSWORD (the upload key). Without them the build still runs, pointing at a placeholder backend.
+    # Screen updates (see "App updates" in the README): variable CAPGO_PUBLIC_KEY (built into the app: it installs
+    # only screens signed with the matching private key); secrets CAPGO_PRIVATE_KEY and APP_RELEASE_TOKEN (after a
+    # merge to main this job signs the screens it built and sends them to the backend: phones get them at their next
+    # start). Without them the app downloads no screen updates and none are sent.
     runs-on: ubuntu-24.04
     env:
+      CAPGO_PUBLIC_KEY: ${{ vars.CAPGO_PUBLIC_KEY }}
       VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api.example.com' }}
       VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
       VITE_MAP_TILES: ${{ vars.VITE_MAP_TILES }}
@@ -115,6 +120,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
+          # The native level check compares with the PR's target or the commit before the push
+          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: 22
@@ -125,6 +132,10 @@ jobs:
           java-version: '21'
           cache: gradle
       - run: npm ci
+      - name: A change to the native part raises android/native-level
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: node scripts/check-native-level.mjs "$BASE"
       - name: Firebase's app file, when it is set (notifications in the app)
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
@@ -158,6 +169,12 @@ jobs:
         if: hashFiles('android/keystore.properties') != ''
         working-directory: android
         run: ./gradlew --no-daemon bundleRelease
+      - name: Send the screens as an update for the app (after a merge to main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          APP_RELEASE_TOKEN: ${{ secrets.APP_RELEASE_TOKEN }}
+          CAPGO_PRIVATE_KEY: ${{ secrets.CAPGO_PRIVATE_KEY }}
+        run: node scripts/release-screens.mjs
       - name: Forget the upload key
         if: always()
         run: rm -f android/upload.jks android/keystore.properties android/app/google-services.json
