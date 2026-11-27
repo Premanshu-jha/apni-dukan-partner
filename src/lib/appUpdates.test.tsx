@@ -514,6 +514,11 @@ describe('updates from Google Play', () => {
     await settle()
     expect(screen.getByRole('heading', { name: 'Please update the app to continue' })).toBeInTheDocument()
     expect(screen.queryByText('The day')).not.toBeInTheDocument()
+    // Never a dead end when the Play Store shows no update yet: the website meanwhile, and a person to call
+    expect(screen.getByRole('link', { name: 'Call us' })).toHaveAttribute('href', 'tel:+919381251613')
+    expect(screen.getByRole('link', { name: 'WhatsApp us' }).getAttribute('href')).toContain('https://wa.me/919381251613?text=')
+    // No "use the website": in the app it would open these same screens again
+    expect(screen.queryByRole('link', { name: /partner\.clozest\.in/ })).not.toBeInTheDocument()
     fake.play = { ...fake.play, updateAvailability: 2 }
     fireEvent.click(screen.getByRole('button', { name: 'Update now' }))
     await settle()

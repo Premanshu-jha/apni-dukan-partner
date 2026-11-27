@@ -5,7 +5,7 @@ test('the owner invites a helper: the neutral answer, the waiting list with Canc
   await page.goto('/team')
   await page.getByLabel("Helper's mobile number").fill('99999 00001')
   await page.getByRole('button', { name: 'Send invitation' }).click()
-  await expect(page.getByText("Invitation sent. They'll see it in Clozest when they sign in with this number.")).toBeVisible()
+  await expect(page.getByText("Invitation sent. They'll see it in the Clozest Partner app when they sign in with this number.")).toBeVisible()
   const waiting = page.getByRole('region', { name: 'Invitations waiting' })
   await expect(waiting.getByText('+91 99999 00001')).toBeVisible()
   await expect(waiting.getByText(/^Helper · open until/)).toBeVisible()

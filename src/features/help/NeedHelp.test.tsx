@@ -15,7 +15,7 @@ vi.mock('../../api/client', async (orig) => ({
 }))
 vi.mock('../../api/shop', async (orig) => ({
   ...(await orig<typeof import('../../api/shop')>()),
-  useMyShop: () => ({ data: state.shop }),
+  useMyShop: (enabled = true) => (enabled ? { data: state.shop, isSuccess: true } : { data: undefined, isSuccess: false }),
 }))
 
 const USER = { id: 'u1', phone: '9876543210', name: 'Ravi', email: 'ravi@example.com', emailVerified: true, admin: false }
@@ -133,11 +133,105 @@ describe('the help page', () => {
     expect(screen.getByText(/More › “Share your salon”\. Tap “Share on WhatsApp”.*“Download poster”/)).toBeInTheDocument()
   })
 
-  it('no answers (only Write to us) while the salon is still a draft', () => {
+  it('while the salon is still a draft: the answers about registering (what the video shows, the licence, the pin)', () => {
     state.shop = shop('OWNER', 'DRAFT')
     open('/help')
     expect(screen.getByRole('button', { name: 'Write to us' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('Search the answers')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Registering your salon' })).toBeInTheDocument()
+    expect(screen.getByText('What should the salon video show?')).toBeInTheDocument()
+    expect(screen.getByText(/tap “Use my location”/)).toBeInTheDocument()
+    // No Today yet: no "tips again"
+    expect(screen.queryByRole('link', { name: 'Show the app tips again' })).not.toBeInTheDocument()
+  })
+
+  it('a helper waiting for approval, or someone with no shop yet: the answers about joining', () => {
+    state.shop = shop('HELPER', 'PENDING_VISIT')
+    const first = open('/help')
+    expect(screen.getByRole('heading', { name: 'Joining a salon' })).toBeInTheDocument()
+    expect(screen.getByText('I joined the wrong salon: how do I leave?')).toBeInTheDocument()
+    expect(screen.getByText(/Tap “Leave Style Studio” on your first screen/)).toBeInTheDocument()
+    first.unmount()
+    state.shop = null
+    open('/help')
+    expect(screen.getByText('My owner invited me: where is the invitation?')).toBeInTheDocument()
+    expect(screen.getByText(/tap “Accept”/)).toBeInTheDocument()
+    expect(screen.getByText('What should the salon video show?')).toBeInTheDocument()
+    expect(screen.queryByText('I joined the wrong salon: how do I leave?')).not.toBeInTheDocument()
+  })
+})
+
+describe('Call us and WhatsApp us, for everyone', () => {
+  it('on the Write to us form too (every direct "Write to us" lands there), the subject in the WhatsApp text', () => {
+    state.shop = { ...shop('BARBER'), shopCode: 482913 } as Shop
+    open('/help?write=1&about=Booking+SB7K3Q9X')
+    expect(screen.getByLabelText('Your message')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Call us' })).toHaveAttribute('href', 'tel:+919381251613')
+    const text = new URL(screen.getByRole('link', { name: 'WhatsApp us' }).getAttribute('href')!).searchParams.get('text')
+    expect(text).toBe('Hello Clozest, I need help. Screen: Booking SB7K3Q9X. Shop code: 482913')
+  })
+
+  it('only the name missing: says the name (not the email), "Add my name"', () => {
+    useSession.setState({ status: 'signedIn', user: { ...USER, name: null } })
+    open('/help')
+    expect(screen.getByText('Writing to us needs your name')).toBeInTheDocument()
+    expect(screen.queryByText('Writing to us needs your email')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Add my name' }))
+    expect(screen.getByTestId('where')).toHaveTextContent('/welcome/name')
+  })
+
+  it('without a verified email the answers still show (they need no email; no shop is read)', () => {
+    useSession.setState({ status: 'signedIn', user: { ...USER, emailVerified: false } })
+    open('/help')
+    expect(screen.getByText('What should the salon video show?')).toBeInTheDocument()
+    expect(screen.getByText('My owner invited me: where is the invitation?')).toBeInTheDocument()
+    expect(state.mine).not.toHaveBeenCalled()
+  })
+
+  const call = () => screen.getByRole('link', { name: 'Call us' })
+  const whatsapp = () => screen.getByRole('link', { name: 'WhatsApp us' })
+  const typed = () => new URL(whatsapp().getAttribute('href')!).searchParams.get('text')
+
+  it('at the top of Need help, before Write to us; the WhatsApp message names the screen and the shop code', () => {
+    state.shop = { ...shop('OWNER'), shopCode: 482913 } as Shop
+    open('/help?from=%2Fsalon%2Fwalk-in&topic=Walk-in')
+    expect(call()).toHaveAttribute('href', 'tel:+919381251613')
+    expect(whatsapp().getAttribute('href')!.startsWith('https://wa.me/919381251613?text=')).toBe(true)
+    expect(typed()).toBe('Hello Clozest, I need help. Screen: Walk-in. Shop code: 482913')
+    expect(call().compareDocumentPosition(screen.getByRole('button', { name: 'Write to us' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByText('Tell us your shop code: 482913')).toBeInTheDocument()
+  })
+
+  it('email not verified: Write to us says why it needs one, one tap to add it (and back here after); Call us stays', () => {
+    useSession.setState({ status: 'signedIn', user: { ...USER, emailVerified: false } })
+    open('/help?from=%2Fwelcome%2Femail')
+    expect(call()).toBeInTheDocument()
+    expect(screen.getByText('Writing to us needs your email')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Write to us' })).not.toBeInTheDocument()
+    // Nothing is asked of the backend for someone who can't use it yet
+    expect(state.mine).not.toHaveBeenCalled()
+    expect(screen.queryByRole('link', { name: /My requests/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Add my email' }))
+    expect(screen.getByTestId('where')).toHaveTextContent('/welcome/email')
+    // After the email step: the message form here, not the step again
+    expect(localStorage.getItem('adp.returnTo')).toBe('/help?from=%2Fwelcome%2Femail&write=1')
+  })
+
+  it('a link straight to the form while the email isn\'t verified: no form, the reason, and Call us', () => {
+    useSession.setState({ status: 'signedIn', user: { ...USER, emailVerified: false } })
+    open('/help?write=1&about=Walk-in')
+    expect(screen.queryByLabelText('Your message')).not.toBeInTheDocument()
+    expect(screen.getByText('Writing to us needs your email')).toBeInTheDocument()
+    expect(typed()).toBe('Hello Clozest, I need help. Screen: Walk-in')
+  })
+
+  it('signed out: Call us and WhatsApp us, and Sign in to write', () => {
+    useSession.setState({ status: 'signedOut', user: null })
+    open('/help?from=%2Fsignin')
+    expect(call()).toBeInTheDocument()
+    expect(screen.getByText('Writing to us needs a sign-in')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(screen.getByTestId('where')).toHaveTextContent('/signin')
+    expect(state.mine).not.toHaveBeenCalled()
   })
 })
 

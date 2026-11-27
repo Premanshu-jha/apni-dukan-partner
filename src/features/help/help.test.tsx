@@ -5,15 +5,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import type { MyRequest, Shop, ShopRole } from '../../api/types'
-import { ErrorState, Page } from '../../components/ui'
+import { ErrorBanner, ErrorState, Page } from '../../components/ui'
+import { ShopContext } from '../../api/shop'
 import { useSession } from '../../store/session'
-import { HOWTOS, howToFor, matches } from './howto'
+import { EARLY_HOWTOS, HOWTOS, KIRANA_HOWTOS, howToFor, matches } from './howto'
 import { isApp } from '../../lib/platform'
-import { helpHref, isHelpPage, isKiranaScreen, safeFrom, topicFor } from './links'
+import { helpHref, isHelpPage, safeFrom, topicFor } from './links'
 import { typedByThem } from './NeedHelp'
 import { unreadReplies, useHelpSeen } from './seen'
 
-const state = vi.hoisted(() => ({ mine: vi.fn() }))
+const state = vi.hoisted(() => ({ mine: vi.fn(), kirana: false }))
+vi.mock('../../lib/config', async (orig) => ({
+  ...(await orig<typeof import('../../lib/config')>()),
+  kiranaOn: () => state.kirana,
+}))
 // GET /helpdesk/tickets (My requests); nothing else is asked for here
 vi.mock('../../lib/platform', () => ({ isApp: vi.fn(() => false) }))
 vi.mock('../../api/client', async (orig) => ({
@@ -69,7 +74,7 @@ describe('where Help goes', () => {
     expect(safeFrom(null)).toBeNull()
   })
 
-  it('knows each screen by its address, and which are help or kirana screens', () => {
+  it('knows each screen by its address (a kirana\'s too), and which are help screens', () => {
     expect(topicFor('/salon/walk-in')).toBe('Walk-in')
     expect(topicFor('/setup/staff/s1')).toBe('Barbers')
     expect(topicFor('/register')).toBe('Registering: salon details')
@@ -82,9 +87,15 @@ describe('where Help goes', () => {
     expect(isHelpPage('/help/requests/t1')).toBe(true)
     expect(isHelpPage('/contact')).toBe(true)
     expect(isHelpPage('/helpers')).toBe(false)
-    expect(isKiranaScreen('/kirana/counter', undefined)).toBe(true)
-    expect(isKiranaScreen('/more', 'KIRANA')).toBe(true)
-    expect(isKiranaScreen('/more', 'SALON')).toBe(false)
+    // A kirana's screens have their own subjects now that Help shows on them (their names as the tabs and More say)
+    expect(topicFor('/kirana/counter')).toBe('Counter')
+    expect(topicFor('/kirana/bills/b1')).toBe('Bills')
+    expect(topicFor('/kirana/khata/c1')).toBe('Khata')
+    expect(topicFor('/kirana/licences')).toBe('Licences: FSSAI, trade licence')
+    expect(topicFor('/register/upi')).toBe('UPI ID for the counter QR')
+    // The product setup's steps: one subject (not an empty one, nor "Screen: /kirana/setup/lines" on WhatsApp)
+    expect(topicFor('/kirana/setup')).toBe('Setting up products')
+    expect(topicFor('/kirana/setup/lines')).toBe('Setting up products')
   })
 })
 
@@ -115,7 +126,7 @@ describe('the how-to answers', () => {
   const shop = (myRole: ShopRole, status: Shop['status'] = 'APPROVED', type: Shop['type'] = 'SALON') => ({ myRole, status, type, name: 'Style Studio' }) as Shop
 
   it('every answer has its question and answer, and every button name it uses is a real text with a blank for it', () => {
-    for (const h of HOWTOS) {
+    for (const h of [...HOWTOS, ...EARLY_HOWTOS, ...KIRANA_HOWTOS]) {
       expect(en[`${h.id}Q`], h.id).toBeTruthy()
       const answer = en[`${h.id}A`]
       expect(answer, h.id).toBeTruthy()
@@ -151,12 +162,33 @@ describe('the how-to answers', () => {
     expect(howToFor(shop('OWNER')).find((h) => h.id === 'share')!.words!.poster).toBe('share.download')
   })
 
-  it('none before the salon is past registration, nor for a kirana', () => {
-    expect(howToFor(shop('OWNER', 'DRAFT'))).toEqual([])
-    expect(howToFor(shop('OWNER', 'PENDING_VISIT')).length).toBeGreaterThan(0)
-    expect(howToFor(shop('HELPER', 'PENDING_VISIT'))).toEqual([])
+  it('before the salon is live: registering for its owner, joining for its staff, both with no shop; none for a kirana', () => {
+    const ids = (s: Shop | null) => howToFor(s).map((h) => h.id)
+    expect(ids(shop('OWNER', 'DRAFT'))).toEqual(['regVideo', 'regLicence', 'regPin', 'regAfter', 'regSentBack'])
+    expect(ids(shop('HELPER', 'PENDING_VISIT'))).toEqual(['joinWhere', 'joinWrong', 'joinOwnerNotOn'])
+    expect(ids(shop('BARBER', 'DRAFT'))).toEqual(['joinWhere', 'joinWrong', 'joinOwnerNotOn'])
+    // No shop yet (the start screen): how to register, and how joining works; nothing to leave
+    expect(ids(null)).toEqual(['regVideo', 'regLicence', 'regPin', 'regAfter', 'regSentBack', 'joinWhere', 'joinOwnerNotOn'])
+    // Past registration: the salon's own answers, as before
+    expect(howToFor(shop('OWNER', 'PENDING_VISIT')).some((h) => h.id === 'services')).toBe(true)
+    expect(howToFor(shop('OWNER', 'PENDING_VISIT')).some((h) => h.group === 'registering')).toBe(false)
     expect(howToFor(shop('OWNER', 'APPROVED', 'KIRANA'))).toEqual([])
-    expect(howToFor(null)).toEqual([])
+    expect(howToFor(shop('OWNER', 'DRAFT', 'KIRANA'))).toEqual([])
+  })
+
+  it('a kirana\'s own answers (switch on), from the day its counter works; owner-only screens for the owner only', () => {
+    state.kirana = true
+    try {
+      const ids = (s: Shop) => howToFor(s).map((h) => h.id)
+      expect(ids(shop('OWNER', 'PENDING_VISIT', 'KIRANA'))).toEqual(['kSetup', 'kAddProduct', 'kCount', 'kHelper', 'kLicences', 'kNoBarcode', 'kUpi', 'kReturn', 'kKhata'])
+      expect(ids(shop('HELPER', 'APPROVED', 'KIRANA'))).toEqual(['kSetup', 'kAddProduct', 'kCount', 'kNoBarcode', 'kUpi', 'kReturn', 'kKhata'])
+      // Still registering: its steps have their own guides
+      expect(ids(shop('OWNER', 'DRAFT', 'KIRANA'))).toEqual([])
+      // A salon's are as they were
+      expect(ids(shop('OWNER', 'APPROVED'))).toContain('services')
+    } finally {
+      state.kirana = false
+    }
   })
 
   it('search finds every typed word, in any order and case, in Indian scripts too', () => {
@@ -215,15 +247,32 @@ describe('drafts and replies', () => {
 })
 
 describe('the Help button in every screen', () => {
-  it('signed out: Contact (help needs sign-in), and no call for requests', async () => {
+  it('signed out: the help page too (Call us and WhatsApp us are there for everyone), and no call for requests', async () => {
     renderAt('/signin/code', <Page title="Enter the code" back="/signin"><p>code</p></Page>)
-    expect(screen.getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/contact')
+    expect(screen.getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/help?from=%2Fsignin%2Fcode')
     expect(state.mine).not.toHaveBeenCalled()
   })
 
   it('a screen with no title bar gets it too (Today, sign-in)', () => {
     renderAt('/signin', <Page><p>sign in</p></Page>)
-    expect(screen.getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/contact')
+    expect(screen.getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/help?from=%2Fsignin')
+  })
+
+  it('on the email step (email not verified): the help page, never back to the step', () => {
+    useSession.setState({ status: 'signedIn', user: { ...USER, emailVerified: false } })
+    renderAt('/welcome/email', <Page title="Your email"><p /></Page>)
+    expect(screen.getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/help?from=%2Fwelcome%2Femail')
+    expect(state.mine).not.toHaveBeenCalled()
+  })
+
+  it('a kirana\'s screens have it too, about that screen; a salon\'s are as they were', () => {
+    useSession.setState({ status: 'signedIn', user: USER })
+    renderAt('/kirana/counter', (
+      <ShopContext.Provider value={{ type: 'KIRANA', myRole: 'OWNER', status: 'APPROVED', name: 'Ravi Kirana' } as Shop}>
+        <Page title="Counter"><p /></Page>
+      </ShopContext.Provider>
+    ))
+    expect(screen.getByRole('link', { name: /^Help/ })).toHaveAttribute('href', '/help?from=%2Fkirana%2Fcounter&topic=Counter')
   })
 
   it('signed in: the help page with this screen and its subject; a dot while a reply is unread, gone once opened', async () => {
@@ -284,8 +333,30 @@ describe('every error offers support', () => {
     expect(q.get('from')).toBe('/setup/services')
   })
 
-  it('signed out: Contact', () => {
+  it('signed out: the help page too (it says why writing needs an email, and offers Call us)', () => {
     renderAt('/signin', <ErrorState message="No internet" />)
-    expect(screen.getByRole('link', { name: 'Write to us' })).toHaveAttribute('href', '/contact')
+    const q = new URLSearchParams(screen.getByRole('link', { name: 'Write to us' }).getAttribute('href')!.split('?')[1])
+    expect(q.get('write')).toBe('1')
+    expect(q.get('text')).toBe('The app said: “No internet”\nWhat I was doing: ')
+  })
+
+  it('on a kirana\'s screen too, about that screen', () => {
+    useSession.setState({ status: 'signedIn', user: USER })
+    renderAt('/kirana/bills', (
+      <ShopContext.Provider value={{ type: 'KIRANA', myRole: 'OWNER', status: 'APPROVED', name: 'Ravi Kirana' } as Shop}>
+        <ErrorState message="Busy" />
+      </ShopContext.Provider>
+    ))
+    const q = new URLSearchParams(screen.getByRole('link', { name: 'Write to us' }).getAttribute('href')!.split('?')[1])
+    expect(q.get('about')).toBe('Bills')
+  })
+
+  it('a failed save (ErrorBanner): the red line, and "Write to us" with its words', () => {
+    useSession.setState({ status: 'signedIn', user: USER })
+    renderAt('/setup/rules', <ErrorBanner message="Couldn't save." />)
+    expect(screen.getByRole('alert')).toHaveTextContent("Couldn't save.")
+    const q = new URLSearchParams(screen.getByRole('link', { name: 'Write to us' }).getAttribute('href')!.split('?')[1])
+    expect(q.get('text')).toBe('The app said: “Couldn\'t save.”\nWhat I was doing: ')
+    expect(q.get('from')).toBe('/setup/rules')
   })
 })

@@ -175,7 +175,8 @@ test('the inbox shows the hand-over messages with their own icons', async ({ pag
   await page.goto('/notifications')
   for (const t of ['Shop handed over', 'Hand-over declined', 'The shop is yours']) await expect(page.getByText(t)).toBeVisible()
   await page.getByText('The shop is yours').click()
-  await expect(page).toHaveURL(/\/salon\/day$/)
+  // Shop news opens More, where the shop card and Team are
+  await expect(page).toHaveURL(/\/more$/)
 })
 
 test('a draft\'s owner can hand it over or close it from registration; then delete the account from Start', async ({ page, context, api }) => {

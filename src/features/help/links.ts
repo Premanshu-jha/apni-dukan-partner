@@ -122,12 +122,3 @@ export function topicFor(pathname: string, kind?: string): string | null {
   const hit = TOPICS.find(([re]) => re.test(pathname))
   return hit ? t(hit[1]) : null
 }
-
-/**
- * Kept until the screens and their tests stop asking it (they do in the next commits): Help shows on kirana screens
- * now (see helpSubject), so nothing hides it any more.
- */
-const KIRANA_PATH = /^\/(kirana\/|register\/(licences|upi))/
-export function isKiranaScreen(pathname: string, shopType: string | undefined): boolean {
-  return shopType === 'KIRANA' || KIRANA_PATH.test(pathname)
-}

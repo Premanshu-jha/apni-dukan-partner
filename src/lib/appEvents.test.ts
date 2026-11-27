@@ -9,13 +9,26 @@ describe('the screen a tapped notification opens in the app (the service workerâ
     expect(notificationTarget('/help/requests/T-123')).toBe('/help/requests/T-123')
   })
 
-  it('shop news opens the start page; anything else (a customer page, another site, nothing) the day board', () => {
-    expect(notificationTarget('/shops/me')).toBe('/')
-    expect(notificationTarget('/bookings/b1')).toBe('/salon/day')
-    expect(notificationTarget('https://evil.example/salon/day')).toBe('/salon/day')
-    expect(notificationTarget('//evil.example/x')).toBe('/salon/day')
+  it('pay and fix-it messages open their screens (lib/messageLinks.ts), as in Messages and on the web', () => {
+    expect(notificationTarget('/subscription')).toBe('/subscription')
+    expect(notificationTarget('/setup')).toBe('/setup?fix=1')
+    expect(notificationTarget('/setup/document')).toBe('/setup/document')
+    expect(notificationTarget('/setup/address')).toBe('/setup/address')
+    expect(notificationTarget('/register/photos')).toBe('/register/photos')
+    // No screen here: the start, saying what the message was about (its title)
+    expect(notificationTarget('/setup/staff', 'X', 'A new kind of message')).toBe('/?message=A%20new%20kind%20of%20message')
+  })
+
+  it('shop news opens More; anything else (a customer page, another site) the start, with the title when there is one', () => {
+    expect(notificationTarget('/shops/me')).toBe('/more')
+    expect(notificationTarget('/bookings/b1')).toBe('/')
+    expect(notificationTarget('https://evil.example/salon/day', null, 'Hi')).toBe('/?message=Hi')
+    expect(notificationTarget('//evil.example/x')).toBe('/')
+    // No url at all: the day board, as before
     expect(notificationTarget(null)).toBe('/salon/day')
-    expect(notificationTarget('/help/requests/../../x')).toBe('/salon/day')
+    expect(notificationTarget('/help/requests/../../x')).toBe('/')
+    // /setup/photos: nothing sends it any more, so it is no screen
+    expect(notificationTarget('/setup/photos')).toBe('/')
   })
 })
 
