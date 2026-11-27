@@ -120,7 +120,17 @@ describe('the android job (.github/workflows/ci.yml)', () => {
 
   it('signs every test APK with main\'s debug key (from the cache), before building it', () => {
     const apk = steps.findIndex((s) => s.startsWith('name: Build the test APK'))
-    const [keep, read] = [steps[apk - 2], steps[apk - 1]]
+    const [keep, read, file] = [steps[apk - 3], steps[apk - 2], steps[apk - 1]]
+    // Gradle is pointed at that folder, and the key is made there when the cache had none
+    expect(file).toMatch(/^name: The debug key in ~\/.android/)
+    expect(file).toContain('echo "ANDROID_USER_HOME=$HOME/.android" >> "$GITHUB_ENV"')
+    expect(file).toContain('keytool -genkeypair -keystore "$HOME/.android/debug.keystore"')
+    // And the APK is checked to carry it (a failure on a branch; on main only a warning, never stopping the release)
+    const check = steps[apk + 1]
+    expect(check).toMatch(/^name: The test APK is signed with that debug key/)
+    expect(check).toContain('apksigner" verify --print-certs')
+    expect(check).toContain('exit 1')
+    expect(steps.findIndex((s) => s.startsWith('name: Send the screens'))).toBeGreaterThan(apk + 1)
     // Only main saves the key; every other build only reads it, so no branch keeps a key of its own
     expect(keep).toContain("if: github.ref == 'refs/heads/main'")
     expect(keep).toMatch(/uses: actions\/cache@[0-9a-f]{40} /)
