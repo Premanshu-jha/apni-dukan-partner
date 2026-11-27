@@ -164,11 +164,12 @@ jobs:
           # main's, with kirana off, would replace its screens
           CAPGO_PUBLIC_KEY: ${{ steps.kirana.outputs.test_build != 'true' && vars.CAPGO_PUBLIC_KEY || '' }}
         run: npm run android
-      # Gradle signs a test APK with ~/.android/debug.keystore and makes a new one when it is missing: on a fresh runner
-      # every APK would get a different key, and Android refuses to install one over the other. Kept in GitHub's cache:
-      # only main saves it (its first run), every other build only reads main's, so no branch ever keeps a key of its
-      # own and a newer test APK installs over the last, kirana or not. Never in the repo. Unused for 7 days, GitHub
-      # drops it and main's next run makes a new one (one uninstall then).
+      # Gradle signs a test APK with the debug key in ANDROID_USER_HOME and makes a new one when it is missing: on a
+      # fresh runner every APK would get a different key, and Android refuses to install one over the other. So the key
+      # is ~/.android/debug.keystore (ANDROID_USER_HOME set below: the runner's own setting put it elsewhere), kept in
+      # GitHub's cache: only main saves it (its first run), every other build only reads main's, so no branch ever
+      # keeps a key of its own and a newer test APK installs over the last, kirana or not. Never in the repo. Unused
+      # for 7 days, GitHub drops it and main's next run makes a new one (one uninstall then).
       - name: The same debug key for every test APK (main keeps it)
         if: github.ref == 'refs/heads/main'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
@@ -181,9 +182,36 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: android-debug-keystore-v1
+      - name: The debug key in ~/.android (made once when the cache had none)
+        run: |
+          mkdir -p "$HOME/.android"
+          echo "ANDROID_USER_HOME=$HOME/.android" >> "$GITHUB_ENV"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            # Android's usual debug key: these passwords and names are the standard ones, not secrets
+            keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -keypass android \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            echo "::notice title=Android::A new debug key: test APKs from before can't be installed over (uninstall once)"
+          fi
       - name: Build the test APK
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug
+      - name: The test APK is signed with that debug key
+        run: |
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          certs=$("$tools/apksigner" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk 2>&1 || true)
+          echo "$certs" | grep -i 'certificate' || echo "$certs"
+          apk=$(echo "$certs" | grep -i 'SHA-256 digest' | head -1 | awk '{print $NF}' | tr 'A-F' 'a-f')
+          key=$(keytool -exportcert -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey \
+            | sha256sum | cut -d' ' -f1)
+          if [ -n "$apk" ] && [ "$apk" = "$key" ]; then
+            echo "Test APK signed with the shared debug key ($key)"
+          elif [ "$GITHUB_REF" = refs/heads/main ]; then
+            # Never stops main's release: test APKs just won't install over each other until it is fixed
+            echo "::warning title=Android::The test APK isn't signed with the shared debug key (APK $apk, key $key)"
+          else
+            echo "::error title=Android::The test APK isn't signed with the shared debug key (APK $apk, key $key)"
+            exit 1
+          fi
       - name: The upload key, when it is set (never for a kirana test build)
         if: steps.kirana.outputs.test_build != 'true'
         env:
