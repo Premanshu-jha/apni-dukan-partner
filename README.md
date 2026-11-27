@@ -766,6 +766,9 @@ No backend change, no new APK needed (nothing native changed). See [Kirana switc
   phone (`components/TestBuildMark.tsx`, `KIRANA_TEST_BUILD` in `lib/config.ts`; never in the website or a release).
 - **The same debug key for every test APK** (GitHub's cache): a newer test APK installs over the last without
   uninstalling. One uninstall is needed once, for an APK from before this change.
+- **The shared debug key really is used:** CI points Gradle at `~/.android` (`ANDROID_USER_HOME`; the runner's own
+  setting put the key elsewhere, so the first merge saved none), makes the key there when the cache has none, and
+  checks the test APK carries it (`apksigner`): a failed check stops a branch's build, and is only a warning on main.
 - **The native level check skips a force-pushed branch's old commit** (it isn't in the clone) instead of failing the
   build; the PR's own check still compares with its target.
 - **Kirana test APKs from kirana branches.** The android job turns kirana on for a branch named `kirana…` (a push to
