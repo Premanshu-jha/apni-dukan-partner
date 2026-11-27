@@ -53,9 +53,46 @@ anything but `true` is off.
 To turn it on, set `VITE_KIRANA_ENABLED=true` where the app is built (`.env.local` for `npm run dev`, the host's
 variables on Railway; for the Play Store app, the GitHub variable `VITE_KIRANA_ENABLED`, read by the android job) and
 build again: the value is baked in, so changing it needs a new build (for the app, the android job's next run after a
-merge, whose screens reach phones as a screen update). **It must match the
-backend's `KIRANA_ENABLED`**: with the backend's off, its kirana paths answer 404 `KIRANA_OFF`, and a kirana screen
-would only show errors.
+merge, whose screens reach phones as a screen update). **Kirana on in the app needs the backend's `KIRANA_ENABLED`
+on too**: with the backend's off, its kirana paths answer 404 `KIRANA_OFF`, and a kirana screen would only show
+errors. The other way round is harmless: the backend on and the app off shows nothing of the kiranas'.
+
+#### Kirana in the Play Store app: by branch, and the launch switch
+
+The android job (`.github/workflows/ci.yml`) decides kirana for each build with `scripts/kirana-build.mjs`:
+
+| The build | `VITE_KIRANA_ENABLED` (GitHub variable) not `true` | set to `true` (launch) |
+|---|---|---|
+| `main`, and any branch not starting with `kirana` | kirana **off** | kirana **on** |
+| A branch named `kirana…` (`kirana-counter`, `kirana/setup`): a push to it, or a PR from it | kirana **on**, as a **kirana test build** | kirana **on** |
+
+- **Testing kirana on a phone:** push your work to a branch whose name starts with `kirana` (lower case). CI builds
+  on every push to such a branch, PR or not. On the run's page, under **Artifacts**, download
+  `clozest-partner-android-kirana-test` (a .zip), unzip it and copy `app-debug.apk` to the phone; open it there (allow
+  "Install unknown apps" for Files or Chrome when asked). The backend it talks to (`VITE_API_URL`) needs
+  `KIRANA_ENABLED=true`.
+- **Which app is on the phone:** a kirana test build shows a small "Kirana test build" label at the bottom left
+  (`components/TestBuildMark.tsx`; taps go through it). Nothing else shows it.
+- **Installing over another app:** every test APK, kirana or not, is signed with the same debug key (main's, kept in
+  GitHub's cache `android-debug-keystore-v1`; other builds only read it), so a newer one installs over the last and you stay signed in. Android refuses
+  one installed over the Play Store's Clozest Partner (another key), over an APK from before this change, over a newer
+  run's APK (an older one is a downgrade), or after GitHub dropped the key (unused for 7 days): then uninstall the
+  app first (Settings › Apps › Clozest Partner › Uninstall) and sign in again.
+- **Back to the normal app:** uninstall the test APK, then install Clozest Partner from the Play Store (or the latest
+  APK from a run of `main`).
+- **A kirana test build takes no screen updates:** it is built without `CAPGO_PUBLIC_KEY`, so main's screens (kirana
+  off) never replace its own. To see newer kirana work, install the next test APK. It is never signed for the Play
+  Store (no `app-release.aab`) and never sent to phones as a screen update.
+- **Nothing kirana reaches users before launch:** only builds of `main` are sent to phones, and `main` is never a
+  kirana branch, so they have kirana off until the variable is `true`. Kirana code can be merged into `main` at any
+  time: it stays hidden.
+- **Launch:** set the backend's `KIRANA_ENABLED=true` first. Then set the GitHub variable `VITE_KIRANA_ENABLED` to
+  `true` and start a **new** run of `main`: merge anything, or push an empty commit
+  (`git commit --allow-empty -m "Turn kirana on"` then `git push` on `main`). Its screens, with kirana on, reach
+  phones as a screen update. Don't use "Re-run" on an old run: it keeps that run's build number, which was already
+  sent, so nothing new is sent. Set the Railway website's `VITE_KIRANA_ENABLED=true` the same day. Phones with a
+  kirana test APK keep it until it is uninstalled.
+- The website on Railway doesn't follow branches: it is built from `main` with Railway's own `VITE_KIRANA_ENABLED`.
 
 In the code the switch is asked in a few places only: `kiranaOn()` and `shopTypeOn()` in `src/lib/config.ts`; the
 kirana routes in `src/app/kiranaRoutes.tsx` (each kirana screen there is a `React.lazy` download of its own); the
@@ -720,6 +757,24 @@ and keeps whatever was typed.
   (`docs/translation-review.md` lists what to look at first).
 
 ## Changelog
+
+### Unreleased — kirana by branch
+
+No backend change, no new APK needed (nothing native changed). See [Kirana switch](#kirana-switch).
+
+- **A "Kirana test build" label** at the bottom left of a kirana test build, so it is plain which app is on the
+  phone (`components/TestBuildMark.tsx`, `KIRANA_TEST_BUILD` in `lib/config.ts`; never in the website or a release).
+- **The same debug key for every test APK** (GitHub's cache): a newer test APK installs over the last without
+  uninstalling. One uninstall is needed once, for an APK from before this change.
+- **The native level check skips a force-pushed branch's old commit** (it isn't in the clone) instead of failing the
+  build; the PR's own check still compares with its target.
+- **Kirana test APKs from kirana branches.** The android job turns kirana on for a branch named `kirana…` (a push to
+  it, which now runs CI, or a PR from it), whatever the GitHub variable says. Such a build is a kirana test build:
+  built without the screen-update key (main's screens never replace it), no Play Store bundle, never sent to phones,
+  and its artifact is `clozest-partner-android-kirana-test`.
+- **`main` stays kirana off** until the GitHub variable `VITE_KIRANA_ENABLED` is `true` (the launch switch), so kirana
+  work can be merged into `main` and stay hidden. The rule is `scripts/kirana-build.mjs`, tested with the workflow's
+  guards in `src/lib/kiranaBuild.test.ts`.
 
 ### Unreleased — never stuck (usability round)
 

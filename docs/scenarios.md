@@ -924,3 +924,29 @@ No backend change. App tests: `NH` = `src/features/help/NeedHelp.test.tsx`, `HT`
 | 858 | Offline | The offline page | — | Call hours, and "your shop's day" (a kirana's too), in the saved language | — | NS "offline page…" | OK-tested |
 | 859 | Sign-up | "Sign out and start again" when the sign-out fails | — | Can be tapped again | — | unit `SignUpWayOut.test.tsx` | OK-tested |
 | 860 | Many at once | A sheet's Help check on a big kirana sheet | — | Reads the sheet's own fields once on open and once on tap (no listeners, no re-renders) | — | (by reading `Sheet`) | OK-untested |
+
+## Kirana by branch: which builds of the Play Store app have kirana — 2026-11-27
+
+Rule: `scripts/kirana-build.mjs` (android job). "Test build" = kirana on only because of the branch: no screen-update
+key, no Play Store bundle, never sent to phones, artifact `clozest-partner-android-kirana-test`.
+
+| # | Journey | Scenario | API behaviour (status + code) | App behaviour | Backend test | App test | Verdict |
+|---|---|---|---|---|---|---|---|
+| 861 | CI | Merge to `main`, variable not `true` (today) | Screens sent (`app-releases`) as before | Kirana off: the salon app as before; phones get it as a screen update | — | unit `kiranaBuild.test` "off on main…", "the script as CI runs it" (push to main) | OK-tested |
+| 862 | CI | Push to `kirana-counter` (no PR) | Nothing sent | CI runs (push trigger `kirana**`); kirana-on test APK, no `.aab` | — | unit `kiranaBuild.test` "builds on pushes to kirana branches", "reads the pushed branch" | OK-tested |
+| 863 | CI | PR from `kirana-counter` into `main` | Nothing sent (PR) | Kirana-on test APK (the PR's branch decides, not `61/merge`) | — | unit "reads the PR branch first" | OK-tested |
+| 864 | CI | PR from `fix-typo` into a kirana branch | Nothing sent | Kirana off (only the PR's own branch counts) | — | unit "a PR from another branch into a kirana branch…" | OK-tested |
+| 865 | CI | Branch `feature/kirana-x`, `Kirana-x`, `fix-kirana` | Nothing sent | Kirana off: only lower-case `kirana` at the start counts (documented) | — | unit "off on main and every other branch…" | OK-tested |
+| 866 | Phone | Kirana test APK installed; `main` releases new screens | `GET /app-updates/partner` offers the bundle | Not downloaded (built without `CAPGO_PUBLIC_KEY`: `updatesSigned` false): kirana stays on | — | unit `kiranaBuild.test` "sets kirana and the update key only through the kirana step"; `appUpdates.test` "downloads nothing in an app built without the signing key" | OK-tested |
+| 867 | Phone | Kirana test APK, backend `KIRANA_ENABLED` off | Kirana paths 404 `KIRANA_OFF` | Kirana screens show their errors (README: turn the backend's on to test) | KiranaSwitchOffIntegrationTest | — | N/A-v1 (owner's setting) |
+| 868 | CI | Test build with the upload key in the secrets | — | Key never written, no signed bundle: a kirana test build can't be uploaded to the Play Store | — | unit "never signs, bundles or sends a kirana test build" | OK-tested |
+| 869 | Launch | Variable set to `true`, then a new run of `main` (a merge or an empty commit) | Screens with kirana sent | Phones get kirana as a screen update; kirana branches are then ordinary builds (screen updates on) | — | unit "on everywhere once launched…" | OK-tested |
+| 870 | Launch | Variable `TRUE`, ` true`, `1` | — | Off on main, as the app's own rule (`=== 'true'`); kirana branches stay test builds | — | unit "anything but exactly true…" | OK-tested |
+| 871 | Many at once | Push to a kirana branch with its PR open | — | Two CI runs (push and PR), each its own APK; minutes are free (public repo) | — | (by reading the trigger) | OK-untested |
+| 872 | Inconvenience → fixed | Which APK is on my phone? | — | A kirana test build shows "Kirana test build" at the bottom left (taps go through); never in the website or a release | — | unit `TestBuildMark.test`; `kiranaBuild.test` (`VITE_KIRANA_TEST_BUILD` passed) | OK-tested |
+| 873 | Launch | Variable `true`, then "Re-run" of main's last run | Same build number, already sent: `RELEASE_EXISTS`, nothing sent | Phones keep the kirana-off screens. README says: start a new run, never Re-run | — | (release-screens.mjs, by reading) | OK-untested (documented) |
+| 874 | Phone | A newer test APK (kirana or not) over the last one | — | Installs over it, still signed in: every APK has the same debug key (GitHub's cache `android-debug-keystore-v1`) | — | unit "signs every test APK with the same debug key…" | OK-tested |
+| 875 | Phone | A test APK over the Play Store app, over an APK from before this change, over a newer one, or after the key was dropped (7 days unused) | — | Android refuses ("App not installed"): uninstall first, sign in again (README) | — | — | INCONVENIENCE (documented) |
+| 876 | Phone | Back to the normal app | — | Uninstall the test APK, install from the Play Store or main's APK (README) | — | — | OK-untested (documented) |
+| 877 | CI | Force-push to a kirana branch (a rebase) | — | The native level check skips the old commit (not in the clone) with a warning; the test APK is built; the PR's check still compares with its target | — | unit "skips a base commit that is not in the clone…" | OK-tested |
+| 878 | CI | An old kirana run re-run after launch; the branch deleted | — | Re-run: an ordinary build (no `-kirana-test`, screen updates on). Deleted: old artifacts stay until GitHub's 30 days | — | unit "on everywhere once launched…" | OK-tested |
