@@ -29,6 +29,15 @@ const atBase = (path) => {
   }
 }
 
+// A force-push (a rebased kirana branch, say) leaves the commit before it out of the clone: nothing to compare with.
+// The check runs again on the PR, against its target.
+try {
+  git('cat-file', '-e', `${base}^{commit}`)
+} catch {
+  console.log(`::warning title=Native level::${base} is not in this clone (a force-push?): not checked on this push`)
+  process.exit(0)
+}
+
 const changed = git('diff', '--name-only', `${base}...HEAD`).split('\n').filter(Boolean)
 const reasons = changed.filter(
   (f) =>

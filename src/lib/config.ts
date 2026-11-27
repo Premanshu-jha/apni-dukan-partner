@@ -20,3 +20,9 @@ export function kiranaOn(): boolean {
 export function shopTypeOn(type: string): boolean {
   return type === 'SALON' || (type === 'KIRANA' && kiranaOn())
 }
+
+/**
+ * A kirana test build of the Play Store app (CI's android job on a kirana… branch, scripts/kirana-build.mjs): it shows
+ * the "Kirana test build" label (components/TestBuildMark.tsx). False everywhere else.
+ */
+export const KIRANA_TEST_BUILD = import.meta.env.VITE_KIRANA_TEST_BUILD === 'true'
