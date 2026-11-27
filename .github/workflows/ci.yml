@@ -3,7 +3,8 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    # main, and kirana branches: pushing one builds a kirana test APK without a PR (scripts/kirana-build.mjs)
+    branches: [main, 'kirana**']
 
 permissions:
   contents: read
@@ -99,24 +100,24 @@ jobs:
     # project (android/). Every run makes an installable test APK (app-debug.apk, under the run's Artifacts); with the
     # upload key in the secrets it also makes the signed bundle for the Play Store (app-release.aab).
     # Settings (Settings › Secrets and variables › Actions): variables VITE_API_URL, VITE_TURNSTILE_SITE_KEY,
-    # VITE_MAP_TILES, VITE_SUPPORT_EMAIL, PHOTO_ORIGIN, VITE_KIRANA_ENABLED (the website's, as on Railway); secrets GOOGLE_SERVICES_JSON
+    # VITE_MAP_TILES, VITE_SUPPORT_EMAIL, PHOTO_ORIGIN (the website's, as on Railway), VITE_KIRANA_ENABLED (the launch
+    # switch, below); secrets GOOGLE_SERVICES_JSON
     # (Firebase's app file: notifications), ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS,
     # ANDROID_KEY_PASSWORD (the upload key). Without them the build still runs, pointing at a placeholder backend.
     # Screen updates (see "App updates" in the README): variable CAPGO_PUBLIC_KEY (built into the app: it installs
     # only screens signed with the matching private key); secrets CAPGO_PRIVATE_KEY and APP_RELEASE_TOKEN (after a
     # merge to main this job signs the screens it built and sends them to the backend: phones get them at their next
     # start). Without them the app downloads no screen updates and none are sent.
+    # Kirana (scripts/kirana-build.mjs, "Kirana switch" in the README): on when the variable VITE_KIRANA_ENABLED is
+    # true (the launch switch, main included) or for a branch named kirana… (a push to it or a PR from it). A build with
+    # kirana on only because of its branch is a kirana test build: no screen updates, no Play Store bundle, never sent.
     runs-on: ubuntu-24.04
     env:
-      CAPGO_PUBLIC_KEY: ${{ vars.CAPGO_PUBLIC_KEY }}
       VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api.example.com' }}
       VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
       VITE_MAP_TILES: ${{ vars.VITE_MAP_TILES }}
       VITE_SUPPORT_EMAIL: ${{ vars.VITE_SUPPORT_EMAIL }}
       PHOTO_ORIGIN: ${{ vars.PHOTO_ORIGIN }}
-      # The kirana switch for the app, like the website's (see "Kirana switch" in the README): off unless the
-      # variable VITE_KIRANA_ENABLED is set to true, so the Play Store app follows the same setting
-      VITE_KIRANA_ENABLED: ${{ vars.VITE_KIRANA_ENABLED }}
       # Google compares this number to decide what is newer: it grows with every run
       ANDROID_VERSION_CODE: ${{ github.run_number }}
     steps:
@@ -135,6 +136,11 @@ jobs:
           java-version: '21'
           cache: gradle
       - run: npm ci
+      - name: Kirana on or off for this build (by the branch and the launch switch)
+        id: kirana
+        env:
+          KIRANA_SETTING: ${{ vars.VITE_KIRANA_ENABLED }}
+        run: node scripts/kirana-build.mjs
       - name: A change to the native part raises android/native-level
         env:
           BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
@@ -150,11 +156,36 @@ jobs:
             echo "::notice title=Android::No GOOGLE_SERVICES_JSON secret: the app is built without notifications"
           fi
       - name: Build the website for the app and copy it into android/
+        env:
+          VITE_KIRANA_ENABLED: ${{ steps.kirana.outputs.kirana }}
+          # The "Kirana test build" label (components/TestBuildMark.tsx), so it is plain which app is on the phone
+          VITE_KIRANA_TEST_BUILD: ${{ steps.kirana.outputs.test_build }}
+          # Built into the app (capacitor.config.ts); a kirana test build goes without, so it takes no screen updates:
+          # main's, with kirana off, would replace its screens
+          CAPGO_PUBLIC_KEY: ${{ steps.kirana.outputs.test_build != 'true' && vars.CAPGO_PUBLIC_KEY || '' }}
         run: npm run android
+      # Gradle signs a test APK with ~/.android/debug.keystore and makes a new one when it is missing: on a fresh runner
+      # every APK would get a different key, and Android refuses to install one over the other. Kept in GitHub's cache:
+      # only main saves it (its first run), every other build only reads main's, so no branch ever keeps a key of its
+      # own and a newer test APK installs over the last, kirana or not. Never in the repo. Unused for 7 days, GitHub
+      # drops it and main's next run makes a new one (one uninstall then).
+      - name: The same debug key for every test APK (main keeps it)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore-v1
+      - name: The same debug key for every test APK (other builds read main's)
+        if: github.ref != 'refs/heads/main'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore-v1
       - name: Build the test APK
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug
-      - name: The upload key, when it is set
+      - name: The upload key, when it is set (never for a kirana test build)
+        if: steps.kirana.outputs.test_build != 'true'
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -169,13 +200,15 @@ jobs:
           printf 'storeFile=upload.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
             "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > android/keystore.properties
       - name: Build the signed Play Store bundle
-        if: hashFiles('android/keystore.properties') != ''
+        if: steps.kirana.outputs.test_build != 'true' && hashFiles('android/keystore.properties') != ''
         working-directory: android
         run: ./gradlew --no-daemon bundleRelease
       - name: Send the screens as an update for the app (after a merge to main)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.kirana.outputs.test_build != 'true'
         env:
           APP_RELEASE_TOKEN: ${{ secrets.APP_RELEASE_TOKEN }}
+          # As when the screens were built (Capgo's CLI reads capacitor.config.ts)
+          CAPGO_PUBLIC_KEY: ${{ vars.CAPGO_PUBLIC_KEY }}
           CAPGO_PRIVATE_KEY: ${{ secrets.CAPGO_PRIVATE_KEY }}
           # A PR titled "[urgent] …" makes this release urgent (scripts/urgent-note.mjs); passed as a variable, never
           # pasted into the command, so a title can't run anything
@@ -186,7 +219,8 @@ jobs:
         run: rm -f android/upload.jks android/keystore.properties android/app/google-services.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
-          name: clozest-partner-android
+          # A kirana test build's APK is named so: install it to test kirana (it never updates its screens itself)
+          name: clozest-partner-android${{ steps.kirana.outputs.test_build == 'true' && '-kirana-test' || '' }}
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/bundle/release/app-release.aab
