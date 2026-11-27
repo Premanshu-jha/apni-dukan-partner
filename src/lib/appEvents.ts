@@ -1,3 +1,5 @@
+import { messageScreen, noScreenTarget } from './messageLinks'
+
 /**
  * The Play Store app's ways in from outside the screens: a tapped notification and a link to partner.clozest.in that
  * Android opened in the app. They can arrive before the router is drawn (the app opened from closed by the tap), so
@@ -26,23 +28,21 @@ export function onOpenRequest(l: () => void): () => void {
 }
 
 /**
- * The screen a tapped notification opens, by the same rule as the website's service worker (public/sw.js): only this
- * app's own pages (the day board and bookings, shop news, hand-over requests, invitations, a support request), shop
- * news on the start page; anything else (a customer-app page: one account can be a customer too) the day board.
+ * The screen a tapped notification opens, by the same rule as the website's service worker (public/sw.js) and
+ * Messages: only this app's own pages (lib/messageLinks.ts: the day board, paying, the screens a fix or a licence
+ * message points to, shop news on More, hand-over requests, invitations, a support request, a kirana's licences);
+ * anything else (a customer-app page: one account can be a customer too) the start, which says what it was about.
  */
-export function notificationTarget(url: string | null): string {
+export function notificationTarget(url: string | null, type?: string | null, title?: string | null): string {
   let target: URL
   try {
     target = new URL(url || '/salon/day', 'https://app.invalid')
   } catch {
-    return '/salon/day'
+    return noScreenTarget(title)
   }
-  if (target.origin !== 'https://app.invalid') return '/salon/day'
-  const p = target.pathname
-  const ours =
-    p.startsWith('/salon/') || p.startsWith('/shops/') || p === '/handover' || p === '/invites' || /^\/help\/requests\/[0-9A-Za-z-]{1,64}$/.test(p)
-  if (!ours) return '/salon/day'
-  return p.startsWith('/shops/') ? '/' : p + target.search + target.hash
+  if (target.origin !== 'https://app.invalid') return noScreenTarget(title)
+  // No screen of its own here: the start, which says what the message was about
+  return messageScreen(target.pathname + target.search + target.hash, type) ?? noScreenTarget(title)
 }
 
 /**

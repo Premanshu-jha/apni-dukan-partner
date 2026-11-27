@@ -160,15 +160,23 @@ export async function clearAppNotifications(): Promise<void> {
   await PushNotifications.removeAllDeliveredNotifications().catch(() => {})
 }
 
-/** What a message carries for the app: its type and the screen a tap opens (the backend's data {type, url}). */
+/**
+ * What a message carries for the app: its type, the screen a tap opens (the backend's data {type, url}) and its title
+ * (said on the start when the message has no screen here).
+ */
 export interface AppMessage {
   type: string
   url: string | null
+  title?: string | null
 }
 
 function messageOf(n: PushNotificationSchema): AppMessage {
   const data = (n.data ?? {}) as Record<string, unknown>
-  return { type: typeof data.type === 'string' ? data.type : '', url: typeof data.url === 'string' ? data.url : null }
+  return {
+    type: typeof data.type === 'string' ? data.type : '',
+    url: typeof data.url === 'string' ? data.url : null,
+    title: typeof n.title === 'string' ? n.title : typeof data.title === 'string' ? data.title : null,
+  }
 }
 
 /**

@@ -28,3 +28,24 @@ export const BUSINESS = {
 
 /** "Clozest is operated by Premanshu Jha, a sole proprietor" — the line every public page carries. */
 export const OPERATED_BY = `${BUSINESS.brand} is operated by ${BUSINESS.operator}, a ${BUSINESS.operatorKind}.`
+
+/** The phone number as a dialler and WhatsApp take it: digits only, with the country code (919381251613). */
+const PHONE_DIGITS = BUSINESS.phone.replace(/\D/g, '')
+
+/** "Call us": opens the phone's dialler with our number (a plain link: it works outside the app's screens too). */
+export const CALL_US = `tel:+${PHONE_DIGITS}`
+
+/**
+ * "WhatsApp us": a chat with our number, the message already typed (the screen they were on, the shop code), so
+ * someone who can't type much only taps Send. WhatsApp opens on the phone; on a computer, WhatsApp Web.
+ */
+export function whatsappUs(text?: string): string {
+  return whatsappTo(PHONE_DIGITS, text)
+}
+
+/** A WhatsApp chat with any Indian number (10 digits, or with 91 in front), the message already typed. */
+export function whatsappTo(phone: string, text?: string): string {
+  const digits = phone.replace(/\D/g, '')
+  const full = digits.length === 10 ? `91${digits}` : digits
+  return `https://wa.me/${full}${text ? `?text=${encodeURIComponent(text)}` : ''}`
+}

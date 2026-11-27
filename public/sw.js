@@ -6,7 +6,7 @@
 // button switches over (never in the middle of a walk-in or a booking change).
 
 // Change the name when offline.html, offline.css, offline.js or the icon change, so a new version stores them again
-const OFFLINE_CACHE = 'offline-v3'
+const OFFLINE_CACHE = 'offline-v4'
 const OFFLINE_PAGE = '/offline.html'
 const OFFLINE_FILES = [OFFLINE_PAGE, '/offline.css', '/offline.js', '/icon.svg']
 
@@ -54,6 +54,13 @@ self.addEventListener('fetch', (event) => {
   }
 })
 
+// The screens a message may open: a copy of MESSAGE_SCREENS and KIRANA_SCREENS in src/lib/messageLinks.ts (sw.test.ts
+// checks they agree). A kirana's are sent only when the backend's kirana switch is on, which goes with the app's.
+const MESSAGE_SCREENS = ['/subscription', '/setup', '/setup/document', '/setup/address', '/register/photos', '/handover', '/invites']
+const KIRANA_SCREENS = ['/kirana/licences', '/register/licences']
+const SHOP_NEWS_SCREEN = '/more'
+const FIX_SCREEN = '/setup?fix=1'
+
 self.addEventListener('push', (event) => {
   let data = {}
   try {
@@ -72,7 +79,7 @@ self.addEventListener('push', (event) => {
       icon: '/icon.svg',
       badge: '/icon.svg',
       // One notification per message (the same type must not silently replace an earlier booking)
-      data: { url: data.url || '/salon/day' },
+      data: { url: data.url || '/salon/day', type: data.type || null, title: data.title || null },
     })]),
   )
 })
@@ -80,13 +87,27 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const target = new URL(event.notification.data?.url || '/salon/day', self.location.origin)
-  // Only open this app's own pages (the day board, shop news, hand-over requests, invitations, a support request),
-  // never another site or a customer-app page.
-  const ours =
-    target.origin === self.location.origin &&
-    (target.pathname.startsWith('/salon/') || target.pathname.startsWith('/shops/') || target.pathname === '/handover' || target.pathname === '/invites' ||
-      /^\/help\/requests\/[0-9A-Za-z-]{1,64}$/.test(target.pathname))
-  const url = ours ? (target.pathname.startsWith('/shops/') ? self.location.origin + '/' : target.href) : self.location.origin + '/salon/day'
+  // Only open this app's own pages (the same rule as the app: src/lib/messageLinks.ts), never another site or a
+  // customer-app page: the day board and the salon's screens, paying, the screens a fix or a licence message points
+  // to, hand-over requests, invitations, a support request; shop news on More
+  const type = event.notification.data?.type || null
+  let path = null
+  if (target.origin === self.location.origin) {
+    const p = target.pathname
+    if (p.startsWith('/salon/')) path = p + target.search + target.hash
+    // A fix asked for: marked, so a kirana's opens More (FIX_SCREEN in messageLinks.ts)
+    else if (p === '/setup' && !target.search) path = FIX_SCREEN
+    else if (MESSAGE_SCREENS.includes(p) || KIRANA_SCREENS.includes(p)) path = p + target.search
+    else if (/^\/help\/requests\/[0-9A-Za-z-]{1,64}$/.test(p)) path = p
+    else if (p.startsWith('/shops/')) path = SHOP_NEWS_SCREEN
+    // A kirana's messages with no screen of their own here: the nearest one (kiranaNearest in messageLinks.ts)
+    else if (p === '/kirana/online') path = type === 'KIRANA_PAYOUT_FAILED' ? '/kirana/upi' : '/kirana/licences'
+    else if (/^\/kirana\/shop-orders\/[0-9A-Za-z-]{1,64}$/.test(p)) path = '/kirana/bills'
+  }
+  // No screen here: the start, which says what the message was about (noScreenTarget in messageLinks.ts)
+  const title = String(event.notification.data?.title || '').trim().slice(0, 200)
+  if (!path) path = title ? '/?message=' + encodeURIComponent(title) : '/'
+  const url = self.location.origin + path
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
       for (const w of windows) {
