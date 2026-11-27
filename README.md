@@ -730,21 +730,29 @@ speakers).
 - **Call us and WhatsApp us, for everyone.** Big buttons at the top of Need help (signed out or without a verified
   email too), on the crash screen, "Please update the app", the old-WebView screen, the offline page, the email and
   name steps, the code step ("No SMS?"), Contact, a suspended salon's banner, "What happens next" while waiting for the
-  visit, and the "Sent" screen. The WhatsApp message is typed in (the screen, the shop code). One number, in
+  visit, the "Sent" screen and the top of the Write to us form itself. The WhatsApp message is typed in (the screen, the shop code). One number, in
   `lib/business.ts` (`CALL_US`, `whatsappUs`); WhatsApp opens in a new tab on the website and as a plain link in the app.
 - **Writing to us still needs a verified email**, and now says so: "Add my email" in one tap, back to the form after.
-  `/help` is open to everyone (no bounce back to the email step); My requests is not asked for until signed in.
+  `/help` is open to everyone (no bounce back to the email step); My requests is not asked for until signed in. Only
+  the name missing: it says the name. The registering and joining answers show without an email too.
 - **Messages open their screen.** "Pay your subscription", fix-it, licence, address and photos messages open
   `/subscription`, `/setup…`, `/register/photos` from Messages, web push and the app's push (one list,
-  `lib/messageLinks.ts`; `sw.js` keeps a copy, checked by a test). Shop news opens More. A message with no screen
-  opens Today saying "That message is about: …". Messages opened from More go back to More.
+  `lib/messageLinks.ts`; `sw.js` keeps a copy, checked by a test). Shop news opens More. With the kirana switch on, a
+  kirana's licence messages open its licences, `/kirana/online` the licences or the UPI ID, an online order Bills, and
+  a fix asked for (`/setup`, opened as `/setup?fix=1`) More. A message with no screen (in Messages, or a push: `/?message=<title>`) opens the
+  home screen saying "That message is about: …" (`components/ArrivedNote.tsx`, shared with the kirana counter).
+  Messages opened from More go back to More.
 - **Never a dead end.** The crash screen: Open More, Write to us (what happened filled in), Call us. Not found: "Tell us
   which link you opened". A screen the role can't open: Today says "Only the owner can open that screen. Ask …". A
   failed save shows "Still not working? Write to us" with its words (`ErrorBanner`). Walk-in with no services: "Add
   your services" for the owner; "Set who does which service". A booking's Help is at the top of the sheet in every
   step, and a barber is told who can start without the code. The start-code refusal names the button.
 - **Staff and sign-up.** Helpers and barbers waiting for approval can leave the salon (also under another salon's
-  invitation or hand-over when More can't open yet). The email and name steps have "Sign out and start again".
+  invitation or hand-over when More can't open yet: the sheet says leaving signs you out, and signing in again opens
+  the invitation). One leave per tap. The email and name steps have "Sign out and start again". Signing out also
+  forgets the kirana setup's typing in this tab, the khata sheet to reopen and the screen before More.
+- **Sheets:** every sheet's Help asks first when anything in the sheet was changed since it opened, and does nothing
+  while a save is on its way.
 - **Language beside Help** on registration, Start, the wait for approval, the email and name steps and Need help.
 - **Invitations.** After inviting: "install the Clozest Partner app and sign in with +91 …" and "Send on WhatsApp";
   the words say "Clozest Partner app" (not the customers' Clozest). Team (helpers) is on the Salon tab, and Team links
@@ -754,8 +762,10 @@ speakers).
   "Please look at the file I sent." (the backend still needs 10 characters).
 - **Registration's bottom "Need help?" link is gone**: the top Help asks first while an upload is running.
 - **Kirana (shared help code only):** Help and the error's "Write to us" now show on a kirana's screens too, about that
-  screen (Counter, Bills, …); More's help card is right under the shop card, about the screen before More. The crash
-  screen says "Your shop's data is safe".
+  screen (Counter, Bills, Setting up products, …); More's help card is right under the shop card, about the screen
+  before More; nine "How do I…?" answers for a kirana (setup, products, stock, helper, licences, no barcode, UPI,
+  returns, khata limit). The crash screen and the offline page say "shop".
+- **The update screens** no longer offer "use the website meanwhile" (inside the app it opened the same screens).
 - **Under load:** nothing new is polled; Need help and Call us ask the backend for nothing more (the shop and My
   requests come from the same cached reads, and not at all signed out); the offline page is cached (`offline-v4`).
 
