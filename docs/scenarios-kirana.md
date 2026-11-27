@@ -57,7 +57,7 @@ Rounds 2 (online orders, earnings and payouts) and 3 (stock from distributors' b
 | 2.6 | UPI ID with capitals or spaces | Stored cleaned | Shows "Saved as …" before saving | same | same | OK-tested |
 | 2.7 | Review without the UPI ID | Submit gets 409 REGISTRATION_INCOMPLETE `upiId` | Submit is disabled; "UPI ID: missing" with Add; Add goes back to the review afterwards | KIT | e2e:kirana-register "a kirana missing its UPI ID…" | OK-tested |
 | 2.8 | Coming back later | — | "/" goes to the first step not done (photos and video, licences, UPI ID), else the review | — | e2e:kirana-register "a kirana selling food can't submit…", "… missing its UPI ID…" | OK-tested |
-| 2.9 | After Submit | PENDING_VISIT | The counter opens, with "What happens next" (hidden for good with "Got it") and the shop code; the approval bar says the counter already works | ShopIT | e2e:kirana-register "a kirana owner answers…" | OK-tested |
+| 2.9 | After Submit | PENDING_VISIT | The counter opens with the one-line setup strip above Scan ("Set up your products: photograph your list ›"), not "What happens next": that card comes only after "I've added all my products" (rows 9.1, 9.20); the approval bar says the visit is booked once the products are added and the counter works meanwhile | ShopIT | e2e:kirana-register "a kirana owner answers…" | OK-tested |
 | 2.10 | Helper of a kirana waiting for the visit | 200 (KiranaAccess allows any status) | Bills at the counter, as the owner does (was: kept on a waiting screen) | — | e2e:kirana-fixes "a helper of a kirana waiting for the visit…" | OK-tested |
 
 ## 3. The counter
@@ -168,6 +168,100 @@ App tests here: `unit-errors:` is `src/api/kiranaErrors.test.ts`, `unit-bills:` 
 | 8.13 | The scanner's barcode reader doesn't download (offline on first use) | — | "The scanner couldn't load" in the language, typing the digits still works (not "no camera") | — | unit-scanner "says the scanner couldn't load…", "still says the camera can't be used…" | OK-tested |
 | 8.14 | Push and inbox messages for a kirana, and kirana messages the backend builds with names | English | English on this branch | — | — | N/A-v1 (the backend writes salon and shared messages per language from V83 on `main`; kirana messages aren't texts yet) |
 
+## 9. Product setup after Submit, and guidance (round "Kirana: product setup and guidance")
+
+The backend books a kirana's first field visit only after `POST /kirana/setup/finish` ("I've added all my products"); until then it is in no agent's list (`ShopAssignmentStore.SET_UP`, `Shop.visitBookable`) and approving it is 409 `PRODUCTS_NOT_READY`. The app now has that whole journey. App tests: `unit-setup:` is `src/features/kirana/setupSteps.test.ts`, `unit-guides:` `src/features/kirana/Guides.test.tsx`, `unit-later:` `src/features/kirana/later.test.ts`; `e2e:setup` is `e2e/kirana-setup.spec.ts`. Backend tests: `PST` = the backend's product setup integration tests.
+
+| # | Scenario | API behaviour | App behaviour | Backend test | App test | Verdict |
+|---|---|---|---|---|---|---|
+| 9.1 | Owner just submitted, no products | `GET /setup` `nextStep: ADD` | One line above Scan, "Set up your products: photograph your list ›" (Scan stays on the first screen of a 360 px phone, the strip under 60 px tall); the full card with progress, "Photograph your product list" and "Or add products one by one" is the setup's page; no promise of a call yet (F-01) | PST | e2e:setup "a new kirana: the counter says what to do…" (asserts no call text, Scan in view, strip height); e2e:kirana-register "a kirana owner answers…" | OK-tested |
+| 9.2 | A page of the list photographed | `POST /files?purpose=BILL`, `POST /reads {clientRef, kind: STOCK_LIST, fileIds}` 201 READING | Good/bad drawings first; "Page sent… about a minute"; "Photograph the next page" | PST | e2e:setup same | OK-tested |
+| 9.3 | The page is being read | `pagesReading > 0` | "Reading 1 page of your list…" + Check again; on the setup's screens `GET /setup` every 8 s for 2 min, then every minute to 10 min, every 5 min to 30 min, then stops (Check again); the counter's strip reads it once and never polls | PST | e2e:setup same; e2e:setup-review "AB#2: the counter reads the setup once…"; unit-setup "backs off…" | OK-tested |
+| 9.4 | Lines one at a time | `GET /setup/lines` (20), `POST /setup/lines/{id} ADD/SKIP` | "Line 1 of 3", "2 left", a bar; the sure match picked; name, kg/piece and MRP as read for a new one; count chips "12 (as on the list)" / "0 (none now)" | PST | e2e:setup same | OK-tested |
+| 9.5 | Add tapped with no count | 400 `quantity` (never sent) | "Count them now. 0 if there are none." under the field | PST | e2e:setup same | OK-tested |
+| 9.6 | A double tap on Add | Sent once (a guard); sent again anyway: "the line as it is" | One product, counted once | PST | e2e:setup same (one POST) | OK-tested |
+| 9.7 | App closed or reloaded mid-line; another phone | Lines saved as decided | The same next line; what was typed for it kept in the tab | PST | e2e:setup same (reload) | OK-tested |
+| 9.8 | A heading skipped, then brought back | `SKIP`, `UNDO` | "1 line skipped: see it" → Bring back → "Check the line you brought back" | PST | e2e:setup same | OK-tested |
+| 9.9 | A second line onto a product already counted | 409 `ALREADY_COUNTED {name, stock}` | Sheet "… is already counted": "Yes, add it (makes 10)" / "No, the count is 6" (`addToCount`) | PST | e2e:setup "a line onto a product already counted…" | OK-tested |
+| 9.10 | A new product named like one the shop has | 409 `NAME_TAKEN {productId, name}` | The reason and "Use “…”, which you already have" (one tap) | PST | e2e:setup same | OK-tested |
+| 9.11 | A line whose page was deleted on another phone | 404 `LINE_NOT_FOUND` | "That line isn't there any more… Here's the next one." | PST | — | OK-untested |
+| 9.12 | A page that couldn't be read | `status FAILED`, `failureCode` | Why in plain words (each code in six languages), "Take it again" (the new page sent, the failed one discarded), "Delete page" after a question; the card says "Take 2 pages again" even with no products yet (`nextStep ADD`) | PST | e2e:setup "a page that couldn't be read…"; unit-setup | OK-tested |
+| 9.13 | Sending a page, the answer lost | 201 the first upload again for the same clientRef | "We couldn't tell if it was sent… Try again: it won't be sent twice"; Try again sends the same file id and clientRef (no new upload) | PST | e2e:setup "a page sent with no answer…" | OK-tested |
+| 9.14 | 60 pages kept / 100 sent today | 409 `TOO_MANY_PAGES` (failed, deleted and recount pages not counted) / `TOO_MANY_PAGES_TODAY` (every page sent today) | The reason with Write to us, "Or add products one by one", Call us / WhatsApp us | PST | e2e:setup-review "limits the backend has…" (TOO_MANY_PAGES_TODAY) | OK-tested (TOO_MANY_PAGES untested) |
+| 9.15 | Products without a count | `nextStep COUNT`, `uncountedProducts` (20) | "Continue setting up · 1 left ›" → one at a time, by the product's own unit (Save waits until it is read), `POST /products/{id}/stock COUNT` with a clientRef per product and count, kept until answered; the next 20 read once these are done, once per state (never a loop: none listed again shows "may have been counted on another phone" + Check again) | PST | e2e:setup "counts, photos…"; e2e:setup-review "AB#7/CD#5…" | OK-tested |
+| 9.16 | Products without a picture | `GET /setup/photos`, `PUT /products/{id}/photo` | One at a time: "Make sure “1 l” can be read" (`sizeToShow`), a loose one "in its sack or bin"; pack/loose drawings; "Skip for now" | PST | e2e:setup same | OK-tested |
+| 9.17 | Photo refused / the size not on the front | `REFUSED` + code, `NEED_SIZE` | The refusal in plain words with "Take the photo again"; after NEED_SIZE "Now a photo of the side…", sent alone (`sizeFileId`, `fileId: null`) | PST | e2e:setup same; unit-setup "codes in plain words" | OK-tested |
+| 9.18 | Photos being checked, or pictures still being found (GS1) | `nextStep WAIT`, `photosChecking`, `photosFinding` | "2 photos are being checked. Come back in a few minutes." + Check again, and "Photograph them anyway" while pictures are being found; polling backs off as in 9.3 and stops after 30 min | PST | unit-setup "polling", "backs off…"; e2e:setup-review "pictures still being found…" | OK-tested |
+| 9.19 | 300 photos sent today | 409 `TOO_MANY_PHOTOS_TODAY` | The reason, and back to setup (no more tries that day) | PST | — | OK-untested |
+| 9.20 | Owner taps "I've added all my products" | `POST /setup/finish` 200 `readyAt`; visit booked | Asked once more ("our field team calls you to fix a time"); then "All products added"; the counter shows "What happens next" (hideable) | PST | e2e:setup "counts, photos…" | OK-tested |
+| 9.21 | Finish refused (changed on another phone) | 409 `PHOTOS_NEEDED` / `LINES_TO_CHECK` / `PAGES_FAILED` / `PRODUCTS_NOT_COUNTED` / `NO_PRODUCTS` | The reason stays on screen; the card reads the setup again and its button is the fix ("Take product photos: 1 left") | PST | e2e:setup "refused (a photo still missing)…" | OK-tested |
+| 9.22 | Finish tapped twice / answer lost | "Said again: as it is" | A guard sends one; a lost answer says "Tap again: it's safe" | PST | — | OK-untested |
+| 9.23 | A helper | `youCanFinish false`; finish 403 `OWNER_ONLY` | Does every step; at FINISH "Ask the owner to tap…" + "Ask the owner on WhatsApp" (message typed in) | PST | e2e:setup "a helper does the setup too…" | OK-tested |
+| 9.24 | Products added after finishing, before approval | `beforeApproval`, `nextStep COUNT/PHOTOS/WAIT` | "Finish your new products": "Your visit is booked. Products added since need their count and photo…" | PST | unit-setup "finishing is the owner's…" | OK-tested |
+| 9.25 | An approved kirana | — | No setup card and no `/setup` call (the counter is the hot path) | — | e2e:setup "an approved kirana never reads the setup…" | OK-tested |
+| 9.26 | Every new text | — | In all six languages (en, hi, te, mr, ta, kn), simple words; native-speaker check pending | — | i18n.test; unit-guides | OK-tested |
+| 9.27 | A refetch of the lines brings nothing though the setup said more (another phone checked them, a page deleted) | `GET /setup/lines` `[]` | One read of the lines per state of what is known, then the setup read once: "All lines checked", or "may have been checked on another phone" + Check again; never a spinner loop (AB#1, CD#3) | PST | e2e:setup-review "AB#1/CD#3…" (≤ 2 line reads) | OK-tested |
+| 9.28 | A count whose answer was lost, then corrected | the same clientRef returns the first count | A clientRef per product and count: the corrected number is a new count and is applied; an answer not matching what was typed is said ("It shows 12 now…"), never passed off (AB#4, CD#2) | PST | e2e:setup-review "AB#4/CD#2…" | OK-tested |
+| 9.29 | A line added with no answer, then sent with another count | "the line as it is" (its first `counted`) | "This line was already added with 12 (…). To change it, open the product and count it there." | PST | e2e:setup-review "AB#4: a line added…" | OK-tested |
+| 9.30 | A list line matched to the shop's product sold by kg (or by piece) | `countFor` checks the product's unit; 400 `quantity` "must be a whole number…" | The count is checked by the product's own unit (read once), the label too; a catalogue item's unit isn't in the answer, so parts are allowed and the backend's answer names the count (AB#7, CD#5) | PST | e2e:setup-review "AB#7/CD#5…" | OK-tested |
+| 9.31 | The same photo picked twice for the list | the upload `duplicate: true`, same file | "You've sent this photo already (page 1)": not sent as a second page (CD#10) | — | e2e:setup-review "CD#10…" | OK-tested |
+| 9.32 | A recount page that couldn't be read, taken again | `POST /reads {recount: true}` | Sent as a recount, so its counts are still taken and it doesn't use one of the 60 pages (CD#11) | PST | e2e:setup-review "CD#11…" | OK-tested |
+| 9.33 | A page sent with no answer, then a new photo picked | — | Only Try again (same file and clientRef) until settled; "Send a different photo instead" drops it on purpose (AB#10) | — | e2e:setup-review "CD#11… AB#10…" | OK-tested |
+| 9.34 | Back while a product photo is being sent | — | Asked first, as on the list's page (EF#14) | — | e2e:setup-review "EF#14…" | OK-tested |
+| 9.35 | A failed send on any setup step, the counter, registration or licences | 4xx/5xx | The shared ErrorBanner: the red line and "Still not working? Write to us"; an answer that never came in amber with "safe to try again" (EF#3) | — | e2e:setup-review "EF#3…" (finish, pages limit) | OK-tested (others by reading) |
+| 9.36 | The setup can't be read on the counter | 5xx | "We couldn't check your product setup just now." + Try again + Call us / WhatsApp us | — | e2e:setup-review "…the setup's error state has Call us" | OK-tested |
+| 9.37 | "I've added all my products" refused for pages that couldn't be read | 409 `PAGES_FAILED` | The fix goes to the first such page's retake, not the setup page itself (CD#12) | PST | e2e:setup-review "EF#3… CD#12…" | OK-tested |
+| 9.38 | Shared phone: signing out mid-setup | — | The setup's typing, its sends waiting for an answer and a khata bill waiting are forgotten (AB#8; the bill and product typing already were) | — | unit review "signing out…" | OK-tested |
+| 9.39 | A registration guide's download fails on a weak network | — | The guide is left out; the photos and video step works (EF#15) | — | e2e:setup-review "EF#15…" | OK-tested |
+| 9.40 | "Save and add the next" after opening Add a product with a barcode | — | The used barcode leaves the address; a reload doesn't fill it again (CD#13) | — | e2e:setup-review "CD#13…" | OK-tested |
+| 9.41 | A kirana helper sent away from an owner-only screen (/kirana/team, /kirana/upi, /kirana/licences) | — | The counter says why, once ("Only the owner can open that screen. Ask …") (AB#3, EF#2) | — | e2e:setup-review "AB#3/EF#2…" | OK-tested |
+| 9.42 | A kirana message whose screen isn't on the message list (`/kirana/licences`, `/register/licences`, `/kirana/online`, `/kirana/shop-orders/…`) | — | Opens the counter with the message's note (9.41's note); the screens themselves need `MESSAGE_SCREENS` and `sw.js` (shared, salon engineer) | — | — | GAP (shared files) |
+| 9.43 | Help on a kirana form sheet with typing (new khata customer, edit product, discount…) | — | The sheet's Help leaves without asking (shared `Sheet` default, AB#5) | — | — | GAP (shared files) |
+| 9.44 | Help from the setup's screens | — | No help subject for /kirana/setup yet (EF#4: `help/links.ts`, shared) | — | — | GAP (shared files) |
+
+### Many at once (setup)
+
+| # | Scenario | Behaviour | Verdict |
+|---|---|---|---|
+| M.6 | 400 lines to check | 20 a page; the first page read again only when these 20 are decided (decided ones leave it), never in a loop; progress kept in the cache from each answer, not re-read per line | OK-tested (e2e:setup "twenty lines at a time…": 2 reads for 22 lines) |
+| M.7 | Nothing on its way; something stuck on its way | The setup is read once; polling only on the setup's screens while a page reads (8 s) or photos are checked (20 s), backing off to 1 min and 5 min and stopping after 30 min (the AI down keeps a photo "checking" for hours), never on the counter or in the background | OK-tested (e2e:setup "nothing on its way…"; e2e:setup-review "AB#2…"; unit-setup "backs off…") |
+| M.8 | Owner and helper deciding lines on two phones | Each decision under the backend's setup lock; a line already decided elsewhere is "the line as it is" (ADD) or 409 `LINE_ADDED` (SKIP): the app moves on | OK-untested |
+| M.9 | Retries of pages, photos, counts | Each with a clientRef kept in the tab until answered (`onceRef`): sent once | OK-tested (unit-setup "sending once"; e2e:setup 9.13) |
+| M.10 | Products changed by the setup | The catalogue query marked stale without refetching (`refetchType: 'none'`): read when next shown | OK-untested |
+
+## 10. Other kirana fixes of this round (audit `partner-kirana.md`)
+
+| # | Finding | Fix | App test | Verdict |
+|---|---|---|---|---|
+| 10.1 | F-01 texts promised a call that never came | Review, Submit sheet and approval bar say: add every product, tap "I've added all my products", then we call | e2e:kirana-register | OK-tested |
+| 10.2 | F-06 Add a product threw you off after Save | From Products or the setup: stays, "Saved: … Add the next one." + Open it, Sold by kept, cursor in Name; from the setup the count is asked | e2e:setup "F-06/F-21…"; e2e:kirana-book | OK-tested |
+| 10.3 | F-07 camera refused: no way to retry; no aim hint | "Try the camera again"; "Hold the barcode inside the box, 10–15 cm away…" | unit-scanner "with the camera refused…" | OK-tested |
+| 10.4 | F-08 no good/bad pictures | Drawings before the face photo, shop front, video (kirana only), FSSAI, shop licence, list pages and packs; "Upload the certificate itself, not the receipt" out of the closed box | e2e:setup "F-09… F-08…"; unit-guides | OK-tested |
+| 10.5 | F-09 greyed Submit with one plain sentence | Every gap listed, each a link to its step; on Licences the gap button scrolls to (and focuses) the question/number | e2e:setup "F-09…" | OK-tested |
+| 10.6 | F-10 khata limit: Back lost the bill | Customer's Back goes to the counter ("← Back to the bill"); the khata sheet opens again with the same customer (read again) and paid-now | e2e:setup "F-10…" | OK-tested |
+| 10.7 | F-11 unknown barcode took you to a long form | "Bill it now, add the product later" first (barcode kept per shop on this phone, listed on Products); "Add a new product" is a short form inside the scanner | e2e:setup "F-11…"; e2e:kirana-counter; unit-later | OK-tested |
+| 10.8 | F-12 remove product/barcode on one tap | A question first | e2e:setup "F-12…"; e2e:kirana-book | OK-tested |
+| 10.9 | F-13 helper refused: dead end | "Ask the owner on WhatsApp" with the message typed, naming the Clozest Partner app (product, bill, discount, UPI ID, khata limit; setup finish); a plain link in the Play Store app, a new tab on the website | e2e:setup "F-13…" (product page), "a helper does the setup too…" (finish); unit review "Ask the owner…" (app / website); bill, discount, UPI ID and khata limit untested | OK-tested (product, finish) / OK-untested (bill, discount, UPI ID, khata limit) |
+| 10.10 | F-15 Day's Back went to Bills from More | Back goes where it was opened from; opened directly: Bills | e2e:setup "F-15…" | OK-tested |
+| 10.11 | F-16 waiting card hidden for good | Replaced by the setup card (not hideable until finished) | e2e:setup 9.1, 9.20 | OK-tested |
+| 10.12 | F-18 Today card error had no retry | Try again | e2e:setup "F-18…" | OK-tested |
+| 10.13 | F-20 helper had no first-time hint | Card once per helper and shop: what he may do, what is the owner's | e2e:setup "a helper does the setup too…" | OK-tested |
+| 10.14 | F-21 New product: no leave warning | Asked on Back while typed | e2e:setup "F-06/F-21…" | OK-tested |
+| 10.15 | F-22 typing hidden below the camera | "Type the digits instead" above the camera (scrolls and focuses) | — | OK-untested |
+| 10.16 | F-23 Day reached by a small line | Full-width "See today's cash and UPI →" | e2e:setup "F-15…" | OK-tested |
+| 10.17 | F-02 empty Products had no button | "Add your first product" and, while setting up, "Photograph your product list" | — | OK-untested |
+
+### Inconveniences left (need a decision or another engineer)
+
+| # | What gets in the way | Fix | Verdict |
+|---|---|---|---|
+| I.30 | F-14: Bills can't be searched or opened by date | Needs `q`/`date` on the backend's `GET /kirana/bills` | INCONVENIENCE (backend first) |
+| I.31 | F-17: abstract tab icons | Drawn icons through the svg-icon process (approval + blind test) in `Shell.tsx` | INCONVENIENCE (owner's decision) |
+| I.32 | F-03/F-04/F-05/F-19: no Help on kirana screens, help card low on More, crash wording | On this branch (the salon engineer's shared help commits): Help and its error link show on kirana screens, the crash screen says shop. Still open there: kirana "How do I…?" answers (EF#7), a help subject for /kirana/setup (EF#4), sheet Help asking before losing typing (AB#5) | INCONVENIENCE (shared files, salon engineer) |
+| I.33 | A helper's WhatsApp to the owner has no number filled in | Decided by the owner: helpers don't get the owner's number; WhatsApp asks whom to send to | DECIDED (no change) |
+| I.34 | "Bill now, add later" barcodes live on this phone only | A backend list (like `/scans/unknown`) for counter scans | INCONVENIENCE (backend first) |
+| I.35 | The photos step of registration still names only the first gap under Continue | The review lists every gap with links; the photos step is shared salon code | INCONVENIENCE (left: shared file) |
+
 ## Many at once
 
 | # | Scenario | Behaviour | Verdict |
@@ -202,7 +296,7 @@ App tests here: `unit-errors:` is `src/api/kiranaErrors.test.ts`, `unit-bills:` 
 | I.18 | A loose product added from the counter didn't come onto the bill | Its weight-or-amount sheet opens |
 | I.19 | The FSSAI photo could be taken before the number and was then thrown away | The picker waits for the number |
 | I.20 | The shop paper's kind couldn't be changed after uploading; Remove had no question | The chip re-sends it; Remove asks |
-| I.21 | "What happens next" pushed the counter down on every bill | "Got it, hide this" |
+| I.21 | "What happens next" pushed the counter down on every bill | "Got it, hide this" (after finishing); during the setup a one-line strip that can't be hidden but never pushes Scan below the fold (row 9.1) |
 | I.22 | Helpers weren't told how to join | "Tell them on WhatsApp" |
 | I.23 | A khata number already in the book was a dead end | "Use the customer who has this number" |
 | I.24 | Helpers weren't told why a product has no Edit | "Only the owner changes the name, price or alert." |

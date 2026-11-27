@@ -903,3 +903,10 @@ No backend change. App tests: `NH` = `src/features/help/NeedHelp.test.tsx`, `HT`
 | 844 | Many at once | Thousands moving between screens with Help and Call us on them | none new | Call us / WhatsApp us are links (no request); the shop and My requests are the same cached reads; nothing polled | — | HT "moving between screens asks for the requests only once" | OK-tested |
 | 845 | Many at once | Two tabs: a message tapped while Today is open in another | — | Each tab opens its own screen; Today's note is in that tab's history state only | — | (by reading `ArrivedNote`) | OK-untested |
 | 846 | Many at once | A burst of push taps (subscription, setup, shop news) | — | Each opens its screen; the newest tap wins in the app (`openInApp`) | — | unit `appEvents.test` "the screen waiting to open" | OK-tested |
+
+## Kirana: product setup and guidance — salon regression rows — 2026-11-27
+
+| # | Area | Scenario | API | App | Backend test | App test | Verdict |
+|---|---|---|---|---|---|---|---|
+| 847 | Registration photos | A salon owner on Photos & video (switch on or off) | — | Unchanged: the kirana's good/bad drawings render only when `shop.type === 'KIRANA'` (their own download, never fetched for a salon) | — | e2e salon suites (register, salon-video) unchanged and green | OK-tested |
+| 848 | Kirana switch off | Any screen | no `/kirana/setup` call | No setup route, no kirana text in the salon downloads | — | unit kiranaTexts.test, kiranaSwitch.test; e2e:no-kirana | OK-tested |

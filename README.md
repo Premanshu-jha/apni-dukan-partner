@@ -759,6 +759,48 @@ speakers).
 - **Under load:** nothing new is polled; Need help and Call us ask the backend for nothing more (the shop and My
   requests come from the same cached reads, and not at all signed out); the offline page is cached (`offline-v4`).
 
+### Unreleased — Kirana: product setup and guidance
+
+Kirana switch on only (`VITE_KIRANA_ENABLED`); the salon app is unchanged. Needs the backend's product setup (V76–V82,
+already on `main`): **deploy together**, since a submitted kirana gets its field visit only after
+`POST /kirana/setup/finish`.
+
+- **Product setup after Submit** (`/kirana/setup`, `src/features/kirana/Setup.tsx`, `src/api/kiranaSetup.ts`): the
+  counter's top card shows the next step as one big button with progress (F-02): photograph the pages of the shop's list
+  (read by AI), check each line one at a time ("Line 37 of 412", "375 left"; add with its count, or skip; skipped lines
+  can be brought back), count products with no count, photograph products with no picture (with the size to show, the
+  side after "can't see the size"), then **"I've added all my products"** (owner; helpers are told to ask the owner),
+  which books the visit. Everything is saved as decided, so it goes on from where it was left on any phone; every send
+  is safe to repeat (clientRefs kept until answered). Refusals say why with the fix one tap away. Polling only while a
+  page is read (8 s) or photos are checked (20 s); lines read 20 at a time.
+- **Good/bad drawings before a photo or paper** (F-08, `Guides.tsx`, inline SVG): list pages, packs, loose goods, face,
+  shop front, video, FSSAI certificate ("not the payment receipt" now above the upload), shop licence.
+- **Texts no longer promise a call before setup is finished** (F-01): review, Submit sheet, approval bar.
+- **Fixes from the kirana audit:** Add a product stays on the form for the next one (F-06) and asks before leaving with
+  typing (F-21); scanner: aim hint, "Try the camera again", "Type the digits instead" (F-07, F-22); review lists every
+  gap as a link, Licences' gap scrolls to it (F-09); raising a khata limit returns to the bill with its sheet (F-10);
+  unknown barcode: "Bill it now, add the product later" (listed on Products) and a short add form in the scanner (F-11);
+  removing a product or barcode asks first (F-12); helpers get "Ask the owner on WhatsApp" (F-13); Day goes back where it
+  came from (F-15); the setup card replaces the hideable waiting card (F-16); Today card Try again (F-18) and a
+  full-width button (F-23); a helper's first-time hint (F-20); empty Products has buttons (F-02).
+- **Languages:** every new text in English, Hindi, Telugu, Marathi, Tamil and Kannada (`kiranaSetup.json`; native-speaker
+  check pending).
+- **After the independent reviews:**
+  - The counter has a one-line strip ("Continue setting up · 37 left ›"), so Scan stays on the first screen. The full card is on the setup page.
+  - The strip never polls. The setup screens back off (8 s/20 s → 1 min → 5 min) and stop after 30 min.
+  - No refetch loops when another phone checked or counted meanwhile.
+  - A corrected count after a lost answer is saved as the new number, and a line already added is said so.
+  - Counts are checked by the product's own unit.
+  - The same photo is never sent as two pages, and a recount retake stays a recount.
+  - Back asks first during a photo upload.
+  - Failed sends get the shared "Write to us"; the setup's error state has Call us / WhatsApp us.
+  - "Ask the owner" is a plain link in the app and names the Clozest Partner app.
+  - The counter says why it opened.
+  - Sign-out forgets the setup's typing and pending sends.
+  - A failed guide download no longer breaks the photos step.
+- **Not in this round:** F-14 (needs bills search on the backend), F-17 (tab icons through the svg-icon process),
+  F-03/F-04/F-05/F-19 (shared help code, another engineer).
+
 ### Unreleased — analytics
 
 Needs apni-dukan-backend's analytics round first (V93: the backend must allow the `X-Clozest-Client` header, or the
