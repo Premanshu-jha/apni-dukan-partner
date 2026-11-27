@@ -5,6 +5,7 @@ import { kiranaKeys, type KhataEntry, type Payment, type PaidBy } from '../../ap
 import { Button } from '../../components/ui'
 import { t, useT } from '../../i18n'
 import { rupees } from '../../lib/money'
+import { isApp } from '../../lib/platform'
 
 /** The value after the person stops typing for `ms` (a search box): one request per pause, never one per letter. */
 export function useDebounced<T>(value: T, ms = 300): T {
@@ -229,5 +230,30 @@ export function UnsureNote({ what, onStartOver }: {
         {t('kiranaProducts.unsureStartOver')}
       </button>
     </div>
+  )
+}
+
+/**
+ * A link that leaves the app (WhatsApp): a new tab on the website, a plain link in the Play Store app, where a new tab
+ * does nothing in the WebView and the link is handed to WhatsApp itself (as ContactUs does).
+ */
+export function outsideLink(): { target?: string; rel?: string } {
+  return isApp() ? {} : { target: '_blank', rel: 'noopener noreferrer' }
+}
+
+/**
+ * For a helper refused something only the owner may do: "Ask the owner on WhatsApp", with the message typed in (the
+ * helper picks the owner in WhatsApp; the app doesn't know the owner's number for a helper). Nothing is sent by the app.
+ */
+export function AskOwner({ message }: { message: string }) {
+  const t = useT()
+  return (
+    <a
+      href={`https://wa.me/?text=${encodeURIComponent(message)}`}
+      {...outsideLink()}
+      className="inline-flex min-h-11 items-center gap-1 text-sm text-link underline"
+    >
+      {t('kiranaSetup.askOwnerWhatsApp')}
+    </a>
   )
 }
