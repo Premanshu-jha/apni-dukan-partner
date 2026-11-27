@@ -6,6 +6,7 @@ import { forgetRegisterDraft, forgetRegisterKind } from '../../lib/registerDraft
 import { kiranaOn } from '../../lib/config'
 import { forgetReturn } from '../auth/flow'
 import { forgetHelpDrafts } from '../help/drafts'
+import { forgetLastScreen } from '../help/lastScreen'
 import { forgetProductDraft } from '../kirana/drafts'
 import { useSession } from '../../store/session'
 
@@ -44,6 +45,28 @@ export function forgetThisPerson(qc: QueryClient) {
   forgetProductDraft()
   if (kiranaOn()) void import('../kirana/forget').then((m) => m.forgetKiranaHere())
   forgetHelpDrafts()
+  forgetTabKeys()
+  // More's "Write to support" is about the screen before More: never the last person's
+  forgetLastScreen()
   void closeShownNotifications()
   qc.clear()
+}
+
+/**
+ * This tab's own keys (sessionStorage) that carry a person's work: a kirana setup line being typed (adp.kiranaLine.*:
+ * name, price, count), the setup's send references (adp.kiranaRef.*) and the khata sheet to reopen on the counter
+ * (adp.kiranaKhataReturn: a customer and an amount). By name, so the kirana's download isn't needed for it.
+ */
+const TAB_KEYS = /^adp\.(kiranaLine\.|kiranaRef\.|kiranaKhataReturn$)/
+function forgetTabKeys() {
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i)
+      if (k && TAB_KEYS.test(k)) keys.push(k)
+    }
+    keys.forEach((k) => sessionStorage.removeItem(k))
+  } catch {
+    /* storage blocked: nothing kept */
+  }
 }

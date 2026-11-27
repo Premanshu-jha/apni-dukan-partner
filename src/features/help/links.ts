@@ -54,12 +54,6 @@ export function isHelpPage(pathname: string): boolean {
   return pathname === '/help' || pathname.startsWith('/help/') || pathname === '/contact'
 }
 
-/** Kirana screens keep their own help links (the kirana part is left as it is): no Help button or error link there. */
-const KIRANA_PATH = /^\/(kirana\/|register\/(licences|upi))/
-export function isKiranaScreen(pathname: string, shopType: string | undefined): boolean {
-  return shopType === 'KIRANA' || KIRANA_PATH.test(pathname)
-}
-
 /**
  * The kind of shop a screen is about: the shop's own; on registration before the draft is saved (no shop yet), what
  * this person picked on "What do you run?" (kirana switch on only: off, every registration is a salon's).
@@ -110,6 +104,16 @@ const TOPICS: Array<[RegExp, string]> = [
   [/^\/handover/, 'help.topicTakeOver'],
   [/^\/invites/, 'help.topicInvites'],
   [/^\/start/, 'help.topicStart'],
+  // A kirana's screens: their own names, as the bottom bar and More call them
+  [/^\/kirana\/setup/, 'help.topicKiranaSetup'],
+  [/^\/kirana\/counter/, 'app.tabCounter'],
+  [/^\/kirana\/bills/, 'app.tabBills'],
+  [/^\/kirana\/products/, 'app.tabProducts'],
+  [/^\/kirana\/khata/, 'app.tabKhata'],
+  [/^\/kirana\/day/, 'profile.linkKiranaDay'],
+  [/^\/kirana\/team/, 'profile.linkKiranaTeam'],
+  [/^\/(kirana|register)\/upi/, 'profile.linkKiranaUpi'],
+  [/^\/(kirana|register)\/licences/, 'profile.linkKiranaLicences'],
 ]
 
 export function topicFor(pathname: string, kind?: string): string | null {
@@ -117,4 +121,13 @@ export function topicFor(pathname: string, kind?: string): string | null {
   if (kind === 'KIRANA' && pathname === '/register') return t('help.topicRegisterShop')
   const hit = TOPICS.find(([re]) => re.test(pathname))
   return hit ? t(hit[1]) : null
+}
+
+/**
+ * Kept until the screens and their tests stop asking it (they do in the next commits): Help shows on kirana screens
+ * now (see helpSubject), so nothing hides it any more.
+ */
+const KIRANA_PATH = /^\/(kirana\/|register\/(licences|upi))/
+export function isKiranaScreen(pathname: string, shopType: string | undefined): boolean {
+  return shopType === 'KIRANA' || KIRANA_PATH.test(pathname)
 }

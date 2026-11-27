@@ -60,10 +60,12 @@ export async function fetchMyShop(): Promise<Shop | null> {
  * The shop gate's data. Checked again whenever the app comes back to the front, so an approval, a suspension or
  * being added as a helper shows without signing in again.
  */
-export function useMyShop() {
+/** @param enabled false: not asked at all (the help page, opened signed out or before the email is verified) */
+export function useMyShop(enabled = true) {
   const qc = useQueryClient()
   return useQuery({
     queryKey: shopKeys.mine,
+    enabled,
     // Read after the answer came: a save that finished while this read was on its way already put a newer version
     queryFn: async () => newestShop(await fetchMyShop(), qc.getQueryData<Shop | null>(shopKeys.mine)),
     refetchOnWindowFocus: true,
