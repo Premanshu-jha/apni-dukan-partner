@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
 import {
@@ -21,8 +21,9 @@ import { addProduct, parseQty, parseRupees, priceUnit, qtyText, qtyWithUnit, rup
 import { rupees } from '../../lib/money'
 import { useSession } from '../../store/session'
 import { cartOwner, useCart } from './cart'
-import { MoreButton, moveText, outcomeUnknown, SearchBox, useDebounced, UnsureNote, useRefreshOnStale, useUnsureSend } from './common'
+import { AskOwner, MoreButton, moveText, outcomeUnknown, SearchBox, useDebounced, UnsureNote, useRefreshOnStale, useUnsureSend } from './common'
 import { readProductDraft, writeProductDraft } from './drafts'
+import { forgetLater, useLaterBarcodes } from './later'
 import { Scanner } from './Scanner'
 
 /** Products: the shop's catalogue, searched by name or barcode digits; and what is running out. */
@@ -44,6 +45,7 @@ export function Products() {
       <Link to="/kirana/products/new" className="flex min-h-12 items-center justify-center rounded-xl border border-line bg-raised font-semibold hover:bg-line">
         {t('kiranaProducts.addProductLink')}
       </Link>
+      <LaterBarcodes />
       {tab === 'all' ? (
         <>
           <SearchBox id="product-search" label={t('kiranaProducts.searchLabel')} placeholder={t('kiranaProducts.searchPlaceholder')} value={search} onChange={setSearch} />
@@ -58,6 +60,7 @@ export function Products() {
 
 function AllProducts({ search }: { search: string }) {
   const t = useT()
+  const shop = useShop()
   const list = useProducts(search)
   if (list.isPending) return <Loading />
   if (list.isError && !list.data) return <ErrorState message={messageOf(list.error)} onRetry={() => list.refetch()} />
@@ -66,7 +69,22 @@ function AllProducts({ search }: { search: string }) {
     return search.trim() ? (
       <p className="text-sm text-muted">{t('kiranaProducts.nothingCalled', { query: search.trim() })}</p>
     ) : (
-      <EmptyState title={t('kiranaProducts.noProductsTitle')} body={t('kiranaProducts.noProductsBody')} />
+      <EmptyState
+        title={t('kiranaProducts.noProductsTitle')}
+        body={t('kiranaProducts.noProductsBody')}
+        action={
+          <div className="flex w-full max-w-xs flex-col gap-2">
+            <Link to="/kirana/products/new" className="flex min-h-12 items-center justify-center rounded-xl bg-brand px-4 font-semibold text-brand-ink">
+              {t('kiranaSetup.addFirstProduct')}
+            </Link>
+            {shop.status === 'PENDING_VISIT' && (
+              <Link to="/kirana/setup/list" className="flex min-h-12 items-center justify-center rounded-xl border border-line bg-raised px-4">
+                {t('kiranaSetup.nextPhotographList')}
+              </Link>
+            )}
+          </div>
+        }
+      />
     )
   }
   return (
@@ -78,6 +96,32 @@ function AllProducts({ search }: { search: string }) {
         <MoreButton shown={list.hasNextPage} busy={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()} />
       </li>
     </ul>
+  )
+}
+
+/** Barcodes billed at the counter without a product (F-11), each one tap from Add a product with it filled in. */
+function LaterBarcodes() {
+  const t = useT()
+  const shop = useShop()
+  const codes = useLaterBarcodes(shop.id)
+  if (!codes.length) return null
+  return (
+    <Card className="flex flex-col gap-2 border-warn/40">
+      <p className="font-semibold">{t('kiranaSetup.laterTitle', { count: codes.length })}</p>
+      <p className="text-sm text-muted">{t('kiranaSetup.laterBody')}</p>
+      <ul className="flex flex-col gap-1">
+        {codes.slice(0, 10).map((c) => (
+          <li key={c} className="flex items-center justify-between gap-2">
+            <Link to={`/kirana/products/new?${new URLSearchParams({ barcode: c, from: '/kirana/products' })}`} className="min-h-11 py-2 text-link underline break-all">
+              {t('kiranaSetup.laterAdd', { code: c })}
+            </Link>
+            <button type="button" className="min-h-11 shrink-0 px-2 text-sm text-muted underline" onClick={() => forgetLater(shop.id, c)}>
+              {t('kiranaSetup.laterForget')}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Card>
   )
 }
 
@@ -149,8 +193,14 @@ export function NewProduct() {
   const [touched, setTouched] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
+  /** Just saved, staying on the form for the next one (F-06): its name, and a link to it. */
+  const [saved, setSaved] = useState<{ id: string; name: string } | null>(null)
+  const sending = useRef(false)
   const shop = useShop()
   const userId = useSession((st) => st.user?.id ?? '')
+  // From Products or the product setup, the form stays for the next product; from the counter it goes back to the bill
+  const stay = from === '/kirana/products' || from === '/kirana/setup'
+  const setupMode = from === '/kirana/setup'
   const dirty = Boolean(price.trim() || stock.trim() || alertAt.trim() || (name.trim() && name !== (params.get('name') ?? '')))
   useEffect(() => {
     writeProductDraft(dirty ? { name, unit, price, barcode, pack, stock, alertAt } : null)
@@ -171,7 +221,9 @@ export function NewProduct() {
   async function save() {
     setTouched(true)
     setError(null)
-    if (nameErr || 'error' in p || (s && 'error' in s) || (a && 'error' in a) || (k && 'error' in k)) return
+    if (nameErr || 'error' in p || (s && 'error' in s) || (a && 'error' in a) || (k && 'error' in k) || (setupMode && !s)) return
+    if (sending.current) return
+    sending.current = true
     setBusy(true)
     try {
       const made = await kiranaApi.addProduct({
@@ -185,6 +237,24 @@ export function NewProduct() {
       })
       void qc.invalidateQueries({ queryKey: kiranaKeys.all })
       writeProductDraft(null)
+      if (barcode.trim()) forgetLater(shop.id, barcode.trim())
+      if (stay) {
+        // The next one: the fields empty again, "Sold by" kept, the cursor in Name
+        setSaved({ id: made.id, name: made.name })
+        setName('')
+        setPrice('')
+        setBarcode('')
+        setPack('1')
+        setStock('')
+        setAlertAt('')
+        setTouched(false)
+        // The barcode or name it was opened with is used: out of the address too, so a reload doesn't fill it again
+        // (CD#13: the next save would be BARCODE_TAKEN)
+        if (params.has('barcode') || params.has('name')) navigate(`/kirana/products/new?from=${encodeURIComponent(from)}`, { replace: true })
+        window.scrollTo(0, 0)
+        document.getElementById('product-name')?.focus()
+        return
+      }
       // Added from the counter (a barcode it didn't know, or a name searched): it goes onto the bill being made,
       // unless that bill is waiting to be tried again exactly as it was sent
       if (from === '/kirana/counter' && made.unit === 'PIECE') toBill(made, k && 'milli' in k ? k.milli : 1000)
@@ -197,6 +267,7 @@ export function NewProduct() {
       stale(e)
       setError(e)
     } finally {
+      sending.current = false
       setBusy(false)
     }
   }
@@ -227,7 +298,16 @@ export function NewProduct() {
 
   const fe = (f: string) => fieldError(error, f)
   return (
-    <Page back={from} title={t('kiranaProducts.addProductTitle')}>
+    <Page back={from} title={t('kiranaProducts.addProductTitle')} leaveWarning={dirty ? t('kiranaSetup.leaveTyped') : null}>
+      {saved && (
+        <Banner tone="good">
+          {t('kiranaSetup.savedNext', { name: saved.name })}{' '}
+          <Link to={`/kirana/products/${saved.id}`} state={{ from: `/kirana/products/new?from=${encodeURIComponent(from)}` }} className="underline">
+            {t('kiranaProducts.openIt')}
+          </Link>
+        </Banner>
+      )}
+      {setupMode && <p className="text-sm text-muted">{t('kiranaSetup.oneByOneIntro')}</p>}
       <Card className="flex flex-col gap-4">
         <Field id="product-name" label={t('kiranaProducts.nameLabel')} hint={t('kiranaProducts.nameHint')} value={name} maxLength={100} onChange={(e) => setName(e.target.value)} error={(touched && nameErr) || fe('name')} />
         <div className="flex flex-col gap-2">
@@ -265,7 +345,15 @@ export function NewProduct() {
         )}
       </Card>
       <Card className="flex flex-col gap-3">
-        <Field id="product-stock" label={unit === 'KG' ? t('kiranaProducts.stockNowKg') : t('kiranaProducts.stockNowPieces')} inputMode="decimal" value={stock} onChange={(e) => setStock(e.target.value)} error={(touched && s && 'error' in s ? s.error : undefined) || fe('stock')} />
+        <Field
+          id="product-stock"
+          label={unit === 'KG' ? t('kiranaProducts.stockNowKg') : t('kiranaProducts.stockNowPieces')}
+          hint={setupMode ? t('kiranaSetup.countHint') : undefined}
+          inputMode="decimal"
+          value={stock}
+          onChange={(e) => setStock(e.target.value)}
+          error={(touched && s && 'error' in s ? s.error : touched && setupMode && !s ? t('kiranaSetup.countNeeded') : undefined) || fe('stock')}
+        />
         <Field id="product-alert" label={t('kiranaProducts.alertLabelOptional')} hint={t('kiranaProducts.alertHint')} inputMode="decimal" value={alertAt} onChange={(e) => setAlertAt(e.target.value)} error={(touched && a && 'error' in a ? a.error : undefined) || fe('lowStockAt')} />
       </Card>
       {error !== null && !['name', 'pricePaise', 'barcode', 'pack', 'stock', 'lowStockAt'].some((f) => fe(f)) && (
@@ -287,8 +375,13 @@ export function NewProduct() {
         </Button>
       )}
       <Button busy={busy} onClick={save}>
-        {t('kiranaProducts.saveProduct')}
+        {stay ? t('kiranaSetup.saveAndAddNext') : t('kiranaProducts.saveProduct')}
       </Button>
+      {setupMode && saved && (
+        <Link to="/kirana/setup" className="flex min-h-12 items-center justify-center rounded-xl border border-line bg-raised px-4">
+          {t('kiranaSetup.backToSetup')}
+        </Link>
+      )}
       <Sheet open={scanning} title={t('kiranaProducts.scanBarcodeTitle')} onClose={() => setScanning(false)}>
         <Scanner
           onCode={(c) => {
@@ -339,6 +432,9 @@ function ProductView({ back }: { back: string }) {
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  /** F-12: removing asks first (a removed barcode has to be scanned again from the pack to come back). */
+  const [confirmRemove, setConfirmRemove] = useState(false)
+  const [confirmBarcode, setConfirmBarcode] = useState<string | null>(null)
   const milli = toMilli(p.stock)
 
   async function refresh(next?: Product) {
@@ -351,6 +447,7 @@ function ProductView({ back }: { back: string }) {
     setError(null)
     try {
       await refresh(await kiranaApi.removeBarcode(p.id, code))
+      setConfirmBarcode(null)
     } catch (e) {
       stale(e)
       setError(messageOf(e))
@@ -364,7 +461,9 @@ function ProductView({ back }: { back: string }) {
     setError(null)
     try {
       await refresh(await kiranaApi.editProduct(p.id, { version: p.version, active }))
+      setConfirmRemove(false)
     } catch (e) {
+      setConfirmRemove(false)
       stale(e)
       setError(messageOf(e))
       if (isApiError(e, 'PRODUCT_CHANGED')) void detail.refetch()
@@ -388,7 +487,11 @@ function ProductView({ back }: { back: string }) {
           {rupees(p.pricePaise)}
           {priceUnit(p.unit)}
         </p>
-        {!owner && <p className="text-xs text-muted">{t('kiranaProducts.ownerOnly')}</p>}
+        {!owner && (
+          <p className="text-xs text-muted">
+            {t('kiranaProducts.ownerOnly')} <AskOwner message={t('kiranaSetup.askOwnerProduct', { name: p.name })} />
+          </p>
+        )}
         <p className={milli < 0 ? 'text-bad' : ''}>
           {t('kiranaProducts.inStock')} <span className="font-semibold">{qtyWithUnit(milli, p.unit)}</span>
           {milli < 0 && ` ${t('kiranaProducts.soldMoreThanKnown')}`}
@@ -437,7 +540,7 @@ function ProductView({ back }: { back: string }) {
                   {b.pack !== 1 && <span className="text-muted"> · {t('kiranaProducts.perScan', { qty: qtyWithUnit(toMilli(b.pack), p.unit) })}</span>}
                 </span>
                 {owner && (
-                  <button type="button" disabled={busy} className="min-h-11 shrink-0 px-2 text-bad" aria-label={t('kiranaProducts.removeBarcode', { code: b.code })} onClick={() => void removeBarcode(b.code)}>
+                  <button type="button" disabled={busy} className="min-h-11 shrink-0 px-2 text-bad" aria-label={t('kiranaProducts.removeBarcode', { code: b.code })} onClick={() => setConfirmBarcode(b.code)}>
                     {t('common.remove')}
                   </button>
                 )}
@@ -488,11 +591,33 @@ function ProductView({ back }: { back: string }) {
       </section>
 
       {owner && (
-        <Button variant={p.active ? 'ghost' : 'secondary'} className={p.active ? 'text-bad' : ''} busy={busy} onClick={() => void setActive(!p.active)}>
+        <Button variant={p.active ? 'ghost' : 'secondary'} className={p.active ? 'text-bad' : ''} busy={busy} onClick={() => (p.active ? setConfirmRemove(true) : void setActive(true))}>
           {p.active ? t('kiranaProducts.removeProduct') : t('kiranaProducts.restoreProduct')}
         </Button>
       )}
 
+      <Sheet open={confirmRemove} title={t('kiranaSetup.removeProductAsk', { name: p.name })} onClose={() => !busy && setConfirmRemove(false)}>
+        <div className="flex flex-col gap-3">
+          <p className="text-muted">{t('kiranaSetup.removeProductBody')}</p>
+          <Button variant="secondary" disabled={busy} onClick={() => setConfirmRemove(false)}>
+            {t('kiranaSetup.keepIt')}
+          </Button>
+          <Button variant="danger" busy={busy} onClick={() => void setActive(false)}>
+            {t('kiranaSetup.yesRemove')}
+          </Button>
+        </div>
+      </Sheet>
+      <Sheet open={confirmBarcode !== null} title={t('kiranaSetup.removeBarcodeAsk', { code: confirmBarcode ?? '' })} onClose={() => !busy && setConfirmBarcode(null)}>
+        <div className="flex flex-col gap-3">
+          <p className="text-muted">{t('kiranaSetup.removeBarcodeBody', { name: p.name })}</p>
+          <Button variant="secondary" disabled={busy} onClick={() => setConfirmBarcode(null)}>
+            {t('kiranaSetup.keepIt')}
+          </Button>
+          <Button variant="danger" busy={busy} onClick={() => confirmBarcode && void removeBarcode(confirmBarcode)}>
+            {t('kiranaSetup.yesRemove')}
+          </Button>
+        </div>
+      </Sheet>
       <Sheet open={editing} title={t('kiranaProducts.editProductTitle')} onClose={() => setEditing(false)}>
         {editing && (
           <EditProduct

@@ -10,7 +10,7 @@ import { HELPER_MINUTES, parseQty, parseRupees, priceUnit, qtyText, qtyWithUnit,
 import { rupees } from '../../lib/money'
 import { inEnglish, shownAs, t as tPlain, useT } from '../../i18n'
 import { useSession } from '../../store/session'
-import { minutesSince, MoreButton, outcomeUnknown, paidByText, paymentText, SumRow, UnsureNote, useRefreshOnStale, useUnsureSend } from './common'
+import { AskOwner, minutesSince, MoreButton, outcomeUnknown, paidByText, paymentText, SumRow, UnsureNote, useRefreshOnStale, useUnsureSend } from './common'
 import { KhataPicker } from './KhataPicker'
 import { UpiQrCode } from './UpiQrCode'
 
@@ -21,23 +21,28 @@ export function Bills() {
   const today = useDay(null)
   return (
     <Page title={t('kiranaBills.billsTitle')}>
-      <Link to="/kirana/day" className="block">
-        <Card className="flex flex-col gap-1 hover:bg-raised">
-          <p className="font-semibold">{t('kiranaBills.today')}</p>
-          {today.data ? (
-            <>
-              <SumRow label={t('kiranaBills.billCount', { count: today.data.bills })} value={rupees(today.data.salesPaise)} />
-              <SumRow label={t('kiranaBills.drawerShouldBeUp')} value={rupees(today.data.cashInPaise)} />
-              <SumRow label={t('kiranaBills.upiIn')} value={rupees(today.data.upiInPaise)} />
-            </>
-          ) : today.isError ? (
+      <Card className="flex flex-col gap-2">
+        <p className="font-semibold">{t('kiranaBills.today')}</p>
+        {today.data ? (
+          <div className="flex flex-col gap-1">
+            <SumRow label={t('kiranaBills.billCount', { count: today.data.bills })} value={rupees(today.data.salesPaise)} />
+            <SumRow label={t('kiranaBills.drawerShouldBeUp')} value={rupees(today.data.cashInPaise)} />
+            <SumRow label={t('kiranaBills.upiIn')} value={rupees(today.data.upiInPaise)} />
+          </div>
+        ) : today.isError ? (
+          <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm text-bad">{messageOf(today.error)}</p>
-          ) : (
-            <p className="text-sm text-muted">…</p>
-          )}
-          <span className="text-sm text-link">{t('kiranaBills.seeWholeDay')}</span>
-        </Card>
-      </Link>
+            <Button variant="secondary" busy={today.isFetching} onClick={() => void today.refetch()}>
+              {t('common.retry')}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-sm text-muted">…</p>
+        )}
+        <Link to="/kirana/day" className="flex min-h-12 items-center justify-center rounded-xl border border-line bg-raised px-4 text-center hover:bg-line">
+          {t('kiranaSetup.seeTodaysCash')}
+        </Link>
+      </Card>
       {bills.isPending ? (
         <Loading />
       ) : bills.isError && !bills.data ? (
@@ -233,7 +238,8 @@ export function BillPage() {
           </div>
         ) : (
           <p className="text-sm text-muted">
-            {t('kiranaBills.onlyOwnerNow', { count: HELPER_MINUTES })}
+            {t('kiranaBills.onlyOwnerNow', { count: HELPER_MINUTES })}{' '}
+            <AskOwner message={t('kiranaSetup.askOwnerBill', { billNo: String(b.billNo) })} />
           </p>
         )
       )}
@@ -565,14 +571,17 @@ function ChangePaymentForm({ b, onDone }: { b: Bill; onDone: (r: ChangeResult) =
 export function Day() {
   const t = useT()
   const navigate = useNavigate()
-  const params = new URLSearchParams(useLocation().search)
+  const location = useLocation()
+  const params = new URLSearchParams(location.search)
+  // Back goes where it was opened from (Bills, or More), F-15; opened straight from a link: Bills
+  const [cameIn] = useState(() => location.key !== 'default')
   const today = todayIst()
   const asked = params.get('date')
   const date = asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) ? asked : today
   const day = useDay(date === today ? null : date)
   const go = (d: string) => navigate(d === today ? '/kirana/day' : `/kirana/day?date=${d}`, { replace: true })
   return (
-    <Page back="/kirana/bills" title={t('kiranaBills.dayTitle')}>
+    <Page back={cameIn ? true : '/kirana/bills'} title={t('kiranaBills.dayTitle')}>
       <div className="flex items-center justify-between gap-2">
         <Button variant="secondary" aria-label={t('kiranaBills.dayBefore')} onClick={() => go(addDays(date, -1))}>
           ‹

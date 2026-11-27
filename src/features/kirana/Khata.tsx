@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { fieldError, isApiError, messageOf } from '../../api/errors'
 import { kiranaApi, kiranaKeys, useCustomer, useKhata, type KhataCustomer, type KhataEntry, type PaidBy } from '../../api/kirana'
 import { useShop } from '../../api/shop'
@@ -13,6 +13,7 @@ import { useT } from '../../i18n'
 import { useSession } from '../../store/session'
 import { balanceText, entryText, minutesSince, MoreButton, outcomeUnknown, SearchBox, signed, SumRow, useDebounced, UnsureNote, useRefreshOnStale, useUnsureSend } from './common'
 import { NewCustomer } from './KhataPicker'
+import { cameFrom } from '../shop/Register'
 
 /** The khata book: who owes what, searched by name, note or phone; everyone or only those who owe. */
 export function Khata() {
@@ -95,14 +96,16 @@ export function Customer() {
   const userId = useSession((s) => s.user?.id ?? '')
   const owner = shop.myRole === 'OWNER'
   const detail = useCustomer(id)
+  // Opened from the counter's khata sheet (over the limit, F-10): Back goes to the bill, and the sheet opens again
+  const back = cameFrom(useLocation(), '/kirana/khata')
   const [paying, setPaying] = useState(false)
   const [undo, setUndo] = useState<KhataEntry | null>(null)
   const [editing, setEditing] = useState(false)
   const [giving, setGiving] = useState(false)
-  if (detail.isPending) return <Page back="/kirana/khata" title={t('kiranaBills.khataTitle')}><Loading /></Page>
+  if (detail.isPending) return <Page back={back} title={t('kiranaBills.khataTitle')}><Loading /></Page>
   if (detail.isError && !detail.data) {
     return (
-      <Page back="/kirana/khata" title={t('kiranaBills.khataTitle')}>
+      <Page back={back} title={t('kiranaBills.khataTitle')}>
         <ErrorState message={messageOf(detail.error)} onRetry={() => detail.refetch()} />
       </Page>
     )
@@ -115,7 +118,12 @@ export function Customer() {
     e.kind === 'PAYMENT' && !e.reversed && (owner || (!!e.byId && e.byId === userId && minutesSince(e.at) < HELPER_MINUTES))
 
   return (
-    <Page back="/kirana/khata" title={t('kiranaBills.khataTitle')}>
+    <Page back={back} title={t('kiranaBills.khataTitle')}>
+      {back === '/kirana/counter' && (
+        <Link to="/kirana/counter" className="flex min-h-12 items-center justify-center rounded-xl border border-brand/60 bg-raised px-4 font-semibold">
+          {t('kiranaSetup.backToBill')}
+        </Link>
+      )}
       <Card className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

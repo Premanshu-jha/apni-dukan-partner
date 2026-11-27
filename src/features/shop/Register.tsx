@@ -49,6 +49,13 @@ import { withKiranaTexts } from '../../i18n/kirana'
 
 /** A kirana's last step: its own download (kirana switch on only; off, no kirana reaches registration). */
 const KiranaReview = lazy(() => withKiranaTexts(import('./KiranaRegister')).then((m) => ({ default: m.KiranaReview })))
+/** A kirana's "Like this / Not like this" before each photo and the video (its own download; never for a salon). */
+const KiranaGuide = lazy(() =>
+  withKiranaTexts(import('../kirana/Guides'))
+    .then((m): { default: (p: { kind: 'face' | 'shopFront' | 'video' }) => ReactNode } => ({ default: m.PhotoGuide }))
+    // Only a guide: a download that fails on a weak network leaves it out, never the photos step (EF#15)
+    .catch(() => ({ default: () => null })),
+)
 
 /** The map library is big and only registration needs it: loaded when this screen shows the map. */
 const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ default: m.PinMap })))
@@ -970,6 +977,7 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
         </Banner>
       )}
       {edit && <RecheckWaiting />}
+      {kirana && <Suspense fallback={null}><KiranaGuide kind="face" /></Suspense>}
       <PhotoPicker
         label={t('register.yourPhoto')}
         hint={t('register.yourPhotoHint')}
@@ -978,6 +986,7 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
         upload={(p) => setPhoto('OWNER_PHOTO', p)}
         onBusy={photoBusy}
       />
+      {kirana && <Suspense fallback={null}><KiranaGuide kind="shopFront" /></Suspense>}
       <PhotoPicker
         label={t('register.shopFront')}
         hint={t('register.shopFrontHint')}
@@ -986,6 +995,7 @@ export function RegisterPhotos({ edit = false }: { edit?: boolean }) {
         upload={(p) => setPhoto('SHOP_PHOTO', p)}
         onBusy={photoBusy}
       />
+      {kirana && <Suspense fallback={null}><KiranaGuide kind="video" /></Suspense>}
       <SalonVideo fileId={shop.shopVideoFileId ?? null} save={setVideo} onBusy={setVideoBusy} kirana={kirana} />
       {!edit && (
         <>

@@ -14,6 +14,9 @@ export function Scanner({ onCode, paused = false }: { onCode: (code: string) => 
   // noReader: the camera works but the barcode reader didn't download (offline on first use)
   const [state, setState] = useState<'starting' | 'on' | 'denied' | 'none' | 'noReader'>('starting')
   const [typed, setTyped] = useState('')
+  /** Each "Try the camera again" starts the camera afresh (after the phone's setting was changed). */
+  const [attempt, setAttempt] = useState(0)
+  const typedInput = useRef<HTMLInputElement>(null)
   const last = useRef<{ code: string; at: number } | null>(null)
   const handler = useRef(onCode)
   const pausedRef = useRef(paused)
@@ -82,7 +85,7 @@ export function Scanner({ onCode, paused = false }: { onCode: (code: string) => 
       if (timer) clearTimeout(timer)
       stream?.getTracks().forEach((t) => t.stop())
     }
-  }, [])
+  }, [attempt])
 
   function submitTyped() {
     const code = typed.replace(/\s+/g, '')
@@ -94,17 +97,40 @@ export function Scanner({ onCode, paused = false }: { onCode: (code: string) => 
   return (
     <div className="flex flex-col gap-3">
       {(state === 'starting' || state === 'on') && (
+        // On a small phone the typing box is below the camera, under the keyboard: one tap to it (F-22)
+        <button
+          type="button"
+          className="min-h-11 self-start text-sm text-link underline"
+          onClick={() => {
+            typedInput.current?.scrollIntoView({ block: 'center' })
+            typedInput.current?.focus()
+          }}
+        >
+          {t('kiranaSetup.typeInstead')}
+        </button>
+      )}
+      {(state === 'starting' || state === 'on') && (
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-black">
           <video ref={video} className="h-full w-full object-cover" muted playsInline aria-label={t('kiranaCounter.cameraAria')} />
           <div aria-hidden className="pointer-events-none absolute inset-x-8 top-1/3 bottom-1/3 rounded-lg border-2 border-brand/80" />
           {state === 'starting' && <p className="absolute inset-0 flex items-center justify-center text-sm text-white">{t('kiranaCounter.cameraStarting')}</p>}
         </div>
       )}
+      {state === 'on' && <p className="text-sm">{t('kiranaSetup.scanHow')}</p>}
       {state === 'denied' && (
         <Banner tone="warn">{t('kiranaCounter.cameraDenied')}</Banner>
       )}
       {state === 'none' && <Banner tone="info">{t('kiranaCounter.cameraNone')}</Banner>}
       {state === 'noReader' && <Banner tone="info">{t('kiranaCounter.scannerNotLoaded')}</Banner>}
+      {(state === 'denied' || state === 'none' || state === 'noReader') && (
+        <Button variant="secondary" onClick={() => {
+            setState('starting')
+            setAttempt((n) => n + 1)
+          }}
+        >
+          {t('kiranaSetup.cameraAgain')}
+        </Button>
+      )}
       <form
         className="flex items-end gap-2"
         onSubmit={(e) => {
@@ -117,6 +143,7 @@ export function Scanner({ onCode, paused = false }: { onCode: (code: string) => 
             {t('kiranaCounter.typeDigits')}
           </label>
           <input
+            ref={typedInput}
             id="typed-barcode"
             inputMode="numeric"
             autoComplete="off"
