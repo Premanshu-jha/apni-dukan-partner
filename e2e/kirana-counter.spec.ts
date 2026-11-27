@@ -178,16 +178,14 @@ test('an unknown barcode: added as a new product from the counter, it goes onto 
   await page.getByRole('button', { name: 'Scan' }).click()
   await scan(page, '8906000111222')
   await expect(page.getByText("Barcode 8906000111222 isn't in your products yet")).toBeVisible()
+  // F-11: a short form in the scanner (name, price), back to scanning with it on the bill
   await page.getByRole('button', { name: 'Add a new product' }).click()
-  await expect(page).toHaveURL(/\/kirana\/products\/new\?/)
-  await expect(page.getByLabel('Barcode (optional)')).toHaveValue('8906000111222')
   await page.getByLabel('Name').fill('Parle-G 250 g')
   await page.getByLabel('Price of one (₹)').fill('25')
-  await page.getByRole('button', { name: 'Save the product' }).click()
-  await expect(page).toHaveURL(/\/kirana\/counter$/)
-  await expect(page.getByText('Parle-G 250 g')).toBeVisible()
+  await page.getByRole('button', { name: 'Save and add to the bill' }).click()
+  await expect(page.getByText('Parle-G 250 g added (barcode saved)')).toBeVisible()
+  expect(api.kirana.products.find((p) => p.name === 'Parle-G 250 g')!.barcodes).toEqual([{ code: '8906000111222', pack: 1 }])
   // It scans as that product from now on
-  await page.getByRole('button', { name: 'Scan' }).click()
   await scan(page, '8906000111222')
   await expect(page.getByText('Parle-G 250 g added')).toBeVisible()
 

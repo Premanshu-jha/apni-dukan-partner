@@ -169,7 +169,7 @@ test('a new product whose name is taken: its barcode goes on the one they have; 
   await page.goto('/kirana/products')
   await page.goto('/kirana/products/new?barcode=8906000111222&from=%2Fkirana%2Fproducts')
   await expect(page.getByLabel('Price of one (₹)')).toHaveValue('36')
-  await page.getByRole('button', { name: 'Save the product' }).click()
+  await page.getByRole('button', { name: 'Save and add the next' }).click()
   await expect(page.getByText('You already have a product called "Lux Soap 100 g".', { exact: false })).toBeVisible()
   await page.getByRole('button', { name: 'Add barcode 8906000111222 to Lux Soap 100 g' }).click()
   await expect(page).toHaveURL(/\/kirana\/products\/soap$/)

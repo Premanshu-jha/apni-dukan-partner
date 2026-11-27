@@ -42,10 +42,259 @@ export class KiranaMock {
   /** Every bill call that reached the counter, to check retries and clientRefs. */
   billCalls: Json[] = []
 
+  // ---------- the product setup after Submit (ProductSetupService, PhotoReads, ProductService.setPhoto) ----------
+  /** "I've added all my products" (shops.products_ready_at); null until then. */
+  setupReadyAt: string | null = null
+  /** The list's pages (kirana_reads STOCK_LIST), in the order sent. */
+  pages: Json[] = []
+  /** Their lines (kirana_list_lines), as ListLineView with readId. */
+  lines: Json[] = []
+  /** What the next page sent reads as: its lines (wording, brand, name, size, byWeight, mrpPaise, quantity, suggestions), or a failure code. */
+  nextPage: Json[][] = []
+  nextPageFailure: string | null = null
+  /** How many reads of the setup a page stays READING for (the AI's minute). */
+  readingFor = 1
+  /** What a product photo's check answers: OK (pictured), CHECKING (stays being checked) or a refusal code (REFUSED; NEED_SIZE). */
+  photoAnswer: string = 'OK'
+  /** Products added by hand get a picture at once (the shared catalogue's) unless a test says not. */
+  newProductsPictured = true
+  /** List pages sent today, deleted and failed ones too (ReadStore.listPagesSince: TOO_MANY_PAGES_TODAY at 100). */
+  pagesSentToday = 0
+  pagesPerDay = 100
+  /** Every setup call, to check retries, paging and that nothing polls in a storm. */
+  setupCalls: { method: string; path: string; body?: Json }[] = []
+
+  /** A page already read, with these lines (each a ListLineView's read part). */
+  listPage(lines: Json[], over: Json = {}): Json {
+    const readId = `rd${++this.n}`
+    const page: Json = { readId, fileId: `f${this.n}`, status: 'READ', failure: null, failureCode: null, linesLeftOut: 0, sentAt: new Date(Date.now() + this.n).toISOString(), recount: false, reads: 0, ...over }
+    this.pages.push(page)
+    lines.forEach((l, i) => this.lines.push(this.listLine(readId, i + 1, l)))
+    return page
+  }
+
+  private listLine(readId: string, lineNo: number, l: Json): Json {
+    return {
+      id: `ln${++this.n}`, readId, lineNo, wording: 'Item', brand: null, name: null, size: null, byWeight: false, mrpPaise: null, quantity: null,
+      status: 'NEW', productId: null, counted: null, suggestions: [], sure: false, autoCounted: false, countBefore: null, productName: null,
+      stockNow: null, countPutBack: null, ...l,
+    }
+  }
+
+  /** Pages that count towards the 60 kept (ReadStore.listPages: not failed, discarded or a recount). */
+  private keptPages(): number {
+    return this.pages.filter((x) => x.status !== 'FAILED' && !x.recount).length
+  }
+
+  /** Quantities.problem: a piece count is whole. */
+  static pieceProblem(q: number, unit: unknown): string | null {
+    return unit !== 'KG' && !Number.isInteger(q) ? 'must be a whole number for items sold by the piece' : null
+  }
+
+  private setupView(me: KiranaCaller): Json {
+    // The reading job: a page READING for a while, then READ (its lines) or FAILED
+    for (const pg of this.pages.filter((x) => x.status === 'READING')) {
+      pg.reads = (pg.reads as number) + 1
+      if ((pg.reads as number) <= this.readingFor) continue
+      if (pg.failWith) Object.assign(pg, { status: 'FAILED', failureCode: pg.failWith, failure: 'This list could not be read.' })
+      else {
+        pg.status = 'READ'
+        ;((pg.toRead as Json[]) ?? []).forEach((l, i) => this.lines.push(this.listLine(pg.readId as string, i + 1, l)))
+      }
+    }
+    const active = this.products.filter((x) => x.active)
+    const uncounted = active.filter((x) => !x.counted)
+    const lines = (st: string) => this.lines.filter((l) => l.status === st).length
+    const toCheck = lines('NEW')
+    const reading = this.pages.filter((x) => x.status === 'READING').length
+    const failed = this.pages.filter((x) => x.status === 'FAILED').length
+    const missing = active.filter((x) => !x.pictured)
+    const checking = missing.filter((x) => x.photoCheck === 'CHECKING').length
+    // GS1 may still bring their picture (ProductStore.WAITING_FOR_GS1): nothing for the shop to do yet
+    const finding = missing.filter((x) => x.finding && x.photoCheck !== 'CHECKING').length
+    const refused = missing.filter((x) => x.photoCheck === 'REFUSED' || x.photoCheck === 'NEED_SIZE').length
+    const ready = this.setupReadyAt
+    const canFinish = !ready && active.length > 0 && uncounted.length === 0 && toCheck === 0 && reading === 0 && failed === 0 && missing.length === 0
+    const step = active.length === 0 && toCheck === 0 && reading === 0 ? 'ADD'
+      : toCheck > 0 || reading > 0 || failed > 0 ? 'LIST' : uncounted.length > 0 ? 'COUNT'
+        : missing.length > checking + finding ? 'PHOTOS' : checking + finding > 0 ? 'WAIT' : 'FINISH'
+    const beforeApproval = Boolean(ready) && me.status !== 'APPROVED' && (active.length === 0 || uncounted.length > 0 || missing.length > 0)
+    const next = !ready ? step : toCheck > 0 || reading > 0 || failed > 0 ? 'LIST'
+      : beforeApproval ? (active.length === 0 ? 'ADD' : uncounted.length > 0 ? 'COUNT' : missing.length > checking + finding ? 'PHOTOS' : 'WAIT') : 'DONE'
+    const pageNo = new Map(this.pages.map((x, i) => [x.readId, i + 1]))
+    return {
+      readyAt: ready, products: active.length, uncounted: uncounted.length,
+      uncountedProducts: uncounted.slice(0, 20).map((x) => ({ id: x.id, name: x.name })),
+      linesToCheck: toCheck, linesAdded: lines('ADDED'), linesSkipped: lines('SKIPPED'), pagesReading: reading, pagesFailed: failed,
+      pagesLeft: Math.max(0, 60 - this.keptPages()),
+      pages: this.pages.map((x) => {
+        const mine = this.lines.filter((l) => l.readId === x.readId)
+        return {
+          readId: x.readId, pageNo: pageNo.get(x.readId), fileId: x.fileId, status: x.status, failure: x.failure, linesLeftOut: x.linesLeftOut,
+          linesToCheck: mine.filter((l) => l.status === 'NEW').length, linesAdded: mine.filter((l) => l.status === 'ADDED').length,
+          linesSkipped: mine.filter((l) => l.status === 'SKIPPED').length, sentAt: x.sentAt, recount: x.recount, linesAutoCounted: 0, failureCode: x.failureCode,
+        }
+      }),
+      photosMissing: missing.length, photosChecking: checking, photosRefused: refused, photosFinding: finding, photosLeftToday: 300,
+      nextStep: next, canFinish, youCanFinish: canFinish && me.role === 'OWNER', beforeApproval,
+    }
+  }
+
+  private lineView(l: Json): Json {
+    const pageNo = this.pages.findIndex((x) => x.readId === l.readId) + 1
+    const on = l.productId ? this.products.find((x) => x.id === l.productId) : null
+    return { ...l, pageNo, productName: on?.name ?? null, stockNow: on?.stock ?? null, suggestions: l.status === 'NEW' ? l.suggestions : [] }
+  }
+
+  private async setupHandle(p: string, method: string, url: URL, body: Json | undefined, me: KiranaCaller, ok: Answer, fail: Fail): Promise<void> {
+    this.setupCalls.push({ method, path: p + url.search, body })
+    const bad = (field: string, message: string) => fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { [field]: message })
+    if (p === '/kirana/setup' && method === 'GET') return ok(200, this.setupView(me))
+
+    if (p === '/kirana/setup/lines' && method === 'GET') {
+      this.setupView(me)
+      const status = (url.searchParams.get('status') ?? 'NEW').toUpperCase()
+      if (!['NEW', 'SKIPPED', 'ADDED'].includes(status)) return bad('status', 'Use NEW, SKIPPED or ADDED')
+      const order = new Map(this.pages.map((x, i) => [x.readId, i]))
+      const all = this.lines.filter((l) => l.status === status)
+        .sort((a, b) => (order.get(a.readId)! - order.get(b.readId)!) || (a.lineNo as number) - (b.lineNo as number))
+      const from = Number(url.searchParams.get('cursor') ?? 0) || 0
+      return ok(200, { items: all.slice(from, from + 20).map((l) => this.lineView(l)), next: from + 20 < all.length ? String(from + 20) : null })
+    }
+
+    const line = p.match(/^\/kirana\/setup\/lines\/([^/]+)$/)
+    if (line && method === 'POST') {
+      const l = this.lines.find((x) => x.id === line[1])
+      if (!l) return fail(404, 'LINE_NOT_FOUND', "This line of your list isn't there any more. Open your list again.")
+      const added = () => fail(409, 'LINE_ADDED', 'This one is already added. To fix it, open the product and change it there.', { productId: l.productId })
+      if (body?.action === 'SKIP') {
+        if (l.status === 'ADDED') return added()
+        l.status = 'SKIPPED'
+        return ok(200, this.lineView(l))
+      }
+      if (body?.action === 'UNDO') {
+        if (l.status === 'ADDED') return added()
+        l.status = 'NEW'
+        return ok(200, this.lineView(l))
+      }
+      if (body?.action !== 'ADD') return bad('action', 'Choose what to do')
+      if (l.status === 'ADDED') return ok(200, this.lineView(l))   // sent again: the line as it is
+      const q = body.quantity as number | undefined
+      if (q === undefined || q === null || q < 0) return bad('quantity', 'Count how many are on the shelf (0 if none)')
+      if (body.productId) {
+        const x = this.products.find((y) => y.id === body.productId && y.active)
+        if (!x) return bad('productId', 'Pick one of your products')
+        const elsewhere = this.lines.some((y) => y !== l && y.status === 'ADDED' && y.productId === x.id)
+        if (elsewhere && body.addToCount === undefined) {
+          return fail(409, 'ALREADY_COUNTED', `${x.name} was already counted from your list: ${x.stock}. Add this count to it, or replace it?`, { productId: x.id, name: x.name, stock: x.stock })
+        }
+        const bad1 = KiranaMock.pieceProblem(q, x.unit)
+        if (bad1) return bad('quantity', bad1)
+        const to = body.addToCount ? Math.max(0, x.stock as number) + q : q
+        if (to !== x.stock) this.move(x, to - (x.stock as number), 'COUNT', me, undefined, 'Product setup: from your list')
+        x.counted = true
+        Object.assign(l, { status: 'ADDED', productId: x.id, counted: q })
+        return ok(200, this.lineView(l))
+      }
+      const item = body.itemId ? (l.suggestions as Json[]).find((s) => s.itemId === body.itemId) : null
+      const name = String(body.name ?? item?.name ?? [l.brand, l.name, l.size].filter(Boolean).join(' ') ?? l.wording).trim() || String(l.wording)
+      const price = (body.pricePaise as number | undefined) ?? (item ? (item.pricePaise as number | null) : (l.mrpPaise as number | null)) ?? null
+      if (price === null) return bad('pricePaise', 'Enter the price')
+      const taken = this.products.find((x) => x.active && (x.name as string).toLowerCase() === name.toLowerCase())
+      if (taken) return fail(409, 'NAME_TAKEN', `You already have a product called "${taken.name}".`, { productId: taken.id, name: taken.name })
+      // A catalogue item comes with its own unit (ProductService.newFor), else the one sent, else the line's reading
+      const unit = body.unit ?? item?.unit ?? (l.byWeight ? 'KG' : 'PIECE')
+      const bad2 = KiranaMock.pieceProblem(q, unit)
+      if (bad2) return bad('quantity', bad2)
+      const made = this.product({ name, unit, pricePaise: price, stock: q, counted: true, pictured: Boolean(item) })
+      Object.assign(l, { status: 'ADDED', productId: made.id, counted: q })
+      return ok(200, this.lineView(l))
+    }
+
+    if (p === '/kirana/setup/finish' && method === 'POST') {
+      if (me.role !== 'OWNER') return fail(403, 'OWNER_ONLY', 'Only the shop owner can do this.')
+      const v = this.setupView(me)
+      if (this.setupReadyAt) return ok(200, v)
+      if (!v.products) return fail(409, 'NO_PRODUCTS', 'Add your products first: everything you sell, with how many are on the shelf.')
+      if ((v.linesToCheck as number) > 0 || (v.pagesReading as number) > 0) {
+        return fail(409, 'LINES_TO_CHECK', (v.pagesReading as number) > 0 ? "A page of your list is still being read. Check its products when it's ready." : `Check the ${v.linesToCheck} products left from your list first: add them or skip them.`, { lines: v.linesToCheck, pagesReading: v.pagesReading })
+      }
+      if ((v.pagesFailed as number) > 0) return fail(409, 'PAGES_FAILED', "One page of your list couldn't be read. Take its photo again, or delete it if its products are added.", { pages: v.pagesFailed })
+      if ((v.uncounted as number) === 0 && (v.photosMissing as number) > 0) {
+        return fail(409, 'PHOTOS_NEEDED', `${v.photosMissing} products need a photo.`, { missing: v.photosMissing, checking: v.photosChecking, refused: v.photosRefused, finding: 0 })
+      }
+      if ((v.uncounted as number) > 0) return fail(409, 'PRODUCTS_NOT_COUNTED', `${v.uncounted} products have no count yet: count them first.`, { uncounted: v.uncounted, products: v.uncountedProducts })
+      this.setupReadyAt = new Date().toISOString()
+      return ok(200, this.setupView(me))
+    }
+
+    if (p === '/kirana/setup/photos' && method === 'GET') {
+      const all = this.products.filter((x) => x.active && !x.pictured).sort((a, b) => (a.name as string).localeCompare(b.name as string))
+      const from = Number(url.searchParams.get('cursor') ?? 0) || 0
+      const size = (n: string) => /(\d+(?:\.\d+)?\s?(?:kg|g|ml|l))\b/i.exec(n)?.[1] ?? null
+      return ok(200, {
+        items: all.slice(from, from + 20).map((x) => ({
+          productId: x.id, name: x.name, loose: x.unit === 'KG', sizeToShow: x.unit === 'KG' ? null : size(x.name as string), photoCheck: x.photoCheck,
+          code: x.photoCode, reason: x.photoCode ? 'Not accepted' : null, seen: x.photoSeen ?? null, newPhotoUrl: null, findingPicture: Boolean(x.finding),
+        })),
+        next: from + 20 < all.length ? String(from + 20) : null,
+      })
+    }
+
+    const photo = p.match(/^\/kirana\/products\/([^/]+)\/photo$/)
+    if (photo && method === 'PUT') {
+      const x = this.products.find((y) => y.id === photo[1])
+      if (!x) return fail(404, 'PRODUCT_NOT_FOUND', 'No such product.')
+      const ref = `photo:${body?.clientRef}`
+      if (this.refs.has(ref)) return ok(200, x)
+      if (!x.active) return fail(409, 'PRODUCT_REMOVED', 'This product was removed from your list.')
+      if (!body?.fileId && body?.sizeFileId && x.photoCheck !== 'NEED_SIZE') return bad('fileId', 'Send the photo of the front with it')
+      if (!body?.fileId && !body?.sizeFileId) return ok(200, x)
+      this.refs.set(ref, x)
+      const answer = this.photoAnswer
+      if (answer === 'OK') Object.assign(x, { pictured: true, photoCheck: null, photoCode: null })
+      else if (answer === 'CHECKING') Object.assign(x, { photoCheck: 'CHECKING', photoCode: null })
+      else if (answer === 'NEED_SIZE' && !body.sizeFileId) Object.assign(x, { photoCheck: 'NEED_SIZE', photoCode: 'NEED_SIZE' })
+      else if (answer === 'NEED_SIZE') Object.assign(x, { pictured: true, photoCheck: null, photoCode: null })
+      else Object.assign(x, { photoCheck: 'REFUSED', photoCode: answer })
+      return ok(200, x)
+    }
+
+    if (p === '/kirana/reads' && method === 'POST') {
+      const ref = `read:${body?.clientRef}`
+      const first = this.refs.get(ref)
+      if (first) return ok(201, first)
+      if (body?.kind !== 'STOCK_LIST') return bad('kind', 'Choose what the photo is')
+      const ids = (body?.fileIds as string[] | undefined) ?? []
+      if (ids.length !== 1) return bad('fileIds', 'Send one page')
+      const recount = body?.recount === true
+      if (!recount && this.keptPages() >= 60) return fail(409, 'TOO_MANY_PAGES', 'You have 60 pages of your list already. Add the rest of your products one by one, or delete a page you don\'t need.', { max: 60 })
+      if (this.pagesSentToday >= this.pagesPerDay) return fail(409, 'TOO_MANY_PAGES_TODAY', `You've sent ${this.pagesPerDay} pages today. Send more tomorrow, or add the rest of your products one by one.`, { max: this.pagesPerDay })
+      this.pagesSentToday++
+      const readId = `rd${++this.n}`
+      this.pages.push({ readId, fileId: ids[0], status: 'READING', failure: null, failureCode: null, linesLeftOut: 0, sentAt: new Date().toISOString(), recount, reads: 0, toRead: this.nextPage.shift() ?? [], failWith: this.nextPageFailure })
+      this.nextPageFailure = null
+      const view = { id: readId, kind: 'STOCK_LIST', status: 'READING', fileIds: ids, failure: null, purchaseId: null, billId: null, createdAt: new Date().toISOString(), updatedAt: null, recount, failureCode: null }
+      this.refs.set(ref, view)
+      return ok(201, view)
+    }
+    const discard = p.match(/^\/kirana\/reads\/([^/]+)\/discard$/)
+    if (discard && method === 'POST') {
+      const pg = this.pages.find((x) => x.readId === discard[1])
+      if (!pg) return fail(404, 'READ_NOT_FOUND', 'No such photo.')
+      this.pages = this.pages.filter((x) => x !== pg)
+      this.lines = this.lines.filter((l) => !(l.readId === pg.readId && l.status !== 'ADDED'))
+      return ok(200, { id: pg.readId, kind: 'STOCK_LIST', status: 'DISCARDED', fileIds: [pg.fileId], failure: null, createdAt: pg.sentAt, recount: false, failureCode: null })
+    }
+    return fail(404, 'NOT_FOUND', 'No such path.')
+  }
+
   product(over: Json = {}): Json {
     const p: Json = {
       id: `kp${++this.n}`, name: 'Tata Salt 1 kg', barcodes: [], unit: 'PIECE', pricePaise: 2800, stock: 10, lowStockAt: null,
       runningOut: false, active: true, version: 0, updatedAt: new Date().toISOString(), costPaise: null, photoFileId: null, photoUrl: null,
+      // The product setup's own (not in ProductView): counted (kirana_products.counted_at) and a picture it has
+      counted: true, pictured: true, photoCheck: null, photoCode: null,
       ...over,
     }
     this.products.push(p)
@@ -158,6 +407,10 @@ export class KiranaMock {
       return ok(200, online())
     }
 
+    if (p.startsWith('/kirana/setup') || p.startsWith('/kirana/reads') || /^\/kirana\/products\/[^/]+\/photo$/.test(p)) {
+      return this.setupHandle(p, method, url, body, me, ok, fail)
+    }
+
     // ---------- products ----------
     if (p === '/kirana/products' && method === 'GET') {
       const q = (url.searchParams.get('q') ?? '').toLowerCase()
@@ -190,7 +443,7 @@ export class KiranaMock {
       }
       const taken = this.products.find((x) => x.active && (x.name as string).toLowerCase() === name.toLowerCase())
       if (taken) return fail(409, 'NAME_TAKEN', `You already have a product called "${taken.name}".`, { productId: taken.id, name: taken.name })
-      const made = this.product({ name, unit: body?.unit, pricePaise: body?.pricePaise, stock: 0, lowStockAt: body?.lowStockAt ?? null, barcodes: code ? [{ code, pack: body?.pack ?? 1 }] : [] })
+      const made = this.product({ name, unit: body?.unit, pricePaise: body?.pricePaise, stock: 0, lowStockAt: body?.lowStockAt ?? null, barcodes: code ? [{ code, pack: body?.pack ?? 1 }] : [], counted: body?.stock !== undefined && body?.stock !== null, pictured: this.newProductsPictured })
       if (body?.stock) this.move(made, body.stock as number, 'COUNT', me)
       return ok(201, made)
     }
@@ -242,11 +495,17 @@ export class KiranaMock {
         const ref = `stock:${body?.clientRef}`
         if (this.refs.has(ref)) return ok(200, x)
         if (!x.active) return removed()
-        this.refs.set(ref, x)
         const q = body?.quantity as number
+        const unitBad = KiranaMock.pieceProblem(q, x.unit)
+        if (unitBad) return bad('quantity', unitBad)
+        // The clientRef is kept with the move it made (ProductService.changeStock): a count equal to the stock makes
+        // none, so a retry with that id and another number is applied
+        const moved = body?.reason !== 'COUNT' || q !== x.stock
+        if (moved) this.refs.set(ref, x)
         if (body?.reason === 'RESTOCK') this.move(x, q, 'RESTOCK', me, undefined, body?.note as string)
         else if (body?.reason === 'DAMAGED') this.move(x, -q, 'DAMAGED', me, undefined, body?.note as string)
         else if (q !== x.stock) this.move(x, q - (x.stock as number), 'COUNT', me, undefined, body?.note as string)
+        if (body?.reason === 'COUNT') x.counted = true
         return ok(200, x)
       }
     }
