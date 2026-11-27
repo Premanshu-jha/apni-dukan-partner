@@ -47,5 +47,6 @@
   "typeSUBSCRIPTION_PAID": "பேமெண்ட் கிடைத்தது",
   "typeSUBSCRIPTION_ENDING": "உங்கள் சப்ஸ்கிரிப்ஷன் விரைவில் முடியும்",
   "typeSUBSCRIPTION_ENDED": "உங்கள் சப்ஸ்கிரிப்ஷன் முடிந்தது",
-  "typeSUBSCRIPTION_HIDDEN": "கஸ்டமர்களுக்கு உங்கள் சலூன் தெரியவில்லை"
+  "typeSUBSCRIPTION_HIDDEN": "கஸ்டமர்களுக்கு உங்கள் சலூன் தெரியவில்லை",
+  "aboutMessage": "அந்த மெசேஜ் இதைப் பற்றியது: {title}"
 }

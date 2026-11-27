@@ -47,5 +47,6 @@
   "typeSUBSCRIPTION_PAID": "Payment received",
   "typeSUBSCRIPTION_ENDING": "Your subscription ends soon",
   "typeSUBSCRIPTION_ENDED": "Your subscription has ended",
-  "typeSUBSCRIPTION_HIDDEN": "Customers can't find your salon"
+  "typeSUBSCRIPTION_HIDDEN": "Customers can't find your salon",
+  "aboutMessage": "That message is about: {title}"
 }

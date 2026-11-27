@@ -47,5 +47,6 @@
   "typeSUBSCRIPTION_PAID": "ಪೇಮೆಂಟ್ ಬಂದಿದೆ",
   "typeSUBSCRIPTION_ENDING": "ನಿಮ್ಮ ಸಬ್‌ಸ್ಕ್ರಿಪ್ಷನ್ ಬೇಗ ಮುಗಿಯುತ್ತದೆ",
   "typeSUBSCRIPTION_ENDED": "ನಿಮ್ಮ ಸಬ್‌ಸ್ಕ್ರಿಪ್ಷನ್ ಮುಗಿದಿದೆ",
-  "typeSUBSCRIPTION_HIDDEN": "ಗ್ರಾಹಕರಿಗೆ ನಿಮ್ಮ ಸಲೂನ್ ಕಾಣುತ್ತಿಲ್ಲ"
+  "typeSUBSCRIPTION_HIDDEN": "ಗ್ರಾಹಕರಿಗೆ ನಿಮ್ಮ ಸಲೂನ್ ಕಾಣುತ್ತಿಲ್ಲ",
+  "aboutMessage": "ಆ ಮೆಸೇಜ್ ಇದರ ಬಗ್ಗೆ: {title}"
 }

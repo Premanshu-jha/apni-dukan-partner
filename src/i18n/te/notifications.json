@@ -47,5 +47,6 @@
   "typeSUBSCRIPTION_PAID": "పేమెంట్ అందింది",
   "typeSUBSCRIPTION_ENDING": "మీ సబ్‌స్క్రిప్షన్ త్వరలో ముగుస్తుంది",
   "typeSUBSCRIPTION_ENDED": "మీ సబ్‌స్క్రిప్షన్ ముగిసింది",
-  "typeSUBSCRIPTION_HIDDEN": "కస్టమర్లకు మీ సెలూన్ కనిపించడం లేదు"
+  "typeSUBSCRIPTION_HIDDEN": "కస్టమర్లకు మీ సెలూన్ కనిపించడం లేదు",
+  "aboutMessage": "ఆ మెసేజ్ దీని గురించి: {title}"
 }

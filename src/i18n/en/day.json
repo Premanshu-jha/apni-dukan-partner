@@ -249,5 +249,11 @@
   "pauseTomorrow": "Till end of tomorrow",
   "pause": "Pause",
   "setupBarberOne": "Give a barber his services and weekly hours",
-  "setupCheckFailed": "Couldn't check your setup."
+  "setupCheckFailed": "Couldn't check your setup.",
+  "refusedOwner": "Only the owner can open that screen. Ask {ownerName}.",
+  "refusedOwnerHelper": "Only the owner or a helper can open that screen. Ask {ownerName}.",
+  "walkInNoServicesBodyOwner": "Add your services first, then you can add a walk-in.",
+  "walkInAddServices": "Add your services",
+  "walkInSetWhoDoes": "Set who does which service",
+  "startCodeAskOwner": "Customer can't show the code? Ask the owner or the helper to start it."
 }

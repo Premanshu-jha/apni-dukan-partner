@@ -230,5 +230,7 @@
   "videoNotWhole": "The video didn't arrive whole. Tap Try again.",
   "videoUploadTooLongAgain": "The upload took too long. Tap Try again to send it again.",
   "videoExpired": "This video expired. Upload it again.",
-  "handoverRequestSent": "Request sent. If that number has a Clozest account, they'll see it when they open the app."
+  "handoverRequestSent": "Request sent. If that number has a Clozest account, they'll see it when they open the app.",
+  "leaveShopBelow": "You can leave {name} with the button below.",
+  "notCalledYet": "Not called yet? Call us or WhatsApp us, with your shop code."
 }

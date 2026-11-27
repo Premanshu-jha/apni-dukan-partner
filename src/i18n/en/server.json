@@ -174,7 +174,7 @@
   "Too many tries. Try again later.": "Too many tries. Try again later.",
   "Too many wrong codes from this network today. For your safety, try again tomorrow.": "Too many wrong codes from this network today. For your safety, try again tomorrow.",
   "Too many wrong codes. Ask for a new one.": "Too many wrong codes. Ask for a new one.",
-  "Too many wrong codes. The owner or a helper can use Start without code.": "Too many wrong codes. The owner or a helper can use Start without code.",
+  "Too many wrong codes. The owner or a helper can use Start without code.": "Too many wrong codes. The owner or a helper can tap “Customer can't show the code: start anyway”.",
   "Verify your email and tell us your name first.": "Verify your email and tell us your name first.",
   "Verify your email first.": "Verify your email first.",
   "We can't send codes right now. Please try again later.": "We can't send codes right now. Please try again later.",

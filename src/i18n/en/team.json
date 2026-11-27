@@ -14,11 +14,15 @@
   "invitesFailed": "Couldn't load the invitations waiting: {reason}",
   "phoneProblem": "That number {problem}.",
   "inviteHelper": "Invite a helper",
-  "inviteHelperHint": "A helper runs the day with you: walk-ins, starting bookings, breaks. They join when they accept your invitation in Clozest, signed in with this number. For a barber, invite him on his page under Salon › Barbers instead.",
+  "inviteHelperHint": "A helper runs the day with you: walk-ins, starting bookings, breaks. They join when they accept your invitation in the Clozest Partner app, signed in with this number. For a barber, invite him on his page under Salon › Barbers instead.",
   "helperMobile": "Helper's mobile number",
   "sendInvitation": "Send invitation",
   "removeHelperTitle": "Remove helper?",
   "removedNamed": "{name} will be signed out at once and can't open your salon any more.",
   "removedUnnamed": "They will be signed out at once and can't open your salon any more.",
-  "invitationSent": "Invitation sent. They'll see it in Clozest when they sign in with this number."
+  "invitationSent": "Invitation sent. They'll see it in the Clozest Partner app when they sign in with this number.",
+  "tellThem": "Now tell them: install the Clozest Partner app (or open {site}) and sign in with +91 {phone}.",
+  "sendOnWhatsApp": "Send on WhatsApp",
+  "whatsappInvite": "{name} invited you on Clozest Partner. Install the Clozest Partner app from the Play Store, or open {site}. Sign in with this number and accept the invitation.",
+  "addBarberInstead": "Adding a barber? Invite him on his page"
 }
