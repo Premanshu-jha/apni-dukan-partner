@@ -1,6 +1,8 @@
 import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { TestBuildMark } from './components/TestBuildMark'
+import { KIRANA_TEST_BUILD } from './lib/config'
 import { BrowserRouter } from 'react-router'
 import { refreshSession, whenSessionEnds } from './api/client'
 import { ApiError, retryDelay } from './api/errors'
@@ -170,6 +172,7 @@ function Root() {
           <UpdatePrompt />
           <NativeBridge />
           <LanguageToast />
+          <TestBuildMark on={KIRANA_TEST_BUILD} />
         </BrowserRouter>
       </QueryClientProvider>
     </StrictMode>
