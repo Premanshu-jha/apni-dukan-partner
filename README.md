@@ -144,7 +144,7 @@ there, and reviews walk the list against the code.
 | Hand over the shop | `/shop/handover` | Owner (any status) |
 | Take over a shop (requests to my number) | `/handover`, and at the top of Start and the day board | Anyone signed in, shop or not |
 | Messages | `/notifications` | Everyone |
-| Help: Write to us, My requests, searchable answers (`?write=1` opens the form; `from`, `topic`, `about`, `text` fill it) | `/help`, `/help/requests` | Everyone signed in (answers only for the screens each role can open) |
+| Help: Call us / WhatsApp us, Write to us, My requests, searchable answers (`?write=1` opens the form; `from`, `topic`, `about`, `text` fill it) | `/help`, `/help/requests` | `/help` everyone (writing: a verified email); My requests signed in. Answers only for the screens each role can open; before the salon is live, the registering and joining answers |
 | Share your salon: link (WhatsApp, share sheet, copy), QR poster (share, download, print) | `/salon/share` | Everyone in a salon |
 
 ## Flows
@@ -153,8 +153,10 @@ there, and reviews walk the list against the code.
 
 Nobody should need training, so every screen says where help is and what to do next:
 
-- **Help on every screen.** `Page` puts "? Help" at the top right of every screen (Today: beside the bell). Signed
-  out it opens Contact. A dot on it says support replied and the reply hasn't been opened yet (`lastReplyAt` newer
+- **Help on every screen.** `Page` puts "? Help" at the top right of every screen (Today: beside the bell), a
+  salon's and a kirana's, and every sheet has Help in its own header. It opens Need help for everyone, signed out
+  too: "Call us" and "WhatsApp us" come first (`components/ContactUs.tsx`, the number in `lib/business.ts`); writing
+  needs a verified email, and without one "Write to us" says why with one tap to add it. A dot on it says support replied and the reply hasn't been opened yet (`lastReplyAt` newer
   than when the person last opened that request, also when the reply resolved it): one cached read of My requests
   when the app opens, when it comes back to the front (2-minute stale time, no polling) and when support's reply
   arrives as a notification while the app is open. A screen with changes not saved (opening hours, walk-in, a
@@ -707,7 +709,7 @@ and keeps whatever was typed.
   language, so prices, counts and phone numbers read as on bills and packs.
 - **Not translated.** The legal pages (About, Terms, Privacy, Refunds, Delivery, Contact) stay in English, the
   language they are binding in. Names people type, and everything saved, stay as entered. The offline page shows its
-  lines in the saved language (`public/offline.js`, cached with it by `sw.js`, `offline-v3`).
+  lines in the saved language (`public/offline.js`, cached with it by `sw.js`, `offline-v4`).
 - **Short words in tight places.** A booking card's status pill uses short words (`day.pill*`) and never wraps or
   shrinks; the name beside it wraps instead. Minutes use each language's own short form (hi/mr "मि.", te "నిమి.", ta
   "நிமி.", kn "ನಿಮಿ."); the registration step labels fit a 360px phone in every language.
@@ -718,6 +720,44 @@ and keeps whatever was typed.
   (`docs/translation-review.md` lists what to look at first).
 
 ## Changelog
+
+### Unreleased — never stuck (usability round)
+
+No backend change needed. Fixes the salon side's usability audit (26 findings) and the shared help part of the kirana
+audit. Every new text is in all six languages (Hindi, Telugu, Kannada, Tamil and Marathi to be checked by native
+speakers).
+
+- **Call us and WhatsApp us, for everyone.** Big buttons at the top of Need help (signed out or without a verified
+  email too), on the crash screen, "Please update the app", the old-WebView screen, the offline page, the email and
+  name steps, the code step ("No SMS?"), Contact, a suspended salon's banner, "What happens next" while waiting for the
+  visit, and the "Sent" screen. The WhatsApp message is typed in (the screen, the shop code). One number, in
+  `lib/business.ts` (`CALL_US`, `whatsappUs`); WhatsApp opens in a new tab on the website and as a plain link in the app.
+- **Writing to us still needs a verified email**, and now says so: "Add my email" in one tap, back to the form after.
+  `/help` is open to everyone (no bounce back to the email step); My requests is not asked for until signed in.
+- **Messages open their screen.** "Pay your subscription", fix-it, licence, address and photos messages open
+  `/subscription`, `/setup…`, `/register/photos` from Messages, web push and the app's push (one list,
+  `lib/messageLinks.ts`; `sw.js` keeps a copy, checked by a test). Shop news opens More. A message with no screen
+  opens Today saying "That message is about: …". Messages opened from More go back to More.
+- **Never a dead end.** The crash screen: Open More, Write to us (what happened filled in), Call us. Not found: "Tell us
+  which link you opened". A screen the role can't open: Today says "Only the owner can open that screen. Ask …". A
+  failed save shows "Still not working? Write to us" with its words (`ErrorBanner`). Walk-in with no services: "Add
+  your services" for the owner; "Set who does which service". A booking's Help is at the top of the sheet in every
+  step, and a barber is told who can start without the code. The start-code refusal names the button.
+- **Staff and sign-up.** Helpers and barbers waiting for approval can leave the salon (also under another salon's
+  invitation or hand-over when More can't open yet). The email and name steps have "Sign out and start again".
+- **Language beside Help** on registration, Start, the wait for approval, the email and name steps and Need help.
+- **Invitations.** After inviting: "install the Clozest Partner app and sign in with +91 …" and "Send on WhatsApp";
+  the words say "Clozest Partner app" (not the customers' Clozest). Team (helpers) is on the Salon tab, and Team links
+  to the barbers.
+- **Help answers before the salon is live:** registering (video, trade licence, pin, after submit, sent back) and
+  joining (where the invitation is, wrong salon, owner not on Clozest yet). A photo is enough to write: one tap adds
+  "Please look at the file I sent." (the backend still needs 10 characters).
+- **Registration's bottom "Need help?" link is gone**: the top Help asks first while an upload is running.
+- **Kirana (shared help code only):** Help and the error's "Write to us" now show on a kirana's screens too, about that
+  screen (Counter, Bills, …); More's help card is right under the shop card, about the screen before More. The crash
+  screen says "Your shop's data is safe".
+- **Under load:** nothing new is polled; Need help and Call us ask the backend for nothing more (the shop and My
+  requests come from the same cached reads, and not at all signed out); the offline page is cached (`offline-v4`).
 
 ### Unreleased — analytics
 
