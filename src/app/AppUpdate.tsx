@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useT } from '../i18n'
+import { UpdateHelp } from './UpdateWebView'
 import {
   check,
   finishPlayUpdate,
@@ -63,6 +64,7 @@ function UpdateRequired() {
       >
         {checking ? t('app.updateRequiredChecking') : t('app.updateRequiredCheck')}
       </button>
+      <UpdateHelp screen={t('app.updateRequiredTitle')} />
     </main>
   )
 }

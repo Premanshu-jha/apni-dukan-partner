@@ -1,10 +1,13 @@
-import { useContext, useEffect, useRef, type ButtonHTMLAttributes, type Ref, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ButtonHTMLAttributes, type Ref, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { HelpButton } from '../features/help/HelpButton'
-import { helpHref, isKiranaScreen, shopKindHere, topicFor } from '../features/help/links'
+import { HelpButton, SheetHelpLink } from '../features/help/HelpButton'
+import { helpHref, shopKindHere, topicFor } from '../features/help/links'
 import { ShopContext } from '../api/shop'
-import { useT } from '../i18n'
-import { missingSteps, useSession } from '../store/session'
+import { LANGUAGES, useLanguage, useT } from '../i18n'
+import { GlobeIcon, LanguagePicker } from '../i18n/LanguagePicker'
+import { useSession } from '../store/session'
+import { SheetContext, type SheetState } from './sheetState'
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost'
 
@@ -128,23 +131,21 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
 
 /**
  * Under every shared error: support, one tap away, with the error already in the message (and the screen as the
- * subject), so nobody has to describe it. Signed out (or the profile not finished), Contact instead.
+ * subject), so nobody has to describe it. Signed out or without a verified email, the help page still opens: it
+ * offers Call us and WhatsApp us, and says why writing needs an email.
  */
-function ErrorSupportLink({ message }: { message: string }) {
+export function ErrorSupportLink({ message, about }: { message: string; about?: string }) {
   const t = useT()
   const location = useLocation()
-  const ready = useSession((s) => s.status === 'signedIn' && s.user !== null && missingSteps(s.user).length === 0)
   const shop = useContext(ShopContext)
   const userId = useSession((s) => s.user?.id)
-  if (isKiranaScreen(location.pathname, shopKindHere(location.pathname, shop?.type, userId))) return null
-  const to = ready
-    ? helpHref({
-        from: location.pathname + location.search,
-        about: topicFor(location.pathname) ?? t('help.topicError'),
-        text: t('help.errorText', { message }),
-        write: true,
-      })
-    : '/contact'
+  const kind = shopKindHere(location.pathname, shop?.type, userId)
+  const to = helpHref({
+    from: location.pathname + location.search,
+    about: about ?? topicFor(location.pathname, kind) ?? t('help.topicError'),
+    text: t('help.errorText', { message }),
+    write: true,
+  })
   return (
     <p className="text-sm text-muted">
       {t('help.stillNotWorking')}{' '}
@@ -152,6 +153,19 @@ function ErrorSupportLink({ message }: { message: string }) {
         {t('help.writeToUs')}
       </Link>
     </p>
+  )
+}
+
+/**
+ * A save or a send that failed: the red line, and under it "Still not working? Write to us" with the words it said
+ * already in the message (the full-page ErrorState has the same).
+ */
+export function ErrorBanner({ message, about }: { message: string; about?: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <Banner tone="bad">{message}</Banner>
+      <ErrorSupportLink message={message} about={about} />
+    </div>
   )
 }
 
@@ -164,6 +178,41 @@ export function EmptyState({ title, body, action }: { title: string; body?: stri
     </div>
   )
 }
+
+/**
+ * The globe and the language showing (in its own script): opens the languages in a sheet. For screens where More, and
+ * its language card, can't be opened yet (sign-up, registration, the wait for approval, the start).
+ */
+export function LanguageButton({ className = '' }: { className?: string }) {
+  const t = useT()
+  const lang = useLanguage()
+  const [open, setOpen] = useState(false)
+  const name = LANGUAGES.find((l) => l.code === lang)?.name ?? lang
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={t('language.button', { name })}
+        onClick={() => setOpen(true)}
+        className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-line px-3 text-sm text-link hover:bg-raised ${className}`}
+      >
+        <GlobeIcon />
+        <span lang={lang}>{name}</span>
+      </button>
+      {/* Out of the header: its backdrop blur would hold a fixed panel inside it */}
+      {open &&
+        createPortal(
+          <Sheet open title={t('language.title')} onClose={() => setOpen(false)} help={false}>
+            <LanguagePicker onChosen={() => setOpen(false)} />
+          </Sheet>,
+          document.body,
+        )}
+    </>
+  )
+}
+
+/** Set by a layout (registration) whose every screen shows the language beside Help. */
+export const LanguageInHeader = createContext(false)
 
 /**
  * A screen with a title bar; `back` shows a back arrow. Every screen gets Help at the top right (HelpButton: not on
@@ -179,6 +228,7 @@ export function Page({
   leaveWarning,
   helpTopic,
   ownHelp = false,
+  language = false,
 }: {
   title?: string
   back?: boolean | string
@@ -192,13 +242,17 @@ export function Page({
   helpTopic?: string
   /** The screen draws Help itself, in its own header (Today, next to its bell), so Page adds none */
   ownHelp?: boolean
+  /** The language, one tap away beside Help: screens where More (and its language card) can't be opened yet */
+  language?: boolean
 }) {
   const t = useT()
   const navigate = useNavigate()
+  const withLanguage = useContext(LanguageInHeader) || language
   return (
     <div className="flex flex-1 flex-col">
       {!(title || back) && !ownHelp && (
-        <div className="-mb-3 flex justify-end px-4 pt-3 empty:hidden">
+        <div className="-mb-3 flex justify-end gap-2 px-4 pt-3 empty:hidden">
+          {withLanguage && <LanguageButton />}
           <HelpButton topic={helpTopic} leaveWarning={leaveWarning} />
         </div>
       )}
@@ -220,7 +274,14 @@ export function Page({
           )}
           {/* Takes the room left beside Help and wraps (a long salon name on a 360px phone) instead of pushing it off */}
           {title && <h1 className={`min-w-0 flex-1 font-display text-lg font-semibold break-words ${back ? '' : 'px-2'}`}>{title}</h1>}
-          <HelpButton topic={helpTopic} leaveWarning={leaveWarning} />
+          {withLanguage ? (
+            <div className="ml-auto flex shrink-0 items-center gap-1.5">
+              <LanguageButton />
+              <HelpButton topic={helpTopic} leaveWarning={leaveWarning} />
+            </div>
+          ) : (
+            <HelpButton topic={helpTopic} leaveWarning={leaveWarning} />
+          )}
         </header>
       )}
       <main className="flex flex-1 flex-col gap-4 px-4 py-4">{children}</main>
@@ -233,19 +294,48 @@ export function Page({
   )
 }
 
-/** A panel that slides up over the screen, for confirmations. */
+type FormField = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+function fields(root: HTMLElement | null): FormField[] {
+  return Array.from(root?.querySelectorAll<FormField>('input, textarea, select') ?? []).filter(
+    (el) => !(el instanceof HTMLInputElement && (el.type === 'hidden' || el.type === 'file')),
+  )
+}
+function fieldValue(el: FormField): string {
+  return el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio') ? String(el.checked) : el.value
+}
+/** A field that appeared after the sheet opened (a later step): changed when it holds anything */
+function emptyValue(el: FormField): string {
+  return el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio') ? 'false' : ''
+}
+
+/**
+ * A panel that slides up over the screen, for confirmations. It covers the screen's own Help, so it has Help in its
+ * own header (about this screen, and back here after); a sheet with a form gives its own (`help`, asking first when
+ * something is typed), and `help={false}` leaves it out.
+ */
 export function Sheet({
   open,
   title,
   onClose,
   children,
+  help,
+  busy = false,
 }: {
   open: boolean
   title: string
   onClose: () => void
   children: ReactNode
+  help?: ReactNode | false
+  /** Something on its way (a save, a leave): no Help then (leaving would cut it off) */
+  busy?: boolean
 }) {
   const panel = useRef<HTMLDivElement>(null)
+  // What each field held when the sheet opened: Help asks first when any differs (typing is never lost unasked)
+  const initial = useRef(new WeakMap<Element, string>())
+  const sheetState = useRef<SheetState>({
+    typed: () => fields(panel.current).some((el) => fieldValue(el) !== (initial.current.get(el) ?? emptyValue(el))),
+    busy: () => Boolean(panel.current?.querySelector('[aria-busy="true"], button:disabled [role="status"]')),
+  })
   // The latest onClose, so a parent re-render (a new inline function) doesn't re-run the focus handling
   const close = useRef(onClose)
   useEffect(() => {
@@ -253,10 +343,13 @@ export function Sheet({
   }, [onClose])
   useEffect(() => {
     if (!open) return
+    for (const el of fields(panel.current)) initial.current.set(el, fieldValue(el))
     const before = document.activeElement as HTMLElement | null
     const focusable = () =>
       Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input, textarea, [tabindex="0"]') ?? [])
-    focusable()[0]?.focus()
+    // The first action, not the Help in the header
+    const first = focusable().find((el) => !el.closest('[data-sheet-help]')) ?? focusable()[0]
+    first?.focus()
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close.current()
       if (e.key !== 'Tab') return
@@ -293,8 +386,13 @@ export function Sheet({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-lg rounded-t-3xl border-t border-line bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
       >
-        <h2 className="mb-3 font-display text-lg font-semibold">{title}</h2>
+        <SheetContext.Provider value={sheetState.current}>
+        <div className="mb-3 flex items-start justify-between gap-2">
+          <h2 className="min-w-0 font-display text-lg font-semibold break-words">{title}</h2>
+          {help !== false && !busy && <span data-sheet-help className="max-w-[55%] shrink-0">{help ?? <SheetHelpLink dirty={false} />}</span>}
+        </div>
         {children}
+        </SheetContext.Provider>
       </div>
     </div>
   )
