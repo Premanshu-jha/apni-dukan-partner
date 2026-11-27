@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { authApi } from '../../api/auth'
-import { useSession } from '../../store/session'
+import { missingSteps, useSession } from '../../store/session'
 import { AttachmentPicker, useAttachments } from './Attach'
 import { cleanedLength, sendError } from './text'
 import { helpApi, helpKeys, useMyRequests } from '../../api/help'
@@ -9,10 +9,12 @@ import { useMyShop } from '../../api/shop'
 import { useQueryClient } from '@tanstack/react-query'
 import { isApiError, messageOf } from '../../api/errors'
 import type { HelpTicket } from '../../api/types'
-import { Banner, Button, Card, Field, Page, TextArea } from '../../components/ui'
-import { SUPPORT_EMAIL } from '../../lib/config'
+import { Banner, Button, Card, Field, Loading, Page, TextArea } from '../../components/ui'
+import { ContactUs } from '../../components/ContactUs'
+import { kiranaOn, SUPPORT_EMAIL } from '../../lib/config'
+import { loadRegisterKind } from '../../lib/registerDraft'
 import { storage } from '../../lib/storage'
-import { rememberReturn } from '../auth/flow'
+import { nextAfterSignIn, rememberReturn } from '../auth/flow'
 import { spaceBefore, useT } from '../../i18n'
 import { HelpIcon } from './HelpButton'
 import { HowToAnswers } from './HowTo'
@@ -50,22 +52,81 @@ export function typedByThem(d: Draft | null): boolean {
  * waiting, and the how-to answers for this person's role, searchable, each with "Take me there". The form opens at
  * once when the address says what to write (`about`, `text` or `write=1`: an error's "Write to us", a booking's
  * "Problem with this?", any other screen's link). See links.ts for everything /help takes.
+ *
+ * Anyone can open it, signed in or not: Call us and WhatsApp us come first, for everyone. Writing to us needs a
+ * verified email (replies go there): without one, "Write to us" says so, with one tap to add it (and back here after),
+ * and Call us / WhatsApp us stay in sight.
  */
 export function NeedHelp() {
   const [params] = useSearchParams()
+  const status = useSession((s) => s.status)
+  if (status === 'starting') return <Loading />
   const writing = params.has('about') || params.has('text') || params.get('write') === '1'
   return writing ? <WriteToUs /> : <HelpHome />
 }
 
-/** The help page's top: the actions first, then the answers. */
+/** Signed in with a verified email and a name: what writing to us needs (the backend's PROFILE_INCOMPLETE). */
+function useReady(): boolean {
+  return useSession((s) => s.status === 'signedIn' && s.user !== null && missingSteps(s.user).length === 0)
+}
+
+/** Call us / WhatsApp us at the top, with the screen they came about and the shop code (when known) typed in. */
+function TalkToUs({ about, shopCode }: { about: string | null; shopCode?: number | null }) {
+  const t = useT()
+  return (
+    <div className="flex flex-col gap-2">
+      <ContactUs screen={about ?? t('help.title')} shopCode={shopCode} heading={t('help.talkToUs')} />
+      {shopCode != null && <p className="text-center text-sm">{t('help.tellShopCode', { code: String(shopCode) })}</p>}
+    </div>
+  )
+}
+
+/**
+ * "Write to us" without a verified email (or signed out): why it needs one, and one tap to add it (or to sign in).
+ * Back here afterwards, with the message form open (what was typed is kept).
+ */
+function NeedsEmail() {
+  const t = useT()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const user = useSession((s) => (s.status === 'signedIn' ? s.user : null))
+  // Only the name is missing (the email is verified): say that, not "email"
+  const nameOnly = user !== null && !missingSteps(user).includes('email')
+  const what = !user ? 'SignIn' : nameOnly ? 'Name' : 'Email'
+  const back = () => {
+    const p = new URLSearchParams(location.search)
+    p.set('write', '1')
+    return `${location.pathname}?${p.toString()}`
+  }
+  return (
+    <Card className="flex flex-col gap-3">
+      <p className="font-semibold">{t(`help.need${what}Title`)}</p>
+      <p className="text-sm text-muted">{t(`help.need${what}Body`)}</p>
+      <Button
+        className="min-h-14 text-lg"
+        onClick={() => {
+          rememberReturn(back())
+          navigate(user ? nextAfterSignIn(user) : '/signin')
+        }}
+      >
+        {t(!user ? 'help.signInToWrite' : nameOnly ? 'help.addMyName' : 'help.addMyEmail')}
+      </Button>
+    </Card>
+  )
+}
+
+/** The help page's top: the actions first (Call us / WhatsApp us, then Write to us), then the answers. */
 function HelpHome() {
   const t = useT()
   const [params, setParams] = useSearchParams()
-  const user = useSession((s) => s.user)!
-  const shop = useMyShop()
+  const user = useSession((s) => s.user)
+  const ready = useReady()
+  const shop = useMyShop(ready)
   const from = safeFrom(params.get('from'))
   const topic = params.get('topic')?.slice(0, SUBJECT_MAX) || null
-  const started = typedByThem(storage.getJson<Draft>(draftKey(user.id)))
+  const started = ready && user ? typedByThem(storage.getJson<Draft>(draftKey(user.id))) : false
+  // No shop yet, but "What do you run?" was answered with a kirana: the early answers are a salon's
+  const kiranaRegistering = (!ready || shop.data === null) && kiranaOn() && loadRegisterKind(user?.id) === 'KIRANA'
   // Opens the form in this same page, as a step of its own: Back comes back here
   const write = (extra: { about?: string; text?: string } = {}) =>
     setParams((p) => {
@@ -78,20 +139,30 @@ function HelpHome() {
       return next
     })
   return (
-    <Page title={t('help.title')} back={from ? true : '/'}>
-      <div className="flex flex-col gap-1">
-        <Button className="min-h-14 text-lg" onClick={() => write()}>
-          <HelpIcon />
-          {started ? t('help.continueMessage') : t('help.writeToUs')}
-        </Button>
-        <p className="text-center text-sm text-muted">
-          {topic && !started ? `${t('help.writeAbout', { topic })} · ` : ''}
-          {t('help.writeHint')}
-        </p>
-      </div>
-      <RequestsCard userId={user.id} />
-      {/* What they searched for becomes the subject: the message is theirs to write (no "too short" before they do) */}
-      {shop.data && <HowToAnswers shop={shop.data} from={from} onAsk={(q) => write({ about: q.slice(0, SUBJECT_MAX) })} />}
+    <Page title={t('help.title')} back={from ? true : '/'} language={!ready}>
+      <TalkToUs about={topic ?? from} shopCode={shop.data?.shopCode} />
+      {ready ? (
+        <div className="flex flex-col gap-1">
+          <Button className="min-h-14 text-lg" onClick={() => write()}>
+            <HelpIcon />
+            {started ? t('help.continueMessage') : t('help.writeToUs')}
+          </Button>
+          <p className="text-center text-sm text-muted">
+            {topic && !started ? `${t('help.writeAbout', { topic })} · ` : ''}
+            {t('help.writeHint')}
+          </p>
+        </div>
+      ) : (
+        <NeedsEmail />
+      )}
+      {ready && user && <RequestsCard userId={user.id} from={from} topic={topic} />}
+      {/* What they searched for becomes the subject: the message is theirs to write (no "too short" before they do).
+          No shop yet (null), or a salon not live yet: the answers about registering and joining */}
+      {/* Without a verified email (or signed out) too: no shop is read then, so the answers about registering and
+          joining (they need no email) */}
+      {(ready ? shop.isSuccess : true) && !kiranaRegistering && (
+        <HowToAnswers shop={ready ? (shop.data ?? null) : null} from={from} onAsk={(q) => write({ about: q.slice(0, SUBJECT_MAX) })} />
+      )}
       <p className="text-center text-sm text-muted">
         {t('help.orEmailUsAt')}{' '}
         <a href={`mailto:${SUPPORT_EMAIL}`} className="text-link underline [overflow-wrap:anywhere]">
@@ -103,7 +174,7 @@ function HelpHome() {
 }
 
 /** My requests in one line: how many are with us and how many we answered (a new answer stands out). */
-function RequestsCard({ userId }: { userId: string }) {
+function RequestsCard({ userId, from, topic }: { userId: string; from: string | null; topic: string | null }) {
   const t = useT()
   const list = useMyRequests()
   const seen = useHelpSeen((s) => s.seen)
@@ -113,7 +184,8 @@ function RequestsCard({ userId }: { userId: string }) {
   const replied = list.data?.filter((r) => r.status === 'WAITING').length ?? 0
   const fresh = unreadReplies(list.data, seen).length
   return (
-    <Link to="/help/requests" state={{ from: true }} className="block">
+    // The screen Help was opened from goes along: "Ask something new" there is about it, and Done goes back to it
+    <Link to="/help/requests" state={{ from: true, helpFrom: from, topic }} className="block">
       <Card className="flex items-center justify-between gap-3 hover:bg-raised">
         <span className="flex min-w-0 flex-col">
           <span className="font-semibold">{t('help.myRequests')}</span>
@@ -134,9 +206,34 @@ function RequestsCard({ userId }: { userId: string }) {
   )
 }
 
-/** The message form (as it always was), opened from Help's "Write to us" or straight from a link. */
+/**
+ * "Write to us", opened from Help or straight from a link: the message form; without a verified email (or signed
+ * out), why it needs one and one tap to add it, with Call us / WhatsApp us above.
+ */
 function WriteToUs() {
   const t = useT()
+  const ready = useReady()
+  const [params] = useSearchParams()
+  if (ready) return <MessageForm />
+  const about = params.get('about')?.slice(0, SUBJECT_MAX) || params.get('topic')?.slice(0, SUBJECT_MAX) || null
+  return (
+    <Page title={t('help.title')} back language>
+      <TalkToUs about={about ?? safeFrom(params.get('from'))} />
+      <NeedsEmail />
+      <p className="text-center text-sm text-muted">
+        {t('help.orEmailUsAt')}{' '}
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="text-link underline [overflow-wrap:anywhere]">
+          {SUPPORT_EMAIL}
+        </a>
+      </p>
+    </Page>
+  )
+}
+
+/** The message form (as it always was). */
+function MessageForm() {
+  const t = useT()
+  const shop = useMyShop()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const location = useLocation()
@@ -264,13 +361,20 @@ function WriteToUs() {
         <Button variant="secondary" onClick={() => navigate(from ?? '/', { replace: true })}>
           {t('common.done')}
         </Button>
+        <ContactUs screen={`${done.number}${subject.trim() ? ` · ${subject.trim()}` : ''}`} heading={t('help.urgentCall')} />
       </Page>
     )
   }
 
   return (
     <Page title={t('help.title')} back>
-      <Link to="/help/requests" state={{ from: true }} className="self-start text-sm text-link underline">
+      {/* A person is one tap away here too (a barber with "Wrong code" on screen and a customer waiting) */}
+      <ContactUs screen={subject.trim() || params.get('topic') || from || t('help.title')} shopCode={shop.data?.shopCode} />
+      <Link
+        to="/help/requests"
+        state={{ from: true, helpFrom: from, topic: params.get('topic') }}
+        className="inline-flex min-h-11 items-center self-start text-sm text-link underline"
+      >
         {t('help.askedBefore')}
       </Link>
       <p className="text-muted">
@@ -316,6 +420,16 @@ function WriteToUs() {
           error={problem}
           hint={length === 0 ? (files.items.length > 0 ? t('help.atLeastEvenWithFile', { min: MESSAGE_MIN }) : t('help.atLeast', { min: MESSAGE_MIN })) : `${length} / ${MESSAGE_MAX}`}
         />
+        {/* A photo or a video says it all: the few words the message needs, in one tap (nothing is sent without them) */}
+        {files.items.length > 0 && length < MESSAGE_MIN && (
+          <button
+            type="button"
+            className="min-h-11 self-start rounded-xl border border-line bg-raised px-4 text-left text-sm text-link"
+            onClick={() => setMessage((m) => `${m.trim() ? `${m.trim()} ` : ''}${t('help.fileWords')}`)}
+          >
+            {t('help.fileWordsAdd', { text: t('help.fileWords') })}
+          </button>
+        )}
         <AttachmentPicker a={files} id="help-files" disabled={busy} />
         {files.sending && <p className="text-sm text-muted">{t('help.filesStillUploading')}</p>}
         {files.failed && <p className="text-sm text-bad">{t('help.fileFailed')}</p>}

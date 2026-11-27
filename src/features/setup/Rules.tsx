@@ -4,7 +4,7 @@ import { isApiError, messageOf } from '../../api/errors'
 import { salonKeys, setupApi, useSettings } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import type { Settings } from '../../api/types'
-import { Banner, Button, Card, ErrorState, Field, Loading, Page } from '../../components/ui'
+import { Banner, Button, Card, ErrorBanner, ErrorState, Field, Loading, Page } from '../../components/ui'
 import { useT } from '../../i18n'
 import { can } from '../../lib/roles'
 import { useLocation } from 'react-router'
@@ -82,7 +82,7 @@ function RulesForm({ settings, onDirty }: { settings: Settings; onDirty: (part: 
         onChange={(e) => setAhead(e.target.value.replace(/\D/g, ''))}
         error={aheadBad ? t('setup.aheadError') : undefined}
       />
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       {saved && <Banner tone="good">{t('setup.saved')}</Banner>}
       {edit && (
         <Button busy={busy} disabled={leadBad || aheadBad} onClick={save}>

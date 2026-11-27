@@ -1,9 +1,11 @@
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { INBOX_MAX_PAGES, useInbox, useMarkRead, type InboxItem } from '../../api/notifications'
 import { messageOf } from '../../api/errors'
 import { Button, EmptyState, ErrorState, Loading, Page } from '../../components/ui'
 import { hasText, language, t, useT } from '../../i18n'
 import { dateTimeIst, minutesUntil } from '../../lib/ist'
+import { messageScreen } from '../../lib/messageLinks'
+import { cameFrom } from '../shop/Register'
 
 /** "Just now", "12 min ago", "3 h ago", else the date and time. */
 function when(sentAt: string): string {
@@ -80,22 +82,13 @@ const alarming = new Set([
 ])
 
 /**
- * Only this app's own pages are opened from a message: the day board, the start for shop news, the hand-over
- * requests ("A shop for you": /handover), invitations to join a shop (/invites), and the owner's Salon tab, document
- * and address request.
+ * Only this app's own pages are opened from a message, by the same rule as a tapped push (lib/messageLinks.ts): the
+ * day board, paying the subscription, the screens a fix or licence message points to, shop news on More, hand-over
+ * requests ("A shop for you": /handover), invitations to join a shop (/invites), a support request and, with the
+ * kirana switch on, a kirana's licences (and the nearest screen for its other messages).
  */
-export function safePath(url: string | null): string | null {
-  if (!url || !url.startsWith('/') || url.startsWith('//')) return null
-  if (url.startsWith('/salon/')) return url
-  if (url === '/handover' || url === '/invites') return url
-  // "Support replied": the request it is about
-  if (/^\/help\/requests\/[0-9A-Za-z-]{1,64}$/.test(url)) return url
-  // The owner's salon screens a message about his salon points to (a fix asked for, an address declined)
-  if (url === '/setup' || url === '/setup/document' || url === '/setup/address') return url
-  // A salon still registering: its trade licence's step
-  if (url === '/register/photos') return url
-  if (url.startsWith('/shops/')) return '/'
-  return null
+export function safePath(url: string | null, type?: string | null): string | null {
+  return messageScreen(url, type)
 }
 
 export function Inbox() {
@@ -105,15 +98,20 @@ export function Inbox() {
   const markRead = useMarkRead()
   const items = inbox.data?.pages.flatMap((p) => p.items) ?? []
   const unread = inbox.data?.pages[0]?.unread ?? 0
+  // Opened from More: back to More (not to another tab)
+  const location = useLocation()
 
   function open(item: InboxItem) {
     if (!item.read) markRead.mutate([item.id])
-    const path = safePath(item.url)
+    const path = safePath(item.url, item.type)
+    // A message with no screen of its own here (or one this version doesn't know): Today, saying what it was about,
+    // so a tap is never a dead end
     if (path) navigate(path)
+    else navigate('/', { state: { aboutMessage: titleOf(item) } })
   }
 
   return (
-    <Page back="/salon/day" title={t('notifications.title')}>
+    <Page back={cameFrom(location, '/salon/day')} title={t('notifications.title')}>
       {unread > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted">{t('notifications.unreadCount', { count: unread > 99 ? '99+' : unread })}</p>

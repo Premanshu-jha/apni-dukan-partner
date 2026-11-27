@@ -18,7 +18,7 @@ import { licenceSummary, RegistrationDocCard, useLicencePolling, licenceState } 
 import { RecheckWaiting } from './RecheckWaiting'
 import { SalonVideo } from './SalonVideo'
 import { shopAsk, TeamReasons, type FixShop, type TeamAsk } from './TeamReasons'
-import { Banner, Button, Card, ErrorState, Field, Loading, Page, Sheet } from '../../components/ui'
+import { Banner, Button, Card, ErrorBanner, ErrorState, Field, LanguageInHeader, Loading, Page, Sheet } from '../../components/ui'
 import {
   insideIndia,
   locateOnce,
@@ -46,7 +46,6 @@ import {
 import { signOutHere } from '../profile/signOut'
 import { kiranaOn, shopTypeOn } from '../../lib/config'
 import { withKiranaTexts } from '../../i18n/kirana'
-import { useWriteToUsHref } from '../help/HelpButton'
 
 /** A kirana's last step: its own download (kirana switch on only; off, no kirana reaches registration). */
 const KiranaReview = lazy(() => withKiranaTexts(import('./KiranaRegister')).then((m) => ({ default: m.KiranaReview })))
@@ -59,7 +58,6 @@ const PinMap = lazy(() => import('../../components/PinMap').then((m) => ({ defau
  * Anyone else (a shop already submitted, a helper) goes back to the start.
  */
 export function RegisterLayout({ needShop }: { needShop: boolean }) {
-  const writeToUs = useWriteToUsHref()
   const t = useT()
   const shop = useMyShop()
   if (shop.isPending) return <Loading />
@@ -74,13 +72,13 @@ export function RegisterLayout({ needShop }: { needShop: boolean }) {
   // A kind this build doesn't serve (a kirana, switch off): home, whose gate says so
   if (mine && (mine.myRole !== 'OWNER' || mine.status !== 'DRAFT' || !shopTypeOn(mine.type))) return <Navigate to="/" replace />
   if (needShop && !mine) return <Navigate to="/register" replace />
+  // Help is at the top right of every step (Page's, which asks first while an upload is under way), with the
+  // language beside it: More, and its language card, open only after submitting
   return (
     <ShopContext.Provider value={mine}>
-      <Outlet />
-      {/* Stuck on a step, or sent back by the field team: help is one tap away on every step */}
-      <Link to={writeToUs} className="pb-6 text-center text-sm text-link underline">
-        {t('register.needHelp')}
-      </Link>
+      <LanguageInHeader.Provider value>
+        <Outlet />
+      </LanguageInHeader.Provider>
     </ShopContext.Provider>
   )
 }
@@ -783,7 +781,7 @@ export function RegisterDetails({
       </Card>
       )}
 
-      {generalError && <Banner tone="bad">{generalError}</Banner>}
+      {generalError && <ErrorBanner message={generalError} />}
       {confirmRecheck && (
         <Banner tone="warn">
           {t(
@@ -1134,7 +1132,7 @@ export function OwnerAsBarber() {
           {t('register.noOnlyStaff')}
         </Button>
       </div>
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
     </Card>
   )
 }
@@ -1295,7 +1293,7 @@ function SalonReview() {
       <p className="text-sm text-muted">
         {t('register.afterSubmit')}
       </p>
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       <Button disabled={!ready} onClick={() => setAsking(true)}>
         {t('register.submitForVisit')}
       </Button>

@@ -11,7 +11,7 @@ import { useSession } from '../../store/session'
 import { AttachmentPicker, MessageFiles, useAttachments } from './Attach'
 import { cleanedLength, sendError } from './text'
 import { unreadReplies, useHelpSeen } from './seen'
-import { helpHref } from './links'
+import { helpHref, safeFrom } from './links'
 import { useT } from '../../i18n'
 
 /** The backend's limits for adding to a request (TicketService.addToMine). */
@@ -43,7 +43,12 @@ export function MyRequests() {
   useEffect(() => load(user.id), [load, user.id])
   const fresh = new Set(unreadReplies(list.data, seen).map((r) => r.id))
   // ← goes back where they came from (Profile, More, Need help); opened from a link or after sending, to Home
-  const cameFrom = (useLocation().state as { from?: unknown } | null)?.from === true
+  const state = useLocation().state as { from?: unknown; helpFrom?: unknown; topic?: unknown } | null
+  const cameFrom = state?.from === true
+  // A new question from here is about the screen Help was opened from, and Done after sending goes back there
+  const helpFrom = typeof state?.helpFrom === 'string' ? safeFrom(state.helpFrom) : null
+  const topic = typeof state?.topic === 'string' && state.topic ? state.topic.slice(0, 100) : undefined
+  const askNew = helpHref({ write: true, from: helpFrom ?? undefined, topic, about: topic })
   return (
     <Page title={t('help.myRequests')} back={cameFrom ? true : '/'}>
       {list.isError && list.data && (
@@ -58,7 +63,7 @@ export function MyRequests() {
           title={t('help.noRequests')}
           body={t('help.noRequestsBody')}
           action={
-            <Link to={helpHref({ write: true })} className="text-link underline">
+            <Link to={askNew} className="inline-flex min-h-11 items-center text-link underline">
               {t('help.writeToSupport')}
             </Link>
           }
@@ -87,7 +92,7 @@ export function MyRequests() {
             ))}
           </ul>
           {list.data!.length >= 30 && <p className="text-center text-sm text-muted">{t('help.latest30')}</p>}
-          <Link to={helpHref({ write: true })} className="text-center text-link underline">
+          <Link to={askNew} className="inline-flex min-h-11 items-center justify-center text-link underline">
             {t('help.askNew')}
           </Link>
         </>

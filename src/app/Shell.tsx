@@ -8,6 +8,7 @@ import { announceLanguageChosen } from '../i18n/LanguageToast'
 import { kiranaOn } from '../lib/config'
 import { can } from '../lib/roles'
 import { useLanguageOffer } from '../features/guide/languageOffer'
+import { useNoteScreen } from '../features/help/lastScreen'
 
 /**
  * The bottom bar's tabs for a role: barbers have no Salon tab (setup is for the owner and helpers). A kirana's owner
@@ -37,6 +38,7 @@ export function Shell() {
   const t = useT()
   const shop = useShop()
   const tabs = tabsFor(shop.myRole, shop.type)
+  useNoteScreen()
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col md:max-w-3xl">
       <ApprovalBar />
@@ -97,6 +99,7 @@ export function ApprovalBar() {
  * time off, services, hours…), so they too say a salon not approved yet is waiting.
  */
 export function Bare({ approvalBar = false }: { approvalBar?: boolean }) {
+  useNoteScreen()
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
       {approvalBar && <ApprovalBar />}

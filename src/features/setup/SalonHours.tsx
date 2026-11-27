@@ -5,7 +5,7 @@ import { explain, isApiError, messageOf } from '../../api/errors'
 import { refreshSalonWork, salonKeys, setupApi, SETUP_KEYS, useSalonHours } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import type { InTheWay, SalonHours } from '../../api/types'
-import { Banner, Button, Card, ErrorState, Field, Loading, Page, Switch } from '../../components/ui'
+import { Banner, Button, Card, ErrorBanner, ErrorState, Field, Loading, Page, Switch } from '../../components/ui'
 import { useT } from '../../i18n'
 import { clock12, weekdayName } from '../../lib/ist'
 import { can } from '../../lib/roles'
@@ -182,7 +182,7 @@ export function SalonHoursEditor({
           </Button>
         </div>
       )}
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       <BookingsInTheWay list={inTheWay} />
       <Button busy={busy} disabled={Boolean(problem)} onClick={() => save(false)}>
         {saveLabel}

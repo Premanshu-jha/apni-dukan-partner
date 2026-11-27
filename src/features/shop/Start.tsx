@@ -80,7 +80,7 @@ export function Start() {
 
   const w = startWords()
   return (
-    <Page>
+    <Page language>
       <Brand subtitle={t(w.welcome, { name: user.name ?? '' })} />
       {closed && (
         <Banner tone="info">

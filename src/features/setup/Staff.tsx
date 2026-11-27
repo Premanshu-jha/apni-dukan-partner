@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router'
 import { fieldError, messageOf } from '../../api/errors'
 import { addOwnerAsBarber, ownProfile, setupApi, useStaff, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
 import { useShop } from '../../api/shop'
-import { Banner, Button, EmptyState, ErrorState, Field, Loading, Page, Pill, Sheet } from '../../components/ui'
+import { Banner, Button, EmptyState, ErrorBanner, ErrorState, Field, Loading, Page, Pill, Sheet } from '../../components/ui'
 import { t, useT } from '../../i18n'
 import { weekdayName } from '../../lib/ist'
 import { formatPhone } from '../../lib/phone'
@@ -43,7 +43,7 @@ function AddMe() {
       >
         {t('setup.addMe')}
       </Button>
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
     </>
   )
 }
@@ -127,7 +127,8 @@ function AddStaff({ onClose }: { onClose: () => void }) {
     }
   }
   return (
-    <Sheet open title={t('setup.newBarber')} onClose={onClose}>
+    // The sheet covers the screen's Help: its own, in its header (it asks first when a name is typed)
+    <Sheet open title={t('setup.newBarber')} onClose={onClose} help={<SheetHelpLink dirty={name.trim() !== ''} />}>
       <div className="flex flex-col gap-3">
         <Field id="staff-name" label={t('setup.barberName')} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} error={fieldError(error, 'name')} />
         {error != null && !fieldError(error, 'name') && <Banner tone="bad">{messageOf(error)}</Banner>}
@@ -137,8 +138,6 @@ function AddStaff({ onClose }: { onClose: () => void }) {
         <Button variant="ghost" onClick={onClose}>
           {t('common.cancel')}
         </Button>
-        {/* The sheet covers the screen's Help: its own, here (last, so the sheet still opens on the name) */}
-        <SheetHelpLink dirty={name.trim() !== ''} />
       </div>
     </Sheet>
   )

@@ -12,6 +12,8 @@ import { dateTimeIst } from '../../lib/ist'
 import { useSession } from '../../store/session'
 import { rememberReturn } from '../auth/flow'
 import { goneText, shopChanged } from './ownership'
+import { leaveAdvice, moreOpensFor } from './InviteOffers'
+import { LeaveShop } from '../profile/LeaveShop'
 
 /**
  * Hand-over requests made to this person's phone (GET /me/handover), each with Accept and Decline. Shown at the top of
@@ -46,6 +48,7 @@ function Offer({ offer, onNote }: { offer: IncomingHandover; onNote: (text: stri
   const [asking, setAsking] = useState(false)
   const [busy, setBusy] = useState<'accept' | 'decline' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [inAnother, setInAnother] = useState(false)
   // Accepted, but the sign-in couldn't be renewed: the shop is theirs; renewing again opens it
   const [unrenewed, setUnrenewed] = useState<Shop | null>(null)
   const sameShop = mine?.id === offer.shopId
@@ -54,6 +57,7 @@ function Offer({ offer, onNote }: { offer: IncomingHandover; onNote: (text: stri
     if (busy) return
     setBusy(kind)
     setError(null)
+    setInAnother(false)
     try {
       if (kind === 'accept') {
         const { shop, renewed } = await shopApi.accept(offer.id)
@@ -82,7 +86,10 @@ function Offer({ offer, onNote }: { offer: IncomingHandover; onNote: (text: stri
         navigate('/handover')
         void authApi.me().then(setUser).catch(() => {})
       } else if (isApiError(e, 'ALREADY_IN_A_SHOP')) {
-        setError(`${messageOf(e)}${mine ? ` ${t('shop.leaveShopFromMore', { name: mine.name })}` : ''}`)
+        setError(`${messageOf(e)}${mine ? ` ${leaveAdvice(mine)}` : ''}`)
+        // On the card, with Leave under it when More can't be opened yet (not a sheet over a sheet)
+        setInAnother(true)
+        setAsking(false)
       } else {
         setError(messageOf(e))
       }
@@ -123,6 +130,7 @@ function Offer({ offer, onNote }: { offer: IncomingHandover; onNote: (text: stri
       </p>
       <p className="text-xs text-muted">{t('shop.offerAskedOpenUntil', { asked: dateTimeIst(offer.createdAt), until: dateTimeIst(offer.expiresAt) })}</p>
       {error && !asking && <Banner tone="bad">{error}</Banner>}
+      {inAnother && !asking && mine && !moreOpensFor(mine) && <LeaveShop shop={mine} then="/handover" />}
       <div className="flex gap-2">
         <Button className="flex-1" onClick={() => setAsking(true)} disabled={busy !== null}>
           {t('shop.accept')}
