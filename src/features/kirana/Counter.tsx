@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { isApiError, messageOf } from '../../api/errors'
+import { fieldError, isApiError, messageOf } from '../../api/errors'
 import {
   kiranaApi,
   kiranaKeys,
@@ -14,7 +14,7 @@ import {
 } from '../../api/kirana'
 import { useShop } from '../../api/shop'
 import { t, useT } from '../../i18n'
-import { Banner, Button, Card, Chip, Field, Loading, Page, Sheet } from '../../components/ui'
+import { Banner, Button, Card, Chip, ErrorBanner, Field, Loading, Page, Sheet } from '../../components/ui'
 import {
   addLoose,
   addOther,
@@ -39,11 +39,13 @@ import {
 import { rupees } from '../../lib/money'
 import { storage } from '../../lib/storage'
 import { useSession } from '../../store/session'
-import { WaitingForVisit } from '../shop/Home'
 import { cartOwner, useCart } from './cart'
-import { outcomeUnknown, paidByText, paymentText, SearchBox, SumRow, useDebounced } from './common'
+import { AskOwner, outcomeUnknown, paidByText, paymentText, SearchBox, SumRow, useDebounced } from './common'
 import { KhataPicker } from './KhataPicker'
+import { forgetLater, keepForLater } from './later'
 import { Scanner } from './Scanner'
+import { SetupCard } from './Setup'
+import { ArrivedNote } from '../../components/ArrivedNote'
 import { UpiQrCode } from './UpiQrCode'
 
 /**
@@ -76,15 +78,15 @@ export function Counter() {
   }, [location.state])
   const [other, setOther] = useState<{ name: string } | null>(null)
   const [discounting, setDiscounting] = useState(false)
-  const [khata, setKhata] = useState(false)
+  // Back from raising a khata customer's limit (F-10): the khata sheet again, with the same customer and amounts
+  const [khataResume] = useState(() => (useCart.getState().cart.lines.length ? takeKhataReturn() : null))
+  const [khata, setKhata] = useState(khataResume !== null)
   const [editingLine, setEditingLine] = useState<CartLine | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [gone, setGone] = useState<string[]>([])
   const [confirmEdit, setConfirmEdit] = useState(false)
   const [clearing, setClearing] = useState(false)
-  // "What happens next" until the owner has read it (the approval bar at the top still says it waits)
-  const [waitingSeen, setWaitingSeen] = useState(() => storage.get(`adp.kiranaWaitingSeen.${shop.id}`) === '1')
   const [limitHit, setLimitHit] = useState(false)
   /** The total the screen showed when Save was tapped: the receipt says so if the bill came out different. */
   const [shownTotal, setShownTotal] = useState<number | null>(null)
@@ -160,21 +162,9 @@ export function Counter() {
 
   return (
     <Page title={t('kiranaCounter.title')}>
-      {owner && shop.status === 'PENDING_VISIT' && !waitingSeen && (
-        <div className="flex flex-col gap-1">
-          <WaitingForVisit />
-          <button
-            type="button"
-            className="min-h-11 self-end px-2 text-sm text-link underline"
-            onClick={() => {
-              storage.set(`adp.kiranaWaitingSeen.${shop.id}`, '1')
-              setWaitingSeen(true)
-            }}
-          >
-            {t('kiranaCounter.hideWaiting')}
-          </button>
-        </div>
-      )}
+      <CounterArrivedNote />
+      <SetupCard />
+      {!owner && <HelperHint shopId={shop.id} shopName={shop.name} userId={userId} />}
       <div className="flex gap-2">
         <Button className="flex-1" onClick={() => setScanning(true)} disabled={locked}>
           {t('kiranaCounter.scan')}
@@ -272,7 +262,7 @@ export function Counter() {
         </Card>
       )}
 
-      {error && !khata && <Banner tone={cart.unsure ? 'warn' : 'bad'}>{error}</Banner>}
+      {error && !khata && (cart.unsure ? <Banner tone="warn">{error}</Banner> : <ErrorBanner message={error} />)}
       {cart.unsure && cart.pending && (
         <Button busy={busy} onClick={() => save(cart.pending!.payment, { ...cart.pending! })}>
           {t('kiranaCounter.tryAgainPay', { payment: pendingLabel(cart.pending), amount: rupees(total) })}
@@ -377,7 +367,7 @@ export function Counter() {
       </Sheet>
 
       <Sheet open={khata} title={t('kiranaCounter.khataSheetTitle', { amount: rupees(total) })} onClose={() => !busy && setKhata(false)}>
-        <KhataPay total={total} busy={busy} owner={owner} limitHit={limitHit} error={khata ? error : null} onPay={(c, paid) => save('KHATA', { khataCustomerId: c.id, khataName: c.name, ...paid })} />
+        <KhataPay total={total} busy={busy} owner={owner} limitHit={limitHit} error={khata ? error : null} resume={khataResume} onPay={(c, paid) => save('KHATA', { khataCustomerId: c.id, khataName: c.name, ...paid })} />
       </Sheet>
 
       <Sheet open={done !== null} title={done ? t('kiranaCounter.billSavedTitle', { billNo: String(done.bill.billNo) }) : ''} onClose={() => setDone(null)}>
@@ -678,6 +668,7 @@ function DiscountForm({ owner, subtotal, current, onSave }: { owner: boolean; su
         error={err ?? undefined}
         autoFocus
       />
+      {!owner && err === t('kiranaCounter.helperDiscountMax') && <AskOwner message={t('kiranaSetup.askOwnerDiscount', { amount: value.trim() })} />}
       <Button type="submit">{t('common.save')}</Button>
       {current > 0 && (
         <Button variant="ghost" onClick={() => onSave(0)}>
@@ -696,6 +687,7 @@ function KhataPay({
   limitHit,
   error,
   onPay,
+  resume,
 }: {
   total: number
   busy: boolean
@@ -703,12 +695,28 @@ function KhataPay({
   limitHit: boolean
   error: string | null
   onPay: (c: KhataCustomer, paid: { paidNowPaise?: number; paidNowBy?: PaidBy }) => void
+  /** Back from raising the customer's limit: the same customer and what was paid now, read again (the new limit). */
+  resume?: KhataReturn | null
 }) {
   const t = useT()
   const [who, setWho] = useState<KhataCustomer | null>(null)
-  const [paid, setPaid] = useState('')
-  const [by, setBy] = useState<PaidBy>('CASH')
+  const [paid, setPaid] = useState(resume?.paid ?? '')
+  const [by, setBy] = useState<PaidBy>(resume?.by ?? 'CASH')
   const [err, setErr] = useState<string | null>(null)
+  const [resuming, setResuming] = useState(Boolean(resume))
+  useEffect(() => {
+    if (!resume) return
+    let gone = false
+    kiranaApi
+      .customer(resume.customerId)
+      .then((d) => !gone && setWho(d.customer))
+      .catch(() => undefined)
+      .finally(() => !gone && setResuming(false))
+    return () => {
+      gone = true
+    }
+  }, [resume])
+  if (!who && resuming) return <Loading />
   if (!who) return <KhataPicker onPick={setWho} />
   const r = paid.trim() ? parseRupees(paid) : null
   const paidNow = r && 'paise' in r ? r.paise : 0
@@ -749,12 +757,18 @@ function KhataPay({
         </div>
       )}
       <SumRow strong label={t('kiranaCounter.onKhata')} value={rupees(Math.max(0, onKhata))} />
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       {error && limitHit && owner && (
-        <Link to={`/kirana/khata/${who.id}`} className="text-sm text-link underline">
+        <Link
+          to={`/kirana/khata/${who.id}`}
+          state={{ from: '/kirana/counter' }}
+          onClick={() => keepKhataReturn({ customerId: who.id, paid, by })}
+          className="text-sm text-link underline"
+        >
           {t('kiranaCounter.changeKhataLimit', { name: who.name })}
         </Link>
       )}
+      {error && limitHit && !owner && <AskOwner message={t('kiranaSetup.askOwnerLimit', { name: who.name })} />}
       <Button
         busy={busy}
         onClick={() => {
@@ -819,7 +833,7 @@ function Receipt({
           {t('kiranaCounter.upiFailedCash')}
         </Button>
       )}
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       {result.upiIdMissing && (
         <Banner tone="warn">
           {t('kiranaCounter.noUpiId')}{' '}
@@ -828,7 +842,9 @@ function Receipt({
               {t('kiranaCounter.setUpiNow')}
             </Link>
           ) : (
-            t('kiranaCounter.askOwnerUpi')
+            <>
+              {t('kiranaCounter.askOwnerUpi')} <AskOwner message={t('kiranaSetup.askOwnerUpiMessage')} />
+            </>
           )}
         </Banner>
       )}
@@ -906,6 +922,8 @@ function ScanPanel({
   const [unknown, setUnknown] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [linking, setLinking] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const shop = useShop()
 
   async function onCode(code: string) {
     setError(null)
@@ -928,6 +946,21 @@ function ScanPanel({
     }
   }
 
+  if (unknown && adding) {
+    return (
+      <QuickProduct
+        code={unknown}
+        onSaved={(p) => {
+          setAdding(false)
+          setUnknown(null)
+          if (p.unit === 'KG') onLoose(p)
+          else setLast(onProduct(p, 1000) ? t('kiranaCounter.addedBarcodeSaved', { name: p.name }) : t('kiranaCounter.barcodeSavedBillFull', { max: MAX_LINES }))
+        }}
+        onMore={() => navigate(`/kirana/products/new?${new URLSearchParams({ barcode: unknown, from: '/kirana/counter' })}`)}
+        onBack={() => setAdding(false)}
+      />
+    )
+  }
   if (unknown && linking) {
     return (
       <LinkBarcode
@@ -954,14 +987,20 @@ function ScanPanel({
       {unknown && (
         <Card className="flex flex-col gap-2">
           <p className="font-semibold">{t('kiranaCounter.unknownBarcode', { code: unknown })}</p>
-          <Button onClick={() => navigate(`/kirana/products/new?${new URLSearchParams({ barcode: unknown, from: '/kirana/counter' })}`)}>
+          {/* A customer is waiting: the quick way first (the barcode is kept to add later, on Products) */}
+          <Button
+            onClick={() => {
+              keepForLater(shop.id, unknown)
+              onOther('')
+            }}
+          >
+            {t('kiranaSetup.billNowAddLater')}
+          </Button>
+          <Button variant="secondary" onClick={() => setAdding(true)}>
             {t('kiranaCounter.addNewProduct')}
           </Button>
           <Button variant="secondary" onClick={() => setLinking(true)}>
             {t('kiranaCounter.alreadyHaveProduct')}
-          </Button>
-          <Button variant="secondary" onClick={() => onOther('')}>
-            {t('kiranaCounter.billWithoutProduct')}
           </Button>
           <Button variant="ghost" onClick={() => setUnknown(null)}>
             {t('kiranaCounter.scanAgain')}
@@ -1031,10 +1070,143 @@ export function LinkBarcode({ code, onLinked, onBack }: { code: string; onLinked
           {items.length === 0 && <li className="text-sm text-muted">{t('kiranaCounter.noProductsFound')}</li>}
         </ul>
       )}
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       <Button variant="ghost" onClick={onBack}>
         {t('common.back')}
       </Button>
     </div>
   )
 }
+
+/** A khata bill waiting while the owner raises the customer's limit (kept in this tab, read once on the way back). */
+interface KhataReturn {
+  customerId: string
+  paid: string
+  by: PaidBy
+}
+
+const KHATA_RETURN = 'adp.kiranaKhataReturn'
+
+function keepKhataReturn(r: KhataReturn) {
+  try {
+    sessionStorage.setItem(KHATA_RETURN, JSON.stringify(r))
+  } catch {
+    /* storage blocked: the sheet opens empty on the way back */
+  }
+}
+
+function takeKhataReturn(): KhataReturn | null {
+  try {
+    const raw = sessionStorage.getItem(KHATA_RETURN)
+    sessionStorage.removeItem(KHATA_RETURN)
+    return raw ? (JSON.parse(raw) as KhataReturn) : null
+  } catch {
+    return null
+  }
+}
+
+/** A helper's first time at the counter (F-20): what he may do, and what is the owner's. Shown once; "Got it" hides it. */
+function HelperHint({ shopId, shopName, userId }: { shopId: string; shopName: string; userId: string }) {
+  const t = useT()
+  const key = `adp.kiranaHelperHint.${shopId}.${userId}`
+  const [seen, setSeen] = useState(() => storage.get(key) === '1')
+  if (seen) return null
+  return (
+    <Card className="flex flex-col gap-2 border-brand/40">
+      <p className="font-semibold">{t('kiranaSetup.helperHintTitle', { shop: shopName })}</p>
+      <p className="text-sm">{t('kiranaSetup.helperHintBody')}</p>
+      <Button
+        variant="secondary"
+        onClick={() => {
+          storage.set(key, '1')
+          setSeen(true)
+        }}
+      >
+        {t('kiranaSetup.gotIt')}
+      </Button>
+    </Card>
+  )
+}
+
+/**
+ * An unknown barcode made a product on the spot (F-11): name, piece or kg, price, without leaving the scanner. The rest
+ * (stock, an alert) is on the full form, one tap away.
+ */
+function QuickProduct({ code, onSaved, onMore, onBack }: { code: string; onSaved: (p: Product) => void; onMore: () => void; onBack: () => void }) {
+  const t = useT()
+  const qc = useQueryClient()
+  const shop = useShop()
+  const [name, setName] = useState('')
+  const [unit, setUnit] = useState<Product['unit']>('PIECE')
+  const [price, setPrice] = useState('')
+  const [touched, setTouched] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<unknown>(null)
+  const nameErr = name.trim().length < 2 ? t('kiranaProducts.nameErrNew') : null
+  const p = parseRupees(price, { maxPaise: 10_000_000 })
+  async function save() {
+    setTouched(true)
+    if (nameErr || 'error' in p || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      const made = await kiranaApi.addProduct({ name: name.trim(), unit, pricePaise: p.paise, barcode: code })
+      forgetLater(shop.id, code)
+      void qc.invalidateQueries({ queryKey: kiranaKeys.all })
+      onSaved(made)
+    } catch (e) {
+      setError(e)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const fe = (f: string) => fieldError(error, f)
+  return (
+    <form
+      className="flex flex-col gap-3"
+      onSubmit={(e) => {
+        e.preventDefault()
+        void save()
+      }}
+    >
+      <p className="text-sm text-muted">{t('kiranaSetup.quickAddIntro', { code })}</p>
+      <Field id="quick-name" label={t('kiranaProducts.nameLabel')} value={name} maxLength={100} autoFocus onChange={(e) => setName(e.target.value)} error={(touched && nameErr) || fe('name')} />
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t('kiranaProducts.soldBy')}>
+        <Chip selected={unit === 'PIECE'} onClick={() => setUnit('PIECE')}>
+          {t('kiranaProducts.unitPiece')}
+        </Chip>
+        <Chip selected={unit === 'KG'} onClick={() => setUnit('KG')}>
+          {t('kiranaProducts.unitKg')}
+        </Chip>
+      </div>
+      <Field
+        id="quick-price"
+        label={unit === 'KG' ? t('kiranaProducts.priceKgLabel') : t('kiranaProducts.priceOneLabel')}
+        inputMode="decimal"
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        error={(touched && 'error' in p ? p.error : undefined) || fe('pricePaise')}
+      />
+      {isApiError(error) && !fe('name') && !fe('pricePaise') && <ErrorBanner message={messageOf(error)} />}
+      <Button type="submit" busy={busy}>
+        {t('kiranaSetup.quickAddSave')}
+      </Button>
+      <Button variant="ghost" disabled={busy} onClick={onMore}>
+        {t('kiranaSetup.quickAddMore')}
+      </Button>
+      <Button variant="ghost" disabled={busy} onClick={onBack}>
+        {t('common.back')}
+      </Button>
+    </form>
+  )
+}
+
+/**
+ * Why the counter opened instead of where the person was going (AB#3, EF#2): a screen their role can't open (a helper
+ * on /kirana/team) or a message with no screen of its own, said once: the shared note (components/ArrivedNote), with
+ * its Help coming back to the counter.
+ */
+function CounterArrivedNote() {
+  return <ArrivedNote helpFrom="/kirana/counter" />
+}
+

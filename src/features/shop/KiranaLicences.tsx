@@ -5,12 +5,13 @@ import { explain, fieldError, isApiError, messageOf, serverText } from '../../ap
 import { kiranaApi, kiranaKeys, useKiranaSettings, useOnline, type FssaiView, type KiranaSettings } from '../../api/kirana'
 import { fileApi, shopApi, shopKeys, usePhotoLink, useShop } from '../../api/shop'
 import type { RegistrationDocType, Shop } from '../../api/types'
-import { Banner, Button, Card, Chip, ErrorState, Field, Loading, Page, Spinner } from '../../components/ui'
+import { Banner, Button, Card, Chip, ErrorBanner, ErrorState, Field, Loading, Page, Spinner } from '../../components/ui'
 import { hasText, language, t, useT } from '../../i18n'
 import { shrinkPhoto } from '../../lib/image'
 import { cameFrom, SentBack, Steps } from './Register'
 import { shopAsk } from './TeamReasons'
 import { useWriteToUsHref } from '../help/HelpButton'
+import { PhotoGuide } from '../kirana/Guides'
 import {
   CHECK_AGAIN_REASONS,
   docKind,
@@ -112,7 +113,7 @@ function FoodQuestion({ settings }: { settings: KiranaSettings }) {
       {answer === false && (
         <p className="text-sm text-muted">{t('kiranaRegister.foodNoFssaiNeeded')}</p>
       )}
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
     </Card>
   )
 }
@@ -207,6 +208,9 @@ function FssaiCard({ fssai, onBusy }: { fssai: FssaiView; onBusy: (busy: boolean
       {(fssai.status === 'NONE' || fssai.status === 'REJECTED' || (fssai.status === 'VERIFIED' && fssaiExpired(fssai))) && (
         <NoFssaiYet renew={fssai.status === 'VERIFIED'} />
       )}
+      {/* Before the upload, not after a refusal (F-08): what the certificate looks like, and that a receipt won't do */}
+      {(fssai.status !== 'VERIFIED' || fssaiExpired(fssai)) && fssai.status !== 'CHECKING' && <PhotoGuide kind="fssai" />}
+      <p className="text-sm font-medium">{t('kiranaSetup.fssaiNotReceipt')}</p>
       <label
         htmlFor={inputId}
         className={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-dashed border-brand/60 px-3 text-center text-sm text-link ${busy || !numberOk ? 'pointer-events-none opacity-60' : ''}`}
@@ -249,7 +253,7 @@ function FssaiCard({ fssai, onBusy }: { fssai: FssaiView; onBusy: (busy: boolean
         </p>
       )}
       {local && <Banner tone="bad">{local}</Banner>}
-      {error !== null && !fieldError(error, 'number') && <Banner tone="bad">{explain(error)}</Banner>}
+      {error !== null && !fieldError(error, 'number') && <ErrorBanner message={explain(error)} />}
     </Card>
   )
 }
@@ -480,6 +484,7 @@ function ShopLicenceCard({ onBusy }: { onBusy: (busy: boolean) => void }) {
           {failed && <Banner tone="bad" live={false}>{t('kiranaRegister.notAccepted', { reason: kiranaReason(shop) })}</Banner>}
         </div>
       )}
+      {(!fileId || failed || expired) && <PhotoGuide kind="shopLicence" />}
       <label
         htmlFor={inputId}
         className={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-dashed border-brand/60 px-3 text-center text-sm text-link ${busy ? 'pointer-events-none opacity-60' : ''}`}
@@ -545,7 +550,7 @@ function ShopLicenceCard({ onBusy }: { onBusy: (busy: boolean) => void }) {
           )}
         </p>
       )}
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
     </Card>
   )
 }
@@ -570,7 +575,21 @@ export function RegisterLicences() {
       <Button disabled={!ready || busy} onClick={() => navigate(fromReview ? '/register/review' : '/register/upi')}>
         {fromReview ? t('kiranaRegister.backToReview') : t('common.continue')}
       </Button>
-      {gap && !settings.isPending && <p className="text-center text-sm text-muted">{gap}</p>}
+      {gap && !settings.isPending && (
+        // What is missing, and one tap to it (F-09): the food question, or the FSSAI licence's number and certificate
+        <button
+          type="button"
+          className="flex min-h-12 items-center justify-between gap-2 rounded-xl border border-warn/50 bg-warn/10 px-4 py-2 text-left text-sm"
+          onClick={() => {
+            const target = document.getElementById(settings.data?.sellsFood ? 'fssai-number' : 'sells-food')
+            target?.scrollIntoView({ block: 'center' })
+            if (target instanceof HTMLInputElement) target.focus()
+          }}
+        >
+          <span className="min-w-0 break-words">{gap}</span>
+          <span aria-hidden>↑</span>
+        </button>
+      )}
     </Page>
   )
 }

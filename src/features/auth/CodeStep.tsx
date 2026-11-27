@@ -6,6 +6,7 @@ import { CodeInput } from '../../components/CodeInput'
 import { Turnstile } from '../../components/Turnstile'
 import { TURNSTILE_SITE_KEY } from '../../lib/config'
 import { Banner, Button, Page } from '../../components/ui'
+import { ContactUs } from '../../components/ContactUs'
 import { useT } from '../../i18n'
 import { formatPhone } from '../../lib/phone'
 import { useSession } from '../../store/session'
@@ -101,6 +102,11 @@ export function CodeStep() {
         <button type="button" className="text-sm text-link underline" onClick={() => navigate('/signin')}>
           {t('auth.codeWrongNumber')}
         </button>
+      </div>
+      {/* The commonest sign-in problem: what to try, then a person to talk to (no sign-in needed) */}
+      <div className="flex flex-col gap-3 border-t border-line pt-4">
+        <p className="text-sm text-muted">{t('auth.noSmsHelp')}</p>
+        <ContactUs screen={t('auth.codeTitle')} />
       </div>
     </Page>
   )

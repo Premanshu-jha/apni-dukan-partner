@@ -108,7 +108,7 @@ async function start() {
     // A tap on a notification opens its screen (by the service worker's rule); a link to the website opens in the app
     listenForAppMessages(
       (m) => refreshForMessage(m.type),
-      (m) => openInApp(notificationTarget(m.url)),
+      (m) => openInApp(notificationTarget(m.url, m.type, m.title)),
     )
     void CapApp.addListener('appUrlOpen', ({ url }) => {
       const path = linkTarget(url, new URL(BUSINESS.website).host)

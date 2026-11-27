@@ -153,14 +153,14 @@
   "ownProfile": "Your own profile",
   "ownProfileHint": "This is you, signed in as the owner. If you stop cutting hair, switch this profile off, or remove it.",
   "hisSignIn": "His own sign-in",
-  "signInHint": "With a sign-in he opens this app with his phone number and sees his own bookings. You invite his number; he accepts in Clozest.",
+  "signInHint": "With a sign-in he opens this app with his phone number and sees his own bookings. You invite his number; he accepts in the Clozest Partner app.",
   "invitedWaiting": "Invited: +91 {phone}, waiting for him to accept",
   "signInRemoved": "Sign-in removed. He is signed out.",
   "removeSignIn": "Remove his sign-in",
   "invitationCancelled": "Invitation cancelled.",
   "cancelInvitation": "Cancel the invitation",
   "hisMobile": "His mobile number",
-  "invitationSent": "Invitation sent. He'll see it in Clozest when he signs in with this number.",
+  "invitationSent": "Invitation sent. He'll see it in the Clozest Partner app when he signs in with this number.",
   "inviteHim": "Invite him to sign in",
   "servicesHeDoes": "Services he does",
   "addServicesFirst": "Add services first.",
@@ -181,5 +181,8 @@
   "removeShift": "Remove {day} shift",
   "tillMidnight": "Till midnight",
   "saveBarberHours": "Save hours",
-  "minutesHint": "How long one customer takes. The barber is kept free for them that long."
+  "minutesHint": "How long one customer takes. The barber is kept free for them that long.",
+  "tellHim": "Now tell him: install the Clozest Partner app (or open {site}) and sign in with +91 {phone}.",
+  "rowTeam": "Team (helpers)",
+  "rowTeamSub": "Invite helpers who run the day with you"
 }

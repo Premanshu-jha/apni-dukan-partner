@@ -4,10 +4,10 @@ import { useSubscription } from '../../api/subscription'
 import { summary as subscriptionSummary } from '../subscription/text'
 import { Link, useNavigate } from 'react-router'
 import { authApi } from '../../api/auth'
-import { shopApi, useAddressRequest, useShop } from '../../api/shop'
+import { useAddressRequest, useShop } from '../../api/shop'
 import { can } from '../../lib/roles'
 import { fieldError, messageOf } from '../../api/errors'
-import { Banner, Button, Card, Field, Loading, Page, Sheet } from '../../components/ui'
+import { Banner, Button, Card, ErrorBanner, Field, Loading, Page, Sheet } from '../../components/ui'
 import { CopyCode } from '../../components/CopyCode'
 import { MapBoundary } from '../../components/MapBoundary'
 import { formatPhone } from '../../lib/phone'
@@ -18,7 +18,9 @@ import { useSession } from '../../store/session'
 import { NotificationsRow } from './Notifications'
 import { licenceSummary } from '../shop/RegistrationDoc'
 import { signOutHere } from './signOut'
-import { helpHref } from '../help/links'
+import { LeaveShop } from './LeaveShop'
+import { helpHref, topicFor } from '../help/links'
+import { lastScreen } from '../help/lastScreen'
 import { LANGUAGES, useLanguage, useT } from '../../i18n'
 import { GlobeIcon, LanguagePicker } from '../../i18n/LanguagePicker'
 
@@ -35,8 +37,6 @@ export function Profile() {
   const user = useSession((s) => s.user)!
   const shop = useShop()
   const rights = can(shop.myRole)
-  const [leaving, setLeaving] = useState(false)
-  const [leaveError, setLeaveError] = useState<string | null>(null)
   const setUser = useSession((s) => s.setUser)
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(user.name ?? '')
@@ -76,20 +76,6 @@ export function Profile() {
     }
   }
 
-  async function leave() {
-    setBusy(true)
-    setLeaveError(null)
-    try {
-      await shopApi.leave()
-      // Out of the shop: this session's token still names it, so start again with a fresh sign-in.
-      await signOutHere(qc)
-      navigate('/signin', { replace: true })
-    } catch (e) {
-      setLeaveError(messageOf(e))
-      setBusy(false)
-    }
-  }
-
   const links = (kirana ? [
     owner && { to: '/kirana/team', text: t('profile.linkKiranaTeam') },
     { to: '/kirana/day', text: t('profile.linkKiranaDay') },
@@ -110,7 +96,10 @@ export function Profile() {
     { to: '/notifications', text: t('profile.linkMessages') },
   ]).filter(Boolean) as Array<{ to: string; text: string }>
 
-  // Help: for a salon right under the salon card; for a kirana where it always was
+  // Help right under the shop card, a salon's and a kirana's. Writing from here is about the screen they were on
+  // before More (its subject filled in, which they can change), and comes back to More after sending.
+  const before = lastScreen()
+  const aboutBefore = before ? topicFor(before, shop.type) ?? undefined : undefined
   const helpCard = (
     <Card className="flex flex-col gap-1">
       <p className="font-medium">{t('profile.needHelp')}</p>
@@ -118,18 +107,16 @@ export function Profile() {
         {t(kirana ? 'profile.needHelpBodyKirana' : 'profile.needHelpBody')}
       </p>
       <div className="flex flex-wrap gap-x-4">
-        <Link to={helpHref({ from: '/more', write: true })} className="inline-flex min-h-11 items-center text-sm text-link underline">
+        <Link to={helpHref({ from: '/more', write: true, about: aboutBefore })} className="inline-flex min-h-11 items-center text-sm text-link underline">
           {t('profile.writeToSupport')}
         </Link>
-        <Link to="/help/requests" state={{ from: true }} className="inline-flex min-h-11 items-center text-sm text-link underline">
+        <Link to="/help/requests" state={{ from: true, helpFrom: '/more' }} className="inline-flex min-h-11 items-center text-sm text-link underline">
           {t('profile.myRequests')}
         </Link>
-        {/* The how-to answers are for a salon's screens */}
-        {!kirana && (
-          <Link to={helpHref({ from: '/more' })} className="inline-flex min-h-11 items-center text-sm text-link underline">
-            {t('profile.howToAnswers')}
-          </Link>
-        )}
+        {/* The how-to answers: a salon's, and a kirana's */}
+        <Link to={helpHref({ from: '/more' })} className="inline-flex min-h-11 items-center text-sm text-link underline">
+          {t('profile.howToAnswers')}
+        </Link>
       </div>
       <p className="text-sm text-muted">
         {t('profile.orEmailBefore')}{' '}
@@ -222,8 +209,8 @@ export function Profile() {
         )}
       </Card>
 
-      {/* Help right under the salon card: seen without scrolling, the salon card still first (a kirana's More as before) */}
-      {!kirana && helpCard}
+      {/* Help right under the shop card: seen without scrolling, the shop card still first */}
+      {helpCard}
 
       <ul className="flex flex-col gap-2">
         {links.map((l) => (
@@ -295,7 +282,6 @@ export function Profile() {
 
       {!kirana && <SubscriptionRow />}
 
-      {kirana && helpCard}
 
       <div className="flex flex-col gap-2">
         <Button variant="secondary" busy={busy} onClick={() => out(false)}>
@@ -304,11 +290,7 @@ export function Profile() {
         <Button variant="ghost" onClick={() => setConfirmAll(true)}>
           {t('profile.signOutAll')}
         </Button>
-        {rights.leaveShop && (
-          <Button variant="ghost" className="text-bad" onClick={() => setLeaving(true)}>
-            {t('profile.leaveShop', { name: shop.name })}
-          </Button>
-        )}
+        <LeaveShop />
         {shop.myRole === 'OWNER' && (
           <>
             <Link to="/shop/handover" className="py-3 text-center text-sm text-link underline">
@@ -336,23 +318,11 @@ export function Profile() {
       <Sheet open={confirmAll} title={t('profile.signOutEverywhereTitle')} onClose={() => setConfirmAll(false)}>
         <div className="flex flex-col gap-3">
           <p className="text-muted">{t('profile.signOutEverywhereBody')}</p>
-          {outError && <Banner tone="bad">{outError}</Banner>}
+          {outError && <ErrorBanner message={outError} />}
           <Button busy={busy} onClick={() => out(true)}>
             {t('profile.signOutEverywhere')}
           </Button>
           <Button variant="secondary" onClick={() => setConfirmAll(false)}>
-            {t('common.cancel')}
-          </Button>
-        </div>
-      </Sheet>
-      <Sheet open={leaving} title={t('profile.leaveShopTitle', { name: shop.name })} onClose={() => setLeaving(false)}>
-        <div className="flex flex-col gap-3">
-          <p className="text-muted">{t(kirana ? 'profile.leaveShopBodyKirana' : 'profile.leaveShopBody')}</p>
-          {leaveError && <Banner tone="bad">{leaveError}</Banner>}
-          <Button variant="danger" busy={busy} onClick={leave}>
-            {t('profile.leave')}
-          </Button>
-          <Button variant="secondary" onClick={() => setLeaving(false)}>
             {t('common.cancel')}
           </Button>
         </div>

@@ -8,16 +8,18 @@ import { GROUPS, howToFor, matches, targetOf, type HowTo } from './howto'
  * "How do I…?": the answers for this person's role, grouped, with a search box that narrows them as they type. Opened
  * from a screen (`from`), that screen's answers come first. Nothing is fetched: the texts are in the language files.
  */
-export function HowToAnswers({ shop, from, onAsk }: { shop: Shop; from: string | null; onAsk: (query: string) => void }) {
+export function HowToAnswers({ shop, from, onAsk }: { shop: Shop | null; from: string | null; onAsk: (query: string) => void }) {
   const t = useT()
   const searchId = useId()
   const [query, setQuery] = useState('')
   const list = useMemo(() => howToFor(shop), [shop])
-  const role = shop.myRole
+  // No shop yet (the start screen): the early answers, whose screens are the same for everyone
+  const role = shop?.myRole ?? 'OWNER'
+  const name = shop?.name ?? ''
   const fromPath = from?.split('?')[0] ?? null
-  const text = (h: HowTo) => `${t(`howto.${h.id}Q`)} ${answerOf(h, shop.name)}`
+  const text = (h: HowTo) => `${t(`howto.${h.id}Q`)} ${answerOf(h, name)}`
   // In another language, the English words find it too (many type "offer", "QR" or "barber" in English letters)
-  const english = (h: HowTo) => `${inEnglish(`howto.${h.id}Q`)} ${answerOf(h, shop.name, true)}`
+  const english = (h: HowTo) => `${inEnglish(`howto.${h.id}Q`)} ${answerOf(h, name, true)}`
   const found = query.trim()
     ? list.filter((h) => matches(query, text(h)) || (language() !== 'en' && matches(query, english(h))))
     : null
@@ -25,6 +27,9 @@ export function HowToAnswers({ shop, from, onAsk }: { shop: Shop; from: string |
   // Today's first-time tips, again (Today opens them on ?tips=1): right under the search box, or first in "About this
   // screen" when Help was opened from Today
   const tipsInHere = fromPath === '/salon/day' && here.length > 0 && !found
+  // Before the salon is live there is no Today to show the tips on
+  // (nor for a kirana: the tips are Today's)
+  const early = list.every((h) => h.group !== 'setup' && h.group !== 'day' && h.group !== 'customers' && h.group !== 'account')
   const tipsLink = (
     <Link
       to="/salon/day?tips=1"
@@ -54,7 +59,7 @@ export function HowToAnswers({ shop, from, onAsk }: { shop: Shop; from: string |
           className="min-h-12 rounded-xl border border-line bg-surface px-4 text-base text-ink placeholder:text-muted/60 focus:border-brand focus:outline-none"
         />
       </div>
-      {!tipsInHere && tipsLink}
+      {!tipsInHere && !early && tipsLink}
       {found ? (
         <>
           <p role="status" className="text-sm text-muted">
@@ -107,9 +112,10 @@ function answerOf(h: HowTo, salonName: string, english = false): string {
   return say(`howto.${h.id}A`, words)
 }
 
-function Answers({ items, shop, open = false }: { items: readonly HowTo[]; shop: Shop; open?: boolean }) {
+function Answers({ items, shop, open = false }: { items: readonly HowTo[]; shop: Shop | null; open?: boolean }) {
   const t = useT()
-  const role = shop.myRole
+  const role = shop?.myRole ?? 'OWNER'
+  const name = shop?.name ?? ''
   return (
     <ul className="flex flex-col gap-2">
       {items.map((h) => (
@@ -123,7 +129,7 @@ function Answers({ items, shop, open = false }: { items: readonly HowTo[]; shop:
               </span>
             </summary>
             <div className="flex flex-col gap-3 px-4 pb-4">
-              <p className="text-muted">{answerOf(h, shop.name)}</p>
+              <p className="text-muted">{answerOf(h, name)}</p>
               {h.ownerChanges && role !== 'OWNER' && <p className="text-sm text-muted">{t('howto.ownerOnly')}</p>}
               <Link
                 to={targetOf(h, role)}

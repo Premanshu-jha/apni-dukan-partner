@@ -5,7 +5,7 @@ import { fieldError, isApiError, messageOf } from '../../api/errors'
 import { salonKeys, setupApi, useServices, type ServiceIn, refreshSalonWork, SETUP_KEYS } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import type { ServiceItem } from '../../api/types'
-import { Banner, Button, EmptyState, ErrorState, Field, Loading, Page, Pill, Sheet, Switch } from '../../components/ui'
+import { Banner, Button, EmptyState, ErrorBanner, ErrorState, Field, Loading, Page, Pill, Sheet, Switch } from '../../components/ui'
 import { t, useT } from '../../i18n'
 import { duration, rupees } from '../../lib/money'
 import { can } from '../../lib/roles'
@@ -145,7 +145,7 @@ export function Services() {
         <ErrorState message={messageOf(services.error)} onRetry={() => services.refetch()} />
       ) : (
         <>
-          {error && <Banner tone="bad">{error}</Banner>}
+          {error && <ErrorBanner message={error} />}
           {edit && services.data.length > 0 && !picturesNoted && (
             <Banner live={false}>
               <p>{t('setup.picturesNote')}</p>
@@ -240,7 +240,8 @@ export function ServiceSheet({ service, onClose }: { service: ServiceItem | null
   }
 
   return (
-    <Sheet open title={service ? t('setup.editService') : t('setup.newService')} onClose={onClose}>
+    // The sheet covers the screen's Help: its own, in its header (it asks first when something is typed)
+    <Sheet open title={service ? t('setup.editService') : t('setup.newService')} onClose={onClose} help={<SheetHelpLink dirty={dirty} />}>
       <div className="flex flex-col gap-3">
         <Field id="svc-name" label={t('setup.serviceName')} value={form.name} maxLength={60} onChange={(e) => setForm({ ...form, name: e.target.value })} error={problems.name ?? fieldError(error, 'name')} />
         <IconPicker name={form.name} value={pickedIcon(form)} onChange={(icon) => setForm({ ...form, icon })} error={fieldError(error, 'icon')} />
@@ -268,8 +269,6 @@ export function ServiceSheet({ service, onClose }: { service: ServiceItem | null
         <Button variant="ghost" onClick={onClose}>
           {t('common.cancel')}
         </Button>
-        {/* The sheet covers the screen's Help: its own, here (last, so the sheet still opens on its first field) */}
-        <SheetHelpLink dirty={dirty} />
       </div>
     </Sheet>
   )

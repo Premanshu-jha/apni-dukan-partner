@@ -249,5 +249,11 @@
   "pauseTomorrow": "कल दिन ख़त्म होने तक",
   "pause": "रोकें",
   "setupBarberOne": "एक बार्बर को उसकी सर्विस और हफ़्ते का समय दें",
-  "setupCheckFailed": "आपके सैलून की तैयारी जाँच नहीं पाए।"
+  "setupCheckFailed": "आपके सैलून की तैयारी जाँच नहीं पाए।",
+  "refusedOwner": "वह स्क्रीन सिर्फ़ मालिक खोल सकते हैं। {ownerName} से कहें।",
+  "refusedOwnerHelper": "वह स्क्रीन सिर्फ़ मालिक या हेल्पर खोल सकते हैं। {ownerName} से कहें।",
+  "walkInNoServicesBodyOwner": "पहले अपनी सर्विस जोड़ें, फिर आप वॉक-इन जोड़ सकते हैं।",
+  "walkInAddServices": "अपनी सर्विस जोड़ें",
+  "walkInSetWhoDoes": "तय करें कौन-सी सर्विस कौन करता है",
+  "startCodeAskOwner": "ग्राहक कोड नहीं दिखा पा रहे? मालिक या हेल्पर से इसे शुरू करवाएँ।"
 }

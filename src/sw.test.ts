@@ -1,4 +1,5 @@
 import source from '../public/sw.js?raw'
+import { FIX_SCREEN, KIRANA_SCREENS, MESSAGE_SCREENS, SHOP_NEWS_SCREEN, messageScreen, noScreenTarget } from './lib/messageLinks'
 
 /**
  * public/sw.js, run against a stand-in for the browser's service worker globals: notifications, the offline page
@@ -24,7 +25,7 @@ function loadWorker() {
         for (const r of requests) stored.set(new URL(r.url).pathname, new Response(`kept ${new URL(r.url).pathname}`))
       },
     })),
-    keys: async () => ['offline-v1', 'offline-v2', 'offline-v3'],
+    keys: async () => ['offline-v1', 'offline-v2', 'offline-v3', 'offline-v4'],
     delete: vi.fn(async () => true),
     match: async (path: string) => stored.get(path)?.clone(),
   }
@@ -59,8 +60,8 @@ describe('service worker', () => {
     await tap('/help/requests/0f8b2a6e-1c2d-4e5f-8a9b-0c1d2e3f4a5b')
     expect(self.clients.openWindow.mock.calls.map(([u]) => u)).toEqual([
       `${ORIGIN}/handover`,
+      `${ORIGIN}/more`,
       `${ORIGIN}/`,
-      `${ORIGIN}/salon/day`,
       `${ORIGIN}/invites`,
       `${ORIGIN}/help/requests/0f8b2a6e-1c2d-4e5f-8a9b-0c1d2e3f4a5b`,
     ])
@@ -87,10 +88,10 @@ describe('service worker', () => {
     expect(self.skipWaiting).toHaveBeenCalledOnce()
   })
 
-  it('installing stores the offline page, its CSS, its script (its words in the saved language) and the icon in the new offline-v3 store', async () => {
+  it('installing stores the offline page, its CSS, its script (its words in the saved language) and the icon in the new offline-v4 store', async () => {
     const { caches, fire } = loadWorker()
     await fire('install')
-    expect(caches.open).toHaveBeenCalledWith('offline-v3')
+    expect(caches.open).toHaveBeenCalledWith('offline-v4')
     for (const file of ['/offline.html', '/offline.css', '/offline.js', '/icon.svg']) expect(await caches.match(file), file).toBeDefined()
   })
 
@@ -99,7 +100,8 @@ describe('service worker', () => {
     await fire('activate')
     expect(caches.delete).toHaveBeenCalledWith('offline-v1')
     expect(caches.delete).toHaveBeenCalledWith('offline-v2')
-    expect(caches.delete).not.toHaveBeenCalledWith('offline-v3')
+    expect(caches.delete).toHaveBeenCalledWith('offline-v3')
+    expect(caches.delete).not.toHaveBeenCalledWith('offline-v4')
     expect(self.clients.claim).toHaveBeenCalled()
   })
 
@@ -137,5 +139,45 @@ describe('service worker', () => {
     network.mockRejectedValue(new TypeError('Failed to fetch'))
     const css = await fire('fetch', { request: { mode: 'no-cors', url: `${ORIGIN}/offline.css` } })
     expect(await (await css.response!).text()).toBe('kept /offline.css')
+  })
+})
+
+describe('the screens a tapped message opens', () => {
+  it('pay, setup, licence and photos messages open their screens; the list is the app\'s own (lib/messageLinks.ts)', async () => {
+    const { self, fire } = loadWorker()
+    const tap = (url: string) => fire('notificationclick', { notification: { close: vi.fn(), data: { url } } })
+    for (const url of MESSAGE_SCREENS) await tap(url)
+    await tap('/subscription?from=push')
+    await tap('/setup/staff')
+    expect(self.clients.openWindow.mock.calls.map(([u]) => u)).toEqual([
+      ...MESSAGE_SCREENS.map((p) => `${ORIGIN}${messageScreen(p)}`),
+      `${ORIGIN}/subscription?from=push`,
+      `${ORIGIN}/`,
+    ])
+    // The same rule as Messages and the Play Store app (the kirana switch on: kiranas' messages are only sent then)
+    const typed = { url: '/kirana/online', type: 'KIRANA_PAYOUT_FAILED' }
+    for (const m of [...MESSAGE_SCREENS, ...KIRANA_SCREENS, '/shops/me', '/salon/day?date=2026-11-27', '/kirana/online', '/kirana/shop-orders/o1', typed]) {
+      const { url, type } = typeof m === 'string' ? { url: m, type: null } : m
+      self.clients.openWindow.mockClear()
+      await fire('notificationclick', { notification: { close: vi.fn(), data: { url, type } } })
+      expect(self.clients.openWindow.mock.calls[0][0], url).toBe(ORIGIN + messageScreen(url, type, true))
+    }
+  })
+
+  it('a message with no screen opens the start, which says what it was about', async () => {
+    const { self, fire } = loadWorker()
+    await fire('push', { data: { json: () => ({ type: 'NEW_KIND', title: 'A new kind of message', body: '…', url: '/somewhere' }) } })
+    const [, options] = (self.registration.showNotification.mock.calls as unknown as Array<[string, { data: unknown }]>)[0]
+    await fire('notificationclick', { notification: { close: vi.fn(), data: options.data } })
+    expect(self.clients.openWindow.mock.calls[0][0]).toBe(`${ORIGIN}${noScreenTarget('A new kind of message')}`)
+  })
+
+  it('sw.js keeps the same list as the app', () => {
+    const copy = source.match(/const MESSAGE_SCREENS = (\[[^\]]*\])/)![1].replace(/'/g, '"')
+    expect(JSON.parse(copy)).toEqual([...MESSAGE_SCREENS])
+    const kirana = source.match(/const KIRANA_SCREENS = (\[[^\]]*\])/)![1].replace(/'/g, '"')
+    expect(JSON.parse(kirana)).toEqual([...KIRANA_SCREENS])
+    expect(source).toContain(`const SHOP_NEWS_SCREEN = '${SHOP_NEWS_SCREEN}'`)
+    expect(source).toContain(`const FIX_SCREEN = '${FIX_SCREEN}'`)
   })
 })

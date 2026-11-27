@@ -169,7 +169,7 @@ test('a new product whose name is taken: its barcode goes on the one they have; 
   await page.goto('/kirana/products')
   await page.goto('/kirana/products/new?barcode=8906000111222&from=%2Fkirana%2Fproducts')
   await expect(page.getByLabel('Price of one (₹)')).toHaveValue('36')
-  await page.getByRole('button', { name: 'Save the product' }).click()
+  await page.getByRole('button', { name: 'Save and add the next' }).click()
   await expect(page.getByText('You already have a product called "Lux Soap 100 g".', { exact: false })).toBeVisible()
   await page.getByRole('button', { name: 'Add barcode 8906000111222 to Lux Soap 100 g' }).click()
   await expect(page).toHaveURL(/\/kirana\/products\/soap$/)
@@ -289,16 +289,31 @@ test('a verified kirana changes its papers only after the phone code', async ({ 
   expect(api.kirana.sellsFood).toBe(false)
 })
 
-test('registering a kirana: no salon Help on step 1 before the draft exists, and its own help says "shop details"', async ({ page, context, api }) => {
+test('registering a kirana: Help at the top of step 1 before the draft exists says "shop details", never "salon details"', async ({ page, context, api }) => {
   await signedIn(context, api, 'KIRANA')
   await page.goto('/register')
   await expect(page.getByRole('heading', { name: 'Register your shop' })).toBeVisible()
-  // The salon's Help (salon answers, "salon details") isn't offered on a kirana's step
-  await expect(page.getByRole('link', { name: /^Help/ })).toHaveCount(0)
-  const help = page.getByRole('link', { name: 'Need help? Write to support' })
+  // Help is at the top of every step now (a kirana's too), about a shop's details; no salon answers on it
+  const help = page.getByRole('link', { name: /^Help/ })
   const q = new URLSearchParams((await help.getAttribute('href'))!.split('?')[1])
   expect(q.get('topic')).toBe('Registering: shop details')
-  expect(q.get('write')).toBe('1')
+  await expect(page.getByRole('link', { name: 'Need help? Write to support' })).toHaveCount(0)
+  await help.click()
+  await expect(page.getByRole('link', { name: 'Call us' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Registering your salon' })).toHaveCount(0)
+})
+
+test('a kirana\'s screens have Help too, about that screen; More\'s help card is right under the shop card', async ({ page, context, api }) => {
+  await atCounter(page, context, api)
+  const help = page.getByRole('link', { name: /^Help/ }).first()
+  const q = new URLSearchParams((await help.getAttribute('href'))!.split('?')[1])
+  expect(q.get('from')).toBe('/kirana/counter')
+  expect(q.get('topic')).toBe('Counter')
+  await page.getByRole('link', { name: 'More', exact: true }).click()
+  await expect(page.getByText('Need help?')).toBeInViewport()
+  // Writing from More is about the screen before it
+  const write = page.getByRole('link', { name: 'Write to support' })
+  expect(new URLSearchParams((await write.getAttribute('href'))!.split('?')[1]).get('about')).toBe('Counter')
 })
 
 test('More → Licences: "Write to support" opens the message form and comes back after sending', async ({ page, context, api }) => {

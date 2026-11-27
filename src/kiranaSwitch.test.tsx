@@ -113,6 +113,7 @@ describe('kirana switch on', () => {
       '/register/licences', '/register/upi',
       '/kirana/counter', '/kirana/bills', '/kirana/products', '/kirana/khata',
       '/kirana/bills/:id', '/kirana/day', '/kirana/products/new', '/kirana/products/:id', '/kirana/khata/:id',
+      '/kirana/setup', '/kirana/setup/list', '/kirana/setup/lines', '/kirana/setup/skipped', '/kirana/setup/count', '/kirana/setup/photos',
       '/kirana/team', '/kirana/upi', '/kirana/licences',
     ])
   })

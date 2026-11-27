@@ -9,6 +9,7 @@ import { Banner, Button, Card, EmptyState, ErrorState, Loading, Page } from '../
 import { t, useT } from '../../i18n'
 import { dateTimeIst } from '../../lib/ist'
 import { shopChanged } from './ownership'
+import { LeaveShop } from '../profile/LeaveShop'
 
 /** Why an invitation can't be answered any more (409 INVITE_GONE `details.status`). */
 export function inviteGoneText(status: unknown): string {
@@ -28,6 +29,22 @@ export function inviteGoneText(status: unknown): string {
     default:
       return t('shop.inviteGoneOther')
   }
+}
+
+/**
+ * What to say when another shop's invitation or hand-over is refused because this person is still in a shop
+ * (ALREADY_IN_A_SHOP): leave it from More once More opens for them (the guard PastRegistration), else with the
+ * "Leave" button shown right there.
+ */
+export function leaveAdvice(mine: Shop): string {
+  return moreOpensFor(mine) ? t('shop.leaveShopFromMore', { name: mine.name }) : t('shop.leaveShopBelow', { name: mine.name })
+}
+
+/** More opens for this person (the same rule as the guard PastRegistration in guards.tsx). */
+export function moreOpensFor(mine: Shop): boolean {
+  return mine.myRole === 'OWNER' || (mine.type === 'KIRANA' && mine.status === 'PENDING_VISIT')
+    ? mine.status !== 'DRAFT'
+    : mine.status === 'APPROVED' || mine.status === 'SUSPENDED'
 }
 
 /**
@@ -62,6 +79,8 @@ function Invite({ invite, onNote }: { invite: IncomingInvite; onNote: (text: str
   const mine = useMyShop().data ?? null
   const [busy, setBusy] = useState<'accept' | 'decline' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Refused: still in another shop (its Leave goes under the refusal when More can't be opened)
+  const [inAnother, setInAnother] = useState(false)
   // Joined, but the sign-in couldn't be renewed: renewing again opens the shop
   const [unrenewed, setUnrenewed] = useState<Shop | null>(null)
 
@@ -77,6 +96,7 @@ function Invite({ invite, onNote }: { invite: IncomingInvite; onNote: (text: str
     if (busy) return
     setBusy(kind)
     setError(null)
+    setInAnother(false)
     onNote(null)
     try {
       if (kind === 'accept') {
@@ -98,7 +118,8 @@ function Invite({ invite, onNote }: { invite: IncomingInvite; onNote: (text: str
         onNote(isApiError(e, 'INVITE_GONE') ? inviteGoneText(e.details.status) : t('shop.inviteNotOpenForNumber'))
         void qc.invalidateQueries({ queryKey: shopKeys.incomingInvites })
       } else if (isApiError(e, 'ALREADY_IN_A_SHOP')) {
-        setError(`${messageOf(e)}${mine ? ` ${t('shop.leaveShopFromMore', { name: mine.name })}` : ''}`)
+        setError(`${messageOf(e)}${mine ? ` ${leaveAdvice(mine)}` : ''}`)
+        setInAnother(true)
       } else {
         setError(messageOf(e))
       }
@@ -133,6 +154,7 @@ function Invite({ invite, onNote }: { invite: IncomingInvite; onNote: (text: str
       </p>
       <p className="text-xs text-muted">{t('shop.inviteSentOpenUntil', { sent: dateTimeIst(invite.createdAt), until: dateTimeIst(invite.expiresAt) })}</p>
       {error && <Banner tone="bad">{error}</Banner>}
+      {inAnother && mine && !moreOpensFor(mine) && <LeaveShop shop={mine} then="/invites" />}
       <div className="flex gap-2">
         <Button className="flex-1" busy={busy === 'accept'} disabled={busy === 'decline'} onClick={() => answer('accept')}>
           {t('shop.accept')}

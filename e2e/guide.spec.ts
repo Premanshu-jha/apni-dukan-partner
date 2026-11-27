@@ -299,7 +299,7 @@ test('back where it came from: the setup card\'s screens come back to Today, the
   await page.goto('/salon/day')
   await next(page).getByRole('link', { name: 'Add services' }).click()
   await expect(page).toHaveURL(/\/setup\/services$/)
-  await page.getByRole('button', { name: 'Back' }).click()
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
   await expect(page).toHaveURL(/\/salon\/day$/)
 
   api.services = services
@@ -308,7 +308,7 @@ test('back where it came from: the setup card\'s screens come back to Today, the
   await page.reload()
   await next(page).getByRole('link', { name: 'Open Ravi' }).click()
   await expect(page).toHaveURL(/\/setup\/staff\/st1$/)
-  await page.getByRole('button', { name: 'Back' }).click()
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
   await expect(page).toHaveURL(/\/salon\/day$/)
 
   // From the Salon tab: Share and Offers come back to it (not to More)
@@ -316,13 +316,13 @@ test('back where it came from: the setup card\'s screens come back to Today, the
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Salon' }).click()
     await page.getByRole('main').getByRole('link', { name: new RegExp(`^${row}`) }).click()
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
-    await page.getByRole('button', { name: 'Back' }).click()
+    await page.getByRole('button', { name: 'Back', exact: true }).click()
     await expect(page).toHaveURL(/\/setup$/)
   }
   // From More: back to More
   await page.goto('/more')
   await page.getByRole('main').getByRole('link', { name: 'Services and prices' }).click()
-  await page.getByRole('button', { name: 'Back' }).click()
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
   await expect(page).toHaveURL(/\/more$/)
 })
 

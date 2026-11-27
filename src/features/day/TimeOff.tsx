@@ -6,7 +6,7 @@ import { dayApi, useStaff, refreshSalonWork } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import { AHEAD_DAYS } from './Today'
 import type { Appointment, InTheWay } from '../../api/types'
-import { Banner, Button, Card, Chip, ErrorState, Field, Loading, Page } from '../../components/ui'
+import { Banner, Button, Card, Chip, ErrorBanner, ErrorState, Field, Loading, Page } from '../../components/ui'
 import { addDays, dateOfIst, dateTimeIst, isDate, istInstant, timeIst, todayIst } from '../../lib/ist'
 import { can } from '../../lib/roles'
 import { t, useT } from '../../i18n'
@@ -184,7 +184,7 @@ export function TimeOff() {
           </ul>
         </Card>
       )}
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       <Button busy={busy} disabled={!chosen} onClick={save}>
         {kind === 'BREAK' ? t('day.saveBreak') : t('day.saveLeave')}
       </Button>

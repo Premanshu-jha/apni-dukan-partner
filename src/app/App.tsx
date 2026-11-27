@@ -1,4 +1,4 @@
-import { Link, Navigate, Route, Routes } from 'react-router'
+import { Link, Navigate, Route, Routes, useLocation } from 'react-router'
 import { CodeStep } from '../features/auth/CodeStep'
 import { EmailStep } from '../features/auth/EmailStep'
 import { NameStep } from '../features/auth/NameStep'
@@ -47,6 +47,7 @@ import { SubscriptionPage } from '../features/subscription/SubscriptionPage'
 import { NeedHelp } from '../features/help/NeedHelp'
 import { SharePage } from '../features/share/SharePage'
 import { MyRequests, RequestDetail } from '../features/help/MyRequests'
+import { helpHref } from '../features/help/links'
 import { EmptyState, Page } from '../components/ui'
 import { useT } from '../i18n'
 import { kiranaOn } from '../lib/config'
@@ -54,8 +55,35 @@ import { FinishingProfile, KindOnly, PastRegistration, RoleOnly, SignedIn, Signe
 import { kiranaKindRoute, kiranaRegisterRoutes, kiranaScreenRoutes, kiranaTabRoutes } from './kiranaRoutes'
 import { Bare, Shell } from './Shell'
 
-export function App() {
+/** A link to a screen that isn't here: home, or tell us which link it was (its address already in the message). */
+function NotFound() {
   const t = useT()
+  const location = useLocation()
+  const path = location.pathname + location.search
+  return (
+    <Page back="/">
+      <EmptyState
+        title={t('app.notFoundTitle')}
+        action={
+          <div className="flex flex-col items-center gap-3">
+            <Link to="/" className="inline-flex min-h-11 items-center text-link underline">
+              {/* Off: the salon app's words ("Go to today"); on, "/" may be the counter */}
+              {t(kiranaOn() ? 'app.notFoundStartLink' : 'app.notFoundLink')}
+            </Link>
+            <Link
+              to={helpHref({ write: true, about: t('help.topicNotFound'), text: t('help.notFoundText', { path }) })}
+              className="inline-flex min-h-11 items-center text-sm text-link underline"
+            >
+              {t('help.notFoundLink')}
+            </Link>
+          </div>
+        }
+      />
+    </Page>
+  )
+}
+
+export function App() {
   return (
     <Routes>
       <Route element={<Bare />}>
@@ -75,6 +103,8 @@ export function App() {
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/refunds" element={<Refunds />} />
         <Route path="/delivery" element={<Delivery />} />
+        {/* Need help: for everyone, signed in or not (Call us and WhatsApp us; writing needs a verified email) */}
+        <Route path="/help" element={<NeedHelp />} />
       </Route>
 
       <Route element={<SignedIn />}>
@@ -84,7 +114,6 @@ export function App() {
           <Route path="/handover" element={<HandoverPage />} />
           <Route path="/invites" element={<InvitesPage />} />
           <Route path="/profile/delete" element={<DeleteAccount />} />
-          <Route path="/help" element={<NeedHelp />} />
           <Route path="/help/requests" element={<MyRequests />} />
           <Route path="/help/requests/:id" element={<RequestDetail />} />
           <Route element={<RegisterLayout needShop={false} />}>
@@ -177,19 +206,7 @@ export function App() {
       <Route element={<Bare />}>
         <Route
           path="*"
-          element={
-            <Page back="/">
-              <EmptyState
-                title={t('app.notFoundTitle')}
-                action={
-                  <Link to="/" className="text-link underline">
-                    {/* Off: the salon app's words ("Go to today"); on, "/" may be the counter */}
-                    {t(kiranaOn() ? 'app.notFoundStartLink' : 'app.notFoundLink')}
-                  </Link>
-                }
-              />
-            </Page>
-          }
+          element={<NotFound />}
         />
       </Route>
     </Routes>

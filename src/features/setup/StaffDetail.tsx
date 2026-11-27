@@ -7,10 +7,11 @@ import { salonShifts } from '../../lib/salonHours'
 import { fileApi, useShop } from '../../api/shop'
 import type { InTheWay, Shift, Staff } from '../../api/types'
 import { PhotoPicker } from '../../components/PhotoPicker'
-import { Banner, Button, Card, EmptyState, ErrorState, Field, Loading, Page, Switch } from '../../components/ui'
+import { Banner, Button, Card, EmptyState, ErrorBanner, ErrorState, Field, Loading, Page, Switch } from '../../components/ui'
 import { t, useT } from '../../i18n'
 import { clock12, dateTimeIst, timeIst, weekdayName } from '../../lib/ist'
 import { formatPhone, normalizePhone } from '../../lib/phone'
+import { TellThem } from '../team/TellThem'
 import { can } from '../../lib/roles'
 import { dayLink } from '../day/Today'
 import { loginText } from './Staff'
@@ -159,7 +160,7 @@ function RemoveBarber({ s }: { s: Staff }) {
           {t('setup.removeBarber')}
         </Button>
       )}
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
     </Card>
   )
 }
@@ -193,7 +194,7 @@ function NameAndActive({ s, edit, onDirty }: { s: Staff; edit: boolean; onDirty?
           onChange={(on) => run(() => setupApi.updateStaff(s.id, s.version, { active: on }))}
         />
       </div>
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       {saved && !error && <Banner tone="good">{saved}</Banner>}
     </Card>
   )
@@ -267,8 +268,10 @@ function Login({ s, edit, onDirty }: { s: Staff; edit: boolean; onDirty?: OnDirt
             </Button>
           </>
         ))}
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       {saved && !error && <Banner tone="good">{saved}</Banner>}
+      {/* Waiting for him: the owner tells him which app and number, on WhatsApp in one tap */}
+      {edit && s.invitedPhone && <TellThem phone={s.invitedPhone} him />}
     </Card>
   )
 }
@@ -312,7 +315,7 @@ function Skills({ s, edit, onDirty }: { s: Staff; edit: boolean; onDirty?: OnDir
           {t('setup.saveServices')}
         </Button>
       )}
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       <BookingsInTheWay list={inTheWay} />
       {saved && !error && <Banner tone="good">{saved}</Banner>}
     </Card>
@@ -477,7 +480,7 @@ function Hours({ s, edit, onDirty }: { s: Staff; edit: boolean; onDirty?: OnDirt
           {t('setup.saveBarberHours')}
         </Button>
       )}
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       <BookingsInTheWay list={inTheWay} />
       {saved && !error && <Banner tone="good">{saved}</Banner>}
     </Card>

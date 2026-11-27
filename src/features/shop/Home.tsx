@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { lazy, Suspense } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { useSalonHours, useServices } from '../../api/salon'
 import { shopAsk } from './TeamReasons'
 import { useShop } from '../../api/shop'
@@ -14,10 +14,13 @@ import { HandoverOffers } from './HandoverOffers'
 import { InviteOffers } from './InviteOffers'
 import { useRecheckShop } from './ShopGate'
 import { useWriteToUsHref } from '../help/HelpButton'
+import { ContactUs } from '../../components/ContactUs'
+import { LeaveShop } from '../profile/LeaveShop'
 
 /** Where "/" goes: registration for a draft owner, a wait screen for staff of a salon not live yet, else today. */
 export function Home() {
   const shop = useShop()
+  const location = useLocation()
   const kirana = shop.type === 'KIRANA'
   if (shop.myRole === 'OWNER' && shop.status === 'DRAFT') {
     return kirana ? (
@@ -29,7 +32,11 @@ export function Home() {
     )
   }
   if (shop.myRole !== 'OWNER' && (shop.status === 'DRAFT' || (shop.status === 'PENDING_VISIT' && !kirana))) return <NotLiveYet />
-  return <Navigate to={kirana ? '/kirana/counter' : '/salon/day'} replace />
+  // What brought them here goes along (a screen their role can't open, a message with no screen): Today says it
+  // A tapped push with no screen of its own (`?message=` its title, lib/messageLinks.ts noScreenTarget) too
+  const message = new URLSearchParams(location.search).get('message')?.slice(0, 200)
+  const state = message ? { ...(location.state as object | null), aboutMessage: message } : location.state
+  return <Navigate to={kirana ? '/kirana/counter' : '/salon/day'} replace state={state} />
 }
 
 /** A kirana's owner back to his registration (KiranaRegister): its own download, kirana switch on only. */
@@ -66,7 +73,7 @@ function NotLiveYet() {
   const navigate = useNavigate()
   const recheck = useRecheckShop()
   return (
-    <Page title={shop.name}>
+    <Page title={shop.name} language>
       <HandoverOffers />
       <InviteOffers />
       <EmptyState
@@ -82,6 +89,8 @@ function NotLiveYet() {
         }
         action={<Button onClick={() => recheck()}>{t('shop.checkAgain')}</Button>}
       />
+      {/* Joined by mistake, or another salon's invitation to accept: More can't be opened yet, so Leave is here */}
+      <LeaveShop />
       <Button variant="ghost" onClick={() => signOutHere(qc).then(() => navigate('/signin', { replace: true }))}>
         {t('shop.signOut')}
       </Button>
@@ -110,6 +119,8 @@ export function WaitingForVisit() {
         <CopyCode code={String(shop.shopCode)} />
       </p>
       <p className="text-xs text-muted">{t('shop.quoteShopCode')}</p>
+      {/* Not called yet: a person to ask, the shop code already in the WhatsApp message */}
+      <ContactUs screen={t('shop.visitNextTitle')} shopCode={shop.shopCode} heading={t('shop.notCalledYet')} />
     </Card>
   )
 }

@@ -47,5 +47,6 @@
   "typeSUBSCRIPTION_PAID": "पेमेंट मिळाले",
   "typeSUBSCRIPTION_ENDING": "तुमच्या सबस्क्रिप्शनची मुदत लवकरच संपेल",
   "typeSUBSCRIPTION_ENDED": "तुमच्या सबस्क्रिप्शनची मुदत संपली",
-  "typeSUBSCRIPTION_HIDDEN": "ग्राहकांना तुमचे सलून दिसत नाही"
+  "typeSUBSCRIPTION_HIDDEN": "ग्राहकांना तुमचे सलून दिसत नाही",
+  "aboutMessage": "तो मेसेज याबद्दल आहे: {title}"
 }

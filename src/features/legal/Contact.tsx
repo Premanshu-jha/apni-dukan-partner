@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { spaceBefore, useT } from '../../i18n'
 import { BUSINESS } from '../../lib/business'
 import { LegalPage, Section } from './LegalPage'
+import { ContactUs } from '../../components/ContactUs'
 
 /**
  * How to reach Clozest: email, phone and address (also the grievance contact under the privacy policy). The words are
@@ -12,6 +13,8 @@ export function Contact() {
   const tel = BUSINESS.phone.replace(/\s/g, '')
   return (
     <LegalPage path="/contact" title={t('about.contactTitle')}>
+      {/* The quickest way first, for anyone (signed in or not, sign-up not finished) */}
+      <ContactUs screen={t('about.contactTitle')} heading={t('help.talkToUs')} />
       <Section title={t('about.contactWriteTitle')}>
         <dl className="flex flex-col gap-3">
           <div>

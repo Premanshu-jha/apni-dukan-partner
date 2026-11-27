@@ -36,4 +36,14 @@ describe('the scanner', () => {
     render(<Scanner onCode={() => undefined} />)
     expect(await screen.findByText(/camera can't be used/)).toBeInTheDocument()
   })
+
+  it('with the camera refused: "Try the camera again" starts it afresh after the phone setting changed (F-07)', async () => {
+    const getUserMedia = vi.fn().mockRejectedValueOnce(Object.assign(new Error('no'), { name: 'NotAllowedError' })).mockResolvedValue({ getTracks: () => [{ stop }] })
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia } })
+    render(<Scanner onCode={() => undefined} />)
+    const again = await screen.findByRole('button', { name: 'Try the camera again' })
+    again.click()
+    await vi.waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(2))
+  })
 })
+

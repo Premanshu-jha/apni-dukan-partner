@@ -8,6 +8,7 @@ import { useT } from '../../i18n'
 import { looksLikeEmail } from '../../lib/phone'
 import { useSession } from '../../store/session'
 import { nextAfterSignIn } from './flow'
+import { SignUpWayOut } from './SignUpWayOut'
 
 /** Sign-up step 2: an email we can reach, for receipts and for getting the account back if the phone is lost. */
 export function EmailStep() {
@@ -67,7 +68,7 @@ export function EmailStep() {
   }
 
   return (
-    <Page title={t('auth.emailTitle')}>
+    <Page title={t('auth.emailTitle')} language>
       <p className="text-muted">{t('auth.emailIntro')}</p>
       {!sentTo ? (
         <form onSubmit={send} className="flex flex-col gap-4" noValidate>
@@ -114,6 +115,7 @@ export function EmailStep() {
           </div>
         </div>
       )}
+      <SignUpWayOut screen={t('auth.emailTitle')} />
     </Page>
   )
 }

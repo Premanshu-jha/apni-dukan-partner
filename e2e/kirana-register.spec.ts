@@ -86,7 +86,9 @@ test('a kirana owner answers "What do you run?", registers in five steps and sub
   await expect(page).toHaveURL(/\/kirana\/counter$/)
   expect(api.shop!.status).toBe('PENDING_VISIT')
   await expect(page.getByText('Waiting for approval')).toBeVisible()
-  await expect(page.getByText('your counter works already', { exact: false })).toBeVisible()
+  // F-01/F-02: no promise of a call yet; the next thing to do, as one big button
+  await expect(page.getByText('The visit is booked once all your products are added', { exact: false })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Set up your products: photograph your list' })).toBeVisible()
   // Submitted: the kind can't be changed any more
   await page.goto('/register/kind')
   await expect(page).toHaveURL(/\/kirana\/counter$/)

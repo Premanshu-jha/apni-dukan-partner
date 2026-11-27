@@ -37,7 +37,8 @@ test('the email stopped being verified elsewhere: Send reads the profile again a
 test('a registering owner can reach Need help from every step', async ({ page, context, api }) => {
   await signedIn(context, api)
   await page.goto('/register')
-  await page.getByRole('link', { name: 'Need help? Write to support' }).click()
+  // Help at the top right of every step (the link under the form is gone: it skipped the upload warning)
+  await page.getByRole('link', { name: /^Help/ }).click()
   await expect(page.getByRole('heading', { name: 'Need help' })).toBeVisible()
 })
 

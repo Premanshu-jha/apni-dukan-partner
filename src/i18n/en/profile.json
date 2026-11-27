@@ -118,5 +118,7 @@
   "verify": "Verify",
   "howToAnswers": "How do I…? Answers",
   "pushNoToken": "This phone couldn't connect for notifications. Try again later; new bookings still show on the day board and under the bell.",
-  "openSettings": "Open settings"
+  "openSettings": "Open settings",
+  "leaveSignsOut": "Leaving signs you out here. Sign in again with the same number.",
+  "leaveSignsOutInvite": "Leaving signs you out here. Sign in again with the same number: your invitation opens straight away."
 }

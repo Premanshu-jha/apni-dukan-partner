@@ -144,7 +144,7 @@ there, and reviews walk the list against the code.
 | Hand over the shop | `/shop/handover` | Owner (any status) |
 | Take over a shop (requests to my number) | `/handover`, and at the top of Start and the day board | Anyone signed in, shop or not |
 | Messages | `/notifications` | Everyone |
-| Help: Write to us, My requests, searchable answers (`?write=1` opens the form; `from`, `topic`, `about`, `text` fill it) | `/help`, `/help/requests` | Everyone signed in (answers only for the screens each role can open) |
+| Help: Call us / WhatsApp us, Write to us, My requests, searchable answers (`?write=1` opens the form; `from`, `topic`, `about`, `text` fill it) | `/help`, `/help/requests` | `/help` everyone (writing: a verified email); My requests signed in. Answers only for the screens each role can open; before the salon is live, the registering and joining answers |
 | Share your salon: link (WhatsApp, share sheet, copy), QR poster (share, download, print) | `/salon/share` | Everyone in a salon |
 
 ## Flows
@@ -153,8 +153,10 @@ there, and reviews walk the list against the code.
 
 Nobody should need training, so every screen says where help is and what to do next:
 
-- **Help on every screen.** `Page` puts "? Help" at the top right of every screen (Today: beside the bell). Signed
-  out it opens Contact. A dot on it says support replied and the reply hasn't been opened yet (`lastReplyAt` newer
+- **Help on every screen.** `Page` puts "? Help" at the top right of every screen (Today: beside the bell), a
+  salon's and a kirana's, and every sheet has Help in its own header. It opens Need help for everyone, signed out
+  too: "Call us" and "WhatsApp us" come first (`components/ContactUs.tsx`, the number in `lib/business.ts`); writing
+  needs a verified email, and without one "Write to us" says why with one tap to add it. A dot on it says support replied and the reply hasn't been opened yet (`lastReplyAt` newer
   than when the person last opened that request, also when the reply resolved it): one cached read of My requests
   when the app opens, when it comes back to the front (2-minute stale time, no polling) and when support's reply
   arrives as a notification while the app is open. A screen with changes not saved (opening hours, walk-in, a
@@ -707,7 +709,7 @@ and keeps whatever was typed.
   language, so prices, counts and phone numbers read as on bills and packs.
 - **Not translated.** The legal pages (About, Terms, Privacy, Refunds, Delivery, Contact) stay in English, the
   language they are binding in. Names people type, and everything saved, stay as entered. The offline page shows its
-  lines in the saved language (`public/offline.js`, cached with it by `sw.js`, `offline-v3`).
+  lines in the saved language (`public/offline.js`, cached with it by `sw.js`, `offline-v4`).
 - **Short words in tight places.** A booking card's status pill uses short words (`day.pill*`) and never wraps or
   shrinks; the name beside it wraps instead. Minutes use each language's own short form (hi/mr "मि.", te "నిమి.", ta
   "நிமி.", kn "ನಿಮಿ."); the registration step labels fit a 360px phone in every language.
@@ -718,6 +720,96 @@ and keeps whatever was typed.
   (`docs/translation-review.md` lists what to look at first).
 
 ## Changelog
+
+### Unreleased — never stuck (usability round)
+
+No backend change needed. Fixes the salon side's usability audit (26 findings) and the shared help part of the kirana
+audit. Every new text is in all six languages (Hindi, Telugu, Kannada, Tamil and Marathi to be checked by native
+speakers).
+
+- **Call us and WhatsApp us, for everyone.** Big buttons at the top of Need help (signed out or without a verified
+  email too), on the crash screen, "Please update the app", the old-WebView screen, the offline page, the email and
+  name steps, the code step ("No SMS?"), Contact, a suspended salon's banner, "What happens next" while waiting for the
+  visit, the "Sent" screen and the top of the Write to us form itself. The WhatsApp message is typed in (the screen, the shop code). One number, in
+  `lib/business.ts` (`CALL_US`, `whatsappUs`); WhatsApp opens in a new tab on the website and as a plain link in the app.
+- **Writing to us still needs a verified email**, and now says so: "Add my email" in one tap, back to the form after.
+  `/help` is open to everyone (no bounce back to the email step); My requests is not asked for until signed in. Only
+  the name missing: it says the name. The registering and joining answers show without an email too.
+- **Messages open their screen.** "Pay your subscription", fix-it, licence, address and photos messages open
+  `/subscription`, `/setup…`, `/register/photos` from Messages, web push and the app's push (one list,
+  `lib/messageLinks.ts`; `sw.js` keeps a copy, checked by a test). Shop news opens More. With the kirana switch on, a
+  kirana's licence messages open its licences, `/kirana/online` the licences or the UPI ID, an online order Bills, and
+  a fix asked for (`/setup`, opened as `/setup?fix=1`) More. A message with no screen (in Messages, or a push: `/?message=<title>`) opens the
+  home screen saying "That message is about: …" (`components/ArrivedNote.tsx`, shared with the kirana counter).
+  Messages opened from More go back to More.
+- **Never a dead end.** The crash screen: Open More, Write to us (what happened filled in), Call us. Not found: "Tell us
+  which link you opened". A screen the role can't open: Today says "Only the owner can open that screen. Ask …". A
+  failed save shows "Still not working? Write to us" with its words (`ErrorBanner`). Walk-in with no services: "Add
+  your services" for the owner; "Set who does which service". A booking's Help is at the top of the sheet in every
+  step, and a barber is told who can start without the code. The start-code refusal names the button.
+- **Staff and sign-up.** Helpers and barbers waiting for approval can leave the salon (also under another salon's
+  invitation or hand-over when More can't open yet: the sheet says leaving signs you out, and signing in again opens
+  the invitation). One leave per tap. The email and name steps have "Sign out and start again". Signing out also
+  forgets the kirana setup's typing in this tab, the khata sheet to reopen and the screen before More.
+- **Sheets:** every sheet's Help asks first when anything in the sheet was changed since it opened, and does nothing
+  while a save is on its way.
+- **Language beside Help** on registration, Start, the wait for approval, the email and name steps and Need help.
+- **Invitations.** After inviting: "install the Clozest Partner app and sign in with +91 …" and "Send on WhatsApp";
+  the words say "Clozest Partner app" (not the customers' Clozest). Team (helpers) is on the Salon tab, and Team links
+  to the barbers.
+- **Help answers before the salon is live:** registering (video, trade licence, pin, after submit, sent back) and
+  joining (where the invitation is, wrong salon, owner not on Clozest yet). A photo is enough to write: one tap adds
+  "Please look at the file I sent." (the backend still needs 10 characters).
+- **Registration's bottom "Need help?" link is gone**: the top Help asks first while an upload is running.
+- **Kirana (shared help code only):** Help and the error's "Write to us" now show on a kirana's screens too, about that
+  screen (Counter, Bills, Setting up products, …); More's help card is right under the shop card, about the screen
+  before More; nine "How do I…?" answers for a kirana (setup, products, stock, helper, licences, no barcode, UPI,
+  returns, khata limit). The crash screen and the offline page say "shop".
+- **The update screens** no longer offer "use the website meanwhile" (inside the app it opened the same screens).
+- **Under load:** nothing new is polled; Need help and Call us ask the backend for nothing more (the shop and My
+  requests come from the same cached reads, and not at all signed out); the offline page is cached (`offline-v4`).
+
+### Unreleased — Kirana: product setup and guidance
+
+Kirana switch on only (`VITE_KIRANA_ENABLED`); the salon app is unchanged. Needs the backend's product setup (V76–V82,
+already on `main`): **deploy together**, since a submitted kirana gets its field visit only after
+`POST /kirana/setup/finish`.
+
+- **Product setup after Submit** (`/kirana/setup`, `src/features/kirana/Setup.tsx`, `src/api/kiranaSetup.ts`): the
+  counter's top card shows the next step as one big button with progress (F-02): photograph the pages of the shop's list
+  (read by AI), check each line one at a time ("Line 37 of 412", "375 left"; add with its count, or skip; skipped lines
+  can be brought back), count products with no count, photograph products with no picture (with the size to show, the
+  side after "can't see the size"), then **"I've added all my products"** (owner; helpers are told to ask the owner),
+  which books the visit. Everything is saved as decided, so it goes on from where it was left on any phone; every send
+  is safe to repeat (clientRefs kept until answered). Refusals say why with the fix one tap away. Polling only while a
+  page is read (8 s) or photos are checked (20 s); lines read 20 at a time.
+- **Good/bad drawings before a photo or paper** (F-08, `Guides.tsx`, inline SVG): list pages, packs, loose goods, face,
+  shop front, video, FSSAI certificate ("not the payment receipt" now above the upload), shop licence.
+- **Texts no longer promise a call before setup is finished** (F-01): review, Submit sheet, approval bar.
+- **Fixes from the kirana audit:** Add a product stays on the form for the next one (F-06) and asks before leaving with
+  typing (F-21); scanner: aim hint, "Try the camera again", "Type the digits instead" (F-07, F-22); review lists every
+  gap as a link, Licences' gap scrolls to it (F-09); raising a khata limit returns to the bill with its sheet (F-10);
+  unknown barcode: "Bill it now, add the product later" (listed on Products) and a short add form in the scanner (F-11);
+  removing a product or barcode asks first (F-12); helpers get "Ask the owner on WhatsApp" (F-13); Day goes back where it
+  came from (F-15); the setup card replaces the hideable waiting card (F-16); Today card Try again (F-18) and a
+  full-width button (F-23); a helper's first-time hint (F-20); empty Products has buttons (F-02).
+- **Languages:** every new text in English, Hindi, Telugu, Marathi, Tamil and Kannada (`kiranaSetup.json`; native-speaker
+  check pending).
+- **After the independent reviews:**
+  - The counter has a one-line strip ("Continue setting up · 37 left ›"), so Scan stays on the first screen. The full card is on the setup page.
+  - The strip never polls. The setup screens back off (8 s/20 s → 1 min → 5 min) and stop after 30 min.
+  - No refetch loops when another phone checked or counted meanwhile.
+  - A corrected count after a lost answer is saved as the new number, and a line already added is said so.
+  - Counts are checked by the product's own unit.
+  - The same photo is never sent as two pages, and a recount retake stays a recount.
+  - Back asks first during a photo upload.
+  - Failed sends get the shared "Write to us"; the setup's error state has Call us / WhatsApp us.
+  - "Ask the owner" is a plain link in the app and names the Clozest Partner app.
+  - The counter says why it opened.
+  - Sign-out forgets the setup's typing and pending sends.
+  - A failed guide download no longer breaks the photos step.
+- **Not in this round:** F-14 (needs bills search on the backend), F-17 (tab icons through the svg-icon process),
+  F-03/F-04/F-05/F-19 (shared help code, another engineer).
 
 ### Unreleased — analytics
 

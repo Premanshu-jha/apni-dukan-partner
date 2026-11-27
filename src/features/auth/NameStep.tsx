@@ -6,6 +6,7 @@ import { Banner, Button, Field, Page } from '../../components/ui'
 import { useT } from '../../i18n'
 import { useSession } from '../../store/session'
 import { nextAfterSignIn } from './flow'
+import { SignUpWayOut } from './SignUpWayOut'
 
 /** Sign-up step 3, asked last: the name the salon's owner and our field team see. */
 export function NameStep() {
@@ -35,7 +36,7 @@ export function NameStep() {
   }
 
   return (
-    <Page title={t('auth.nameTitle')}>
+    <Page title={t('auth.nameTitle')} language>
       <p className="text-muted">{t('auth.nameIntro')}</p>
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         <Field
@@ -53,6 +54,7 @@ export function NameStep() {
           {t('common.done')}
         </Button>
       </form>
+      <SignUpWayOut screen={t('auth.nameTitle')} />
     </Page>
   )
 }

@@ -6,7 +6,7 @@ import { kiranaApi, kiranaKeys, useKiranaSettings, useOnline, type FssaiStatus }
 import { ShopContext, shopApi, shopKeys, useShop } from '../../api/shop'
 import type { Shop, ShopType } from '../../api/types'
 import { MapBoundary } from '../../components/MapBoundary'
-import { Banner, Button, Card, ErrorState, Field, Loading, Page, Sheet } from '../../components/ui'
+import { Banner, Button, Card, ErrorBanner, ErrorState, Field, Loading, Page, Sheet } from '../../components/ui'
 import { t, useT } from '../../i18n'
 import { cleanUpiId, upiIdLooksRight } from '../../lib/kirana'
 import { loadRegisterKind, saveRegisterKind } from '../../lib/registerDraft'
@@ -103,7 +103,7 @@ export function RegisterKind() {
           </button>
         ))}
       </div>
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       <Sheet open={asking !== null} title={asking === 'KIRANA' ? t('kiranaRegister.changeToKiranaTitle') : t('kiranaRegister.changeToSalonTitle')} onClose={() => !busy && setAsking(null)}>
         <div className="flex flex-col gap-3">
           <p>{t('kiranaRegister.changeKeeps')}</p>
@@ -199,7 +199,7 @@ export function UpiIdForm({ onSaved, saveLabel }: { onSaved: (upiId: string) => 
         {cleaned && !problem && cleaned !== value.trim() && <p className="text-sm text-muted">{t('kiranaRegister.upiSavedAs', { upiId: cleaned })}</p>}
         <p className="text-sm text-muted">{t('kiranaRegister.upiHowPaid')}</p>
       </Card>
-      {error !== null && !fieldError(error, 'upiId') && !isApiError(error, 'EDIT_LOCKED') && <Banner tone="bad">{messageOf(error)}</Banner>}
+      {error !== null && !fieldError(error, 'upiId') && !isApiError(error, 'EDIT_LOCKED') && <ErrorBanner message={messageOf(error)} />}
       <Button busy={busy} onClick={save}>
         {saveLabel}
       </Button>
@@ -362,20 +362,19 @@ export function KiranaReview() {
         </Banner>
       )}
       <p className="text-sm text-muted">{t('kiranaRegister.reviewAfterSubmit')}</p>
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       <Button disabled={!ready} onClick={() => setAsking(true)}>
         {t('kiranaRegister.submitForVisit')}
       </Button>
       {!ready && !settings.isPending && (
-        <p className="text-center text-sm text-muted">
-          {!photos
-            ? t('kiranaRegister.gapPhotos')
-            : !video
-              ? t('kiranaRegister.gapVideo')
-              : !papers
-                ? licencesGap(settings.data, fssai)
-                : t('kiranaRegister.gapUpiId')}
-        </p>
+        // Every gap at once, each one tap from its step (F-09), not only the first one in a sentence
+        <div className="flex flex-col gap-2" aria-label={t('kiranaSetup.stillNeeded')}>
+          <p className="text-center text-sm text-muted">{t('kiranaSetup.stillNeeded')}</p>
+          {!photos && <GapLink to="/register/photos?from=review" label={t('kiranaSetup.gapAddPhotos')} />}
+          {!video && <GapLink to="/register/photos?from=review" label={t('kiranaSetup.gapAddVideo')} />}
+          {!papers && <GapLink to="/register/licences?from=review" label={t('kiranaSetup.gapFix', { gap: licencesGap(settings.data, fssai) ?? '' })} />}
+          {!upiId && <GapLink to="/register/upi?from=review" label={t('kiranaSetup.gapAddUpi')} />}
+        </div>
       )}
       <Sheet open={asking} title={t('kiranaRegister.submitSheetTitle')} onClose={() => !busy && setAsking(false)}>
         <div className="flex flex-col gap-3">
@@ -397,6 +396,16 @@ export function KiranaReview() {
       </Sheet>
       <DraftExits name={shop.name} />
     </Page>
+  )
+}
+
+/** A missing item under a greyed-out button: a full-width link to where it is fixed. */
+function GapLink({ to, label }: { to: string; label: string }) {
+  return (
+    <Link to={to} className="flex min-h-12 items-center justify-between gap-2 rounded-xl border border-warn/50 bg-warn/10 px-4 py-2 text-left text-sm">
+      <span className="min-w-0 break-words">{label}</span>
+      <span aria-hidden>→</span>
+    </Link>
   )
 }
 

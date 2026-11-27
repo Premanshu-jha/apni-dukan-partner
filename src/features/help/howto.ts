@@ -1,4 +1,5 @@
 import type { Shop, ShopRole } from '../../api/types'
+import { kiranaOn } from '../../lib/config'
 import { isApp } from '../../lib/platform'
 
 /**
@@ -9,7 +10,7 @@ import { isApp } from '../../lib/platform'
  * nobody is shown an answer for a screen they can't open. `ownerChanges`: a helper can open it but only the owner
  * changes it there (can().editSetup), so a helper reads a note saying so.
  */
-export type HowToGroup = 'setup' | 'day' | 'customers' | 'account'
+export type HowToGroup = 'setup' | 'day' | 'customers' | 'account' | 'registering' | 'joining' | 'kiranaSetup' | 'kiranaDay'
 
 export interface HowTo {
   id: string
@@ -34,7 +35,7 @@ const TAB_BOOKINGS = 'app.tabBookings'
 const TAB_SALON = 'app.tabSalon'
 const TAB_MORE = 'app.tabMore'
 
-export const GROUPS: readonly HowToGroup[] = ['setup', 'day', 'customers', 'account']
+export const GROUPS: readonly HowToGroup[] = ['setup', 'day', 'customers', 'account', 'registering', 'joining', 'kiranaSetup', 'kiranaDay']
 
 export const HOWTOS: readonly HowTo[] = [
   { id: 'services', group: 'setup', roles: OWNER_HELPER, to: '/setup/services', ownerChanges: true,
@@ -103,19 +104,72 @@ export const HOWTOS: readonly HowTo[] = [
   { id: 'leaveSalon', group: 'account', roles: ['HELPER', 'BARBER'], to: '/more', words: { more: TAB_MORE, leave: 'profile.leaveShop' } },
 ]
 
+/**
+ * Before the salon is live: what owners ask while registering, and what helpers and barbers ask about joining (an
+ * owner with a draft; a helper or barber waiting for approval; anyone with no shop yet, on the start screen). Their
+ * screens are the registration steps and the start ("/" takes each person to theirs).
+ */
+export const EARLY_HOWTOS: readonly HowTo[] = [
+  { id: 'regVideo', group: 'registering', roles: ALL, to: '/register/photos' },
+  { id: 'regLicence', group: 'registering', roles: ALL, to: '/register/photos' },
+  { id: 'regPin', group: 'registering', roles: ALL, to: '/register', words: { useLocation: 'register.useMyLocation' } },
+  { id: 'regAfter', group: 'registering', roles: ALL, to: '/register/review' },
+  { id: 'regSentBack', group: 'registering', roles: ALL, to: '/register/review', words: { review: 'register.reviewTitle' } },
+  { id: 'joinWhere', group: 'joining', roles: ALL, to: '/', words: { accept: 'shop.accept' } },
+  { id: 'joinWrong', group: 'joining', roles: ALL, to: '/', words: { leave: 'profile.leaveShop', more: TAB_MORE } },
+  { id: 'joinOwnerNotOn', group: 'joining', roles: ALL, to: '/' },
+]
+
+/**
+ * A kirana's answers (kirana switch on only: off, no kirana reaches the app), in the screens' own words: its tabs,
+ * the setup card, the counter's, products', bills' and khata's buttons. Owner-only screens (team, licences: the
+ * routes' RoleOnly in kiranaRoutes.tsx) only for the owner; the khata limit is the owner's to change.
+ */
+const K_TAB_COUNTER = 'app.tabCounter'
+const K_TAB_PRODUCTS = 'app.tabProducts'
+const K_TAB_BILLS = 'app.tabBills'
+export const KIRANA_HOWTOS: readonly HowTo[] = [
+  { id: 'kSetup', group: 'kiranaSetup', roles: ALL, to: '/kirana/setup',
+    words: { counter: K_TAB_COUNTER, setUp: 'kiranaSetup.stripStart', photograph: 'kiranaSetup.nextPhotographList', finish: 'kiranaSetup.finish' } },
+  { id: 'kAddProduct', group: 'kiranaSetup', roles: ALL, to: '/kirana/products/new',
+    words: { products: K_TAB_PRODUCTS, add: 'kiranaProducts.addProductLink' } },
+  { id: 'kCount', group: 'kiranaSetup', roles: ALL, to: '/kirana/products',
+    words: { products: K_TAB_PRODUCTS, count: 'kiranaProducts.count', came: 'kiranaProducts.cameIn' } },
+  { id: 'kHelper', group: 'kiranaSetup', roles: OWNER, to: '/kirana/team',
+    words: { more: TAB_MORE, team: 'profile.linkKiranaTeam', invite: 'kiranaProducts.teamInviteHelper' } },
+  { id: 'kLicences', group: 'kiranaSetup', roles: OWNER, to: '/kirana/licences',
+    words: { more: TAB_MORE, licences: 'profile.linkKiranaLicences' } },
+  { id: 'kNoBarcode', group: 'kiranaDay', roles: ALL, to: '/kirana/counter',
+    words: { counter: K_TAB_COUNTER, notInList: 'kiranaCounter.itemNotInList', addToBill: 'kiranaCounter.addToBill', scan: 'kiranaCounter.scan' } },
+  { id: 'kUpi', group: 'kiranaDay', roles: ALL, to: '/kirana/bills',
+    words: { cash: 'kiranaCounter.upiFailedCash', bills: K_TAB_BILLS, change: 'kiranaBills.changeHowPaid' } },
+  { id: 'kReturn', group: 'kiranaDay', roles: ALL, to: '/kirana/bills',
+    words: { bills: K_TAB_BILLS, back: 'kiranaBills.itemsBroughtBack', save: 'kiranaBills.saveReturn' } },
+  { id: 'kKhata', group: 'kiranaDay', roles: ALL, to: '/kirana/khata', ownerChanges: true,
+    words: { khata: 'app.tabKhata', edit: 'common.edit', limit: 'kiranaBills.limitRupees', noLimit: 'kiranaBills.noLimit' } },
+]
+
 export function targetOf(h: HowTo, role: ShopRole): string {
   return typeof h.to === 'string' ? h.to : h.to(role)
 }
 
 /**
  * Whether the how-to answers fit this person: a salon past registration (the guard PastRegistration in guards.tsx:
- * the owner once it is submitted, everyone else once it is approved). Before that their screens aren't open yet
- * (registration has its own steps and help); a kirana's people have their own screens.
+ * the owner once it is submitted, everyone else once it is approved). Before that, the early answers: registering for
+ * the owner of a draft, joining for a helper or barber waiting, both for someone with no shop yet (null). A kirana's
+ * people have their own screens.
  */
 export function howToFor(shop: Shop | null | undefined): readonly HowTo[] {
-  if (!shop || shop.type !== 'SALON' || shop.status === 'CLOSED') return []
+  // No shop: nothing to leave yet
+  if (shop === null) return EARLY_HOWTOS.filter((h) => h.id !== 'joinWrong')
+  if (!shop || shop.status === 'CLOSED') return []
+  // A kirana's people from the day its counter works (submitted: the owner and helpers bill from then)
+  if (shop.type === 'KIRANA') {
+    return kiranaOn() && shop.status !== 'DRAFT' ? KIRANA_HOWTOS.filter((h) => h.roles.includes(shop.myRole)) : []
+  }
+  if (shop.type !== 'SALON') return []
   const past = shop.myRole === 'OWNER' ? shop.status !== 'DRAFT' : shop.status === 'APPROVED' || shop.status === 'SUSPENDED'
-  if (!past) return []
+  if (!past) return EARLY_HOWTOS.filter((h) => h.group === (shop.myRole === 'OWNER' ? 'registering' : 'joining'))
   return HOWTOS.filter((h) => h.roles.includes(shop.myRole)).map(inThisApp)
 }
 

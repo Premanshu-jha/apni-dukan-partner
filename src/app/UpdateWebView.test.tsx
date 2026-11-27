@@ -28,5 +28,10 @@ describe('the app on a too-old Android System WebView', () => {
       'href',
       'https://play.google.com/store/apps/details?id=com.google.android.webview',
     )
+    // The phone can't update it: Call us / WhatsApp us (plain links: no router here), and the website meanwhile
+    expect(screen.getByRole('link', { name: 'Call us' })).toHaveAttribute('href', 'tel:+919381251613')
+    const chat = new URL(screen.getByRole('link', { name: 'WhatsApp us' }).getAttribute('href')!)
+    expect(chat.searchParams.get('text')).toBe('Hello Clozest, I need help. Screen: Update one app to continue')
+    expect(screen.queryByRole('link', { name: /partner\.clozest\.in/ })).not.toBeInTheDocument()
   })
 })

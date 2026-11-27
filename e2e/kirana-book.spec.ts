@@ -11,7 +11,11 @@ test('products: add one with its barcode and stock, count it, and the owner edit
   await page.getByLabel('Barcode (optional)').fill('8901725181116')
   await page.getByLabel('Stock on the shelf now (optional, pieces)').fill('8')
   await page.getByLabel("Tell me when it's down to (optional)").fill('3')
-  await page.getByRole('button', { name: 'Save the product' }).click()
+  // F-06: the form stays for the next product, with a link to the one just saved
+  await page.getByRole('button', { name: 'Save and add the next' }).click()
+  await expect(page.getByText('Saved: Aashirvaad Atta 5 kg. Add the next one.')).toBeVisible()
+  await expect(page.getByLabel('Name')).toHaveValue('')
+  await page.getByRole('link', { name: 'Open it' }).click()
   await expect(page.getByRole('heading', { name: 'Aashirvaad Atta 5 kg' })).toBeVisible()
   await expect(page.getByText('In stock: 8 pcs')).toBeVisible()
   await expect(page.getByText('8901725181116')).toBeVisible()
@@ -28,7 +32,7 @@ test('products: add one with its barcode and stock, count it, and the owner edit
   await page.goto('/kirana/products/new')
   await page.getByLabel('Name').fill('aashirvaad atta 5 kg')
   await page.getByLabel('Price of one (₹)').fill('260')
-  await page.getByRole('button', { name: 'Save the product' }).click()
+  await page.getByRole('button', { name: 'Save and add the next' }).click()
   await expect(page.getByText('You already have a product called "Aashirvaad Atta 5 kg".')).toBeVisible()
   await page.getByRole('link', { name: 'Open it' }).click()
 
@@ -37,6 +41,8 @@ test('products: add one with its barcode and stock, count it, and the owner edit
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByText('₹270 each')).toBeVisible()
   await page.getByRole('button', { name: 'Remove from my products' }).click()
+  // F-12: asked first
+  await page.getByRole('dialog', { name: 'Remove Aashirvaad Atta 5 kg?' }).getByRole('button', { name: 'Yes, remove' }).click()
   await expect(page.getByText("Removed from your products: it doesn't scan or show at the counter.", { exact: false })).toBeVisible()
   await page.goto('/kirana/products')
   await page.getByRole('button', { name: 'Running out' }).click()

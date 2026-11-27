@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { explain, isApiError } from '../../api/errors'
 import { dayApi, useStaff, refreshSalonWork } from '../../api/salon'
@@ -14,6 +14,8 @@ import { can } from '../../lib/roles'
 import { t, useT } from '../../i18n'
 import { useNow } from '../../lib/useNow'
 import { helpHref } from '../help/links'
+import { HelpIcon } from '../help/HelpButton'
+import { SheetContext } from '../../components/sheetState'
 import { kindText, servicesText, statusText, statusTextOr, totalPaise, whoText } from './status'
 
 type Mode = 'menu' | 'start' | 'finish' | 'noShow' | 'reassign' | 'cancel' | 'removeBlock'
@@ -128,8 +130,30 @@ export function AppointmentSheet({
     a.blockType !== 'CLOSED' &&
     (a.blockType === 'LEAVE' ? rights.leave : ownerOrHelper || (a.addedByMe && now < startMs))   // a barber: before it starts
 
+  // Help from the booking itself, at the top in every step (the sheet covers the screen's Help, and the code step is
+  // where a refusal shows): its number, time and the words the app showed go with it
+  const bookingHelp = (
+    <SheetButton
+      onClick={() =>
+        navigate(
+          helpHref({
+            // Back to this booking's day after sending (not today's)
+            from: `/salon/day?date=${dateOfIst(a.startsAt)}`,
+            about: a.bookingNo ? t('help.topicBooking', { number: a.bookingNo }) : t('help.topicWalkIn'),
+            text:
+              `${a.bookingNo ? `${a.bookingNo} · ` : ''}${dateTimeIst(a.startsAt)} · ${servicesText(a)}${barberName ? ` · ${barberName}` : ''}\n` +
+              (error ? t('help.errorText', { message: error }) : ''),
+            write: true,
+          }),
+        )
+      }
+    >
+      <HelpIcon />
+      {t('help.sheetHelp')}
+    </SheetButton>
+  )
   return (
-    <Sheet open title={block ? kindText(a) : whoText(a)} onClose={onClose}>
+    <Sheet open busy={busy} title={block ? kindText(a) : whoText(a)} onClose={onClose} help={block ? undefined : bookingHelp}>
       <div ref={body} className="flex max-h-[75dvh] flex-col gap-3 overflow-y-auto">
         <div className="flex flex-col gap-1 text-sm">
           <p>
@@ -223,10 +247,13 @@ export function AppointmentSheet({
             <Button busy={busy} disabled={code.length !== 4 || !startOpen} onClick={() => run(() => dayApi.start(a.id, { code }), t('day.doneStarted'))}>
               {t('day.start')}
             </Button>
-            {rights.startWithoutCode && (
+            {rights.startWithoutCode ? (
               <Button variant="ghost" disabled={busy || !startOpen} onClick={() => run(() => dayApi.start(a.id, { withoutCode: true }), t('day.doneStartedNoCode'))}>
                 {t('day.startAnyway')}
               </Button>
+            ) : (
+              // A barber can't start without the code: who can, said right here (not only in the first-time tips)
+              <p className="text-sm text-muted">{t('day.startCodeAskOwner')}</p>
             )}
             <Button variant="ghost" onClick={() => setMode('menu')}>
               {t('common.back')}
@@ -310,26 +337,6 @@ export function AppointmentSheet({
             onNo={() => setMode('menu')}
           />
         )}
-        {/* Help from the booking itself (the sheet covers the screen's Help button): its number and time go with it */}
-        {mode === 'menu' && !block && (
-          <button
-            type="button"
-            className="min-h-11 text-sm text-link underline"
-            onClick={() =>
-              navigate(
-                helpHref({
-                  // Back to this booking's day after sending (not today's)
-                  from: `/salon/day?date=${dateOfIst(a.startsAt)}`,
-                  about: a.bookingNo ? t('help.topicBooking', { number: a.bookingNo }) : t('help.topicWalkIn'),
-                  text: `${a.bookingNo ? `${a.bookingNo} · ` : ''}${dateTimeIst(a.startsAt)} · ${servicesText(a)}${barberName ? ` · ${barberName}` : ''}\n`,
-                  write: true,
-                }),
-              )
-            }
-          >
-            {t('help.sheetHelp')}
-          </button>
-        )}
       </div>
     </Sheet>
   )
@@ -359,5 +366,27 @@ function Confirm({ text, action, busy, onYes, onNo }: { text: string; action: st
         {t('common.back')}
       </Button>
     </div>
+  )
+}
+
+/**
+ * The booking's help button in the sheet's header: never while something is on its way, and asking first when a
+ * reason or a code was typed (the sheet goes when Help opens).
+ */
+function SheetButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  const t = useT()
+  const sheet = useContext(SheetContext)
+  return (
+    <button
+      type="button"
+      className="inline-flex min-h-11 items-center gap-1.5 px-1 text-right text-sm text-link underline"
+      onClick={() => {
+        if (sheet?.busy()) return
+        if (sheet?.typed() && !window.confirm(t('help.leaveUnsaved'))) return
+        onClick()
+      }}
+    >
+      {children}
+    </button>
   )
 }

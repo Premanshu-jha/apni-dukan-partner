@@ -2,9 +2,10 @@ import { useContext, useEffect } from 'react'
 import { Link, useLocation } from 'react-router'
 import { useRequestsForBadge } from '../../api/help'
 import { ShopContext } from '../../api/shop'
+import { SheetContext } from '../../components/sheetState'
 import { useT } from '../../i18n'
 import { missingSteps, useSession } from '../../store/session'
-import { helpHref, isHelpPage, isKiranaScreen, shopKindHere, topicFor } from './links'
+import { helpHref, isHelpPage, shopKindHere, topicFor } from './links'
 import { unreadReplies, useHelpSeen } from './seen'
 
 /** A question mark in a circle: help, without reading. */
@@ -19,9 +20,10 @@ export function HelpIcon() {
 }
 
 /**
- * "Help" at the top right of every screen (Page puts it there): the help page with this screen's answers first and
- * a question about this screen one tap away. Signed out (or the profile not finished), /help can't open: Contact
- * instead, which anyone can read. Not on the help pages themselves, and not on a kirana's screens.
+ * "Help" at the top right of every screen (Page puts it there), a salon's or a kirana's: the help page with this
+ * screen's answers first and a question about this screen one tap away. Signed out (or the profile not finished) the
+ * help page opens too: Call us and WhatsApp us at its top, and why writing needs a verified email. Not on the help
+ * pages themselves.
  *
  * A dot on it says support replied to one of this person's requests and they haven't opened it since. It comes from
  * the same cached list as My requests (one request when the app opens, again only on coming back to the app), so
@@ -35,11 +37,9 @@ export function HelpButton({ topic, leaveWarning }: { topic?: string; leaveWarni
   const shop = useContext(ShopContext)
   // A kirana registering has no shop yet on step 1: what was picked says it is a kirana's screen
   const kind = shopKindHere(location.pathname, shop?.type, user?.id)
-  if (isHelpPage(location.pathname) || isKiranaScreen(location.pathname, kind)) return null
+  if (isHelpPage(location.pathname)) return null
   const ready = status === 'signedIn' && user !== null && missingSteps(user).length === 0
-  const to = ready
-    ? helpHref({ from: location.pathname + location.search, topic: topic ?? topicFor(location.pathname) ?? undefined })
-    : '/contact'
+  const to = helpHref({ from: location.pathname + location.search, topic: topic ?? topicFor(location.pathname, kind) ?? undefined })
   return (
     <Link
       to={to}
@@ -57,19 +57,28 @@ export function HelpButton({ topic, leaveWarning }: { topic?: string; leaveWarni
 }
 
 /**
- * "Help" inside a form sheet (New service, New barber, editing one), which covers the screen's own Help at the top
- * right: the same help page, about this screen, and back here after. Something typed in the sheet: it asks first,
- * with the same question as leaving the screen (the sheet and what was typed in it go when the help page opens).
+ * "Help" in a sheet's header (every sheet: it covers the screen's own Help): the same help page, about this screen,
+ * and back here after. Anything typed or changed in the sheet since it opened (the Sheet compares every field), or
+ * `dirty`: it asks first, with the same question as leaving the screen. While something is on its way, nothing.
  */
-export function SheetHelpLink({ dirty }: { dirty: boolean }) {
+export function SheetHelpLink({ dirty = false }: { dirty?: boolean }) {
   const t = useT()
   const location = useLocation()
-  const to = helpHref({ from: location.pathname + location.search, topic: topicFor(location.pathname) ?? undefined })
+  const shop = useContext(ShopContext)
+  const sheet = useContext(SheetContext)
+  const userId = useSession((s) => s.user?.id)
+  const kind = shopKindHere(location.pathname, shop?.type, userId)
+  const to = helpHref({ from: location.pathname + location.search, topic: topicFor(location.pathname, kind) ?? undefined })
   return (
     <Link
       to={to}
       onClick={(e) => {
-        if (dirty && !window.confirm(t('help.leaveUnsaved'))) e.preventDefault()
+        // Never in the middle of a save or a send (it would be cut off); typing in the sheet: ask first
+        if (sheet?.busy()) {
+          e.preventDefault()
+          return
+        }
+        if ((dirty || sheet?.typed()) && !window.confirm(t('help.leaveUnsaved'))) e.preventDefault()
       }}
       className="inline-flex min-h-11 items-center gap-1.5 self-end px-1 text-sm text-link underline"
     >

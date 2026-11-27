@@ -6,7 +6,7 @@ import { pauseEnd } from './features/day/Pause'
 import { isLive, statusTone, whoText } from './features/day/status'
 import { blockRange } from './features/day/TimeOff'
 import { sheetError } from './features/day/AppointmentSheet'
-import { ApiError } from './api/errors'
+import { ApiError, messageOf } from './api/errors'
 import { safePath } from './features/notifications/Inbox'
 import { checkService, toPaise } from './features/setup/Services'
 import { weekText } from './features/setup/Staff'
@@ -191,11 +191,16 @@ describe('the day', () => {
 describe('messages', () => {
   it('opens only this app’s pages from a message', () => {
     expect(safePath('/salon/day?date=2026-11-06')).toBe('/salon/day?date=2026-11-06')
-    expect(safePath('/shops/me')).toBe('/')
+    // Shop news: More, where the shop card and Team are (not Today with nothing about it)
+    expect(safePath('/shops/me')).toBe('/more')
+    // Pay your subscription / trial ending (SubscriptionService.PAY_URL): the pay screen, never a dead tap
+    expect(safePath('/subscription')).toBe('/subscription')
+    expect(safePath('/setup/photos')).toBeNull()   // nothing sends it
+    expect(safePath('/register/photos')).toBe('/register/photos')   // a licence message while registering
     // "A shop for you" (SHOP_HANDOVER_REQUEST): the hand-over requests, with or without a shop
     expect(safePath('/handover')).toBe('/handover')
     expect(safePath('/setup/document')).toBe('/setup/document')   // a removed registration document
-    expect(safePath('/setup')).toBe('/setup')   // a fix the field team asked for
+    expect(safePath('/setup')).toBe('/setup?fix=1')   // a fix the field team asked for
     expect(safePath('/setup/address')).toBe('/setup/address')   // an address change declined
     expect(safePath('/setup/staff')).toBeNull()
     expect(safePath('/invites')).toBe('/invites')
@@ -290,5 +295,12 @@ describe('adding a second shift', () => {
     ]) {
       expect(ok(withSecondShift([first])), JSON.stringify(first)).toBeNull()
     }
+  })
+})
+
+describe('the start code refusal and the button use the same words', () => {
+  it('"Too many wrong codes" names the button to tap, as the sheet shows it', () => {
+    const said = messageOf(new ApiError(429, { code: 'START_CODE_LOCKED', message: 'Too many wrong codes. The owner or a helper can use Start without code.' }))
+    expect(said).toBe("Too many wrong codes. The owner or a helper can tap “Customer can't show the code: start anyway”.")
   })
 })

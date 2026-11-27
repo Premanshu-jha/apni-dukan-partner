@@ -85,8 +85,15 @@ export function DraftOwner() {
 /** Screens only some roles use (setup for the owner and helpers, the team for the owner). */
 export function RoleOnly({ roles }: { roles: ShopRole[] }) {
   const shop = useShop()
-  if (!roles.includes(shop.myRole)) return <Navigate to="/" replace />
+  // Today says why they landed there, and who can open it (never a silent jump)
+  if (!roles.includes(shop.myRole)) return <Navigate to="/" replace state={{ refused: refusedFor(roles) }} />
   return <Outlet />
+}
+
+/** Who may open a screen, as Today says it: the owner only, or the owner and helpers. */
+export type Refused = 'owner' | 'ownerHelper'
+export function refusedFor(roles: ShopRole[]): Refused {
+  return roles.includes('HELPER') ? 'ownerHelper' : 'owner'
 }
 
 /**
@@ -95,6 +102,12 @@ export function RoleOnly({ roles }: { roles: ShopRole[] }) {
  */
 export function KindOnly({ kind }: { kind: ShopType }) {
   const shop = useShop()
+  const location = useLocation()
+  // A fix the field team asked a kirana for points to /setup (the salon's tab; a message marks it ?fix=1): its shop
+  // card and papers are on More
+  if (shop.type !== kind && shop.type === 'KIRANA' && location.pathname === '/setup' && new URLSearchParams(location.search).has('fix')) {
+    return <Navigate to="/more" replace />
+  }
   if (shop.type !== kind) return <Navigate to="/" replace />
   return <Outlet />
 }

@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { ApiError, explain, isApiError, messageOf } from '../../api/errors'
 import { dayApi, salonKeys, useServices, refreshSalonWork } from '../../api/salon'
 import { useShop } from '../../api/shop'
-import { Banner, Button, Card, EmptyState, ErrorState, Field, Loading, Page } from '../../components/ui'
+import { Banner, Button, Card, EmptyState, ErrorBanner, ErrorState, Field, Loading, Page } from '../../components/ui'
 import { useT } from '../../i18n'
 import { clock12 } from '../../lib/ist'
 import { duration, rupees } from '../../lib/money'
@@ -14,6 +14,7 @@ import { newIdempotencyKey } from './status'
 import { serviceName } from '../../lib/serviceName'
 import { FirstTimeHint } from '../guide/FirstTimeHint'
 import { unsavedWarning } from '../../lib/unsaved'
+import { can } from '../../lib/roles'
 
 /**
  * A customer who walked in: pick the services, then a barber who is free now (or see when each is next free), and
@@ -200,7 +201,24 @@ export function WalkIn() {
       ) : services.isError ? (
         <ErrorState message={messageOf(services.error)} onRetry={() => services.refetch()} />
       ) : active.length === 0 ? (
-        <EmptyState title={t('day.walkInNoServicesTitle')} body={t('day.walkInNoServicesBody')} />
+        shop.myRole === 'OWNER' ? (
+          // The owner is the one who adds them: one tap there, and back here after
+          <EmptyState
+            title={t('day.walkInNoServicesTitle')}
+            body={t('day.walkInNoServicesBodyOwner')}
+            action={
+              <Link
+                to="/setup/services"
+                state={{ from: '/salon/walk-in' }}
+                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-brand px-5 font-semibold text-brand-ink"
+              >
+                {t('day.walkInAddServices')}
+              </Link>
+            }
+          />
+        ) : (
+          <EmptyState title={t('day.walkInNoServicesTitle')} body={t('day.walkInNoServicesBody')} />
+        )
       ) : notAllowed ? (
         <EmptyState title={t('day.walkInNotAllowedTitle')} body={t('day.walkInNotAllowedBody')} />
       ) : (
@@ -250,7 +268,15 @@ export function WalkIn() {
               {options.isPending ? (
                 <Loading />
               ) : nobody ? (
-                <Banner tone="warn">{t('day.walkInNoBarberTogether')}</Banner>
+                <Banner tone="warn">
+                  {t('day.walkInNoBarberTogether')}
+                  {/* Who does which service is set on each barber's page (the owner changes it; a helper can look) */}
+                  {can(shop.myRole).seeSetup && (
+                    <Link to="/setup/staff" state={{ from: '/salon/walk-in' }} className="mt-1 flex min-h-11 items-center text-link underline">
+                      {t('day.walkInSetWhoDoes')}
+                    </Link>
+                  )}
+                </Banner>
               ) : options.isError ? (
                 <ErrorState message={explain(options.error)} onRetry={() => options.refetch()} />
               ) : options.data.length === 0 ? (
@@ -282,11 +308,11 @@ export function WalkIn() {
             <Card className="flex flex-col gap-3">
               <Field id="guest-name" label={t('day.walkInNameLabel')} value={name} maxLength={60} disabled={held} onChange={(e) => setName(e.target.value)} />
               {held && <Banner tone="warn">{t('day.walkInHeld')}</Banner>}
-              {error && <Banner tone="bad">{error}</Banner>}
+              {error && <ErrorBanner message={error} />}
               <p className="text-sm text-muted">{t('day.walkInCheckTotal')}</p>
             </Card>
           )}
-          {error && !option && <Banner tone="bad">{error}</Banner>}
+          {error && !option && <ErrorBanner message={error} />}
         </>
       )}
     </Page>

@@ -235,6 +235,9 @@ export class MockApi {
   calls: Call[] = []
   /** The person's shop (null = 404 NO_SHOP). */
   shop: Json | null = null
+  /** The next answers to these paths (not GET) are lost after the call was done (outcome unknown in the app). */
+  loseAnswers = 0
+  loseAnswersOf: RegExp = /$^/
   /** The kirana counter's fake (/kirana/...): its products, bills, khata and UPI ID. */
   kirana = new KiranaMock()
   role: Role = 'OWNER'
@@ -896,6 +899,11 @@ export class MockApi {
      * back unchanged as If-None-Match, the answer is 304 with no body.
      */
     const ok = (status: number, json?: unknown, extra: Record<string, string> = {}, ownTag?: string) => {
+      // Done here, but the answer lost on the way back (the phone's network dropped): the app can't know it was saved
+      if (this.loseAnswers > 0 && method !== 'GET' && this.loseAnswersOf.test(p)) {
+        this.loseAnswers--
+        return route.abort('failed')
+      }
       const text = json === undefined ? '' : JSON.stringify(json)
       const etag = method === 'GET' && status >= 200 && status < 300 ? (ownTag ?? etagOf(text)) : null
       if (etag && matches(req.headers()['if-none-match'], etag)) {

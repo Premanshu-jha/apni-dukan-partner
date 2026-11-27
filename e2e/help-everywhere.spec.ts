@@ -52,11 +52,12 @@ test.describe('on a small phone (360 px)', () => {
   })
 })
 
-test('signed out, Help on the sign-in screens opens Contact (the help page needs sign-in)', async ({ page }) => {
+test('signed out, Help on the sign-in screens opens Need help (Call us and WhatsApp us need no sign-in)', async ({ page }) => {
   await page.goto('/signin')
   await page.getByRole('link', { name: 'Help' }).click()
-  await expect(page).toHaveURL(/\/contact$/)
-  await expect(page.getByRole('link', { name: /Help/ })).toHaveCount(0)   // not on Contact itself
+  await expect(page).toHaveURL(/\/help\?from=%2Fsignin$/)
+  await expect(page.getByRole('link', { name: 'Call us' })).toBeVisible()
+  await expect(page.getByRole('link', { name: /^Help/ })).toHaveCount(0)   // not on the help page itself
 })
 
 test('from walk-in: the help page knows, Write to us has "Walk-in" as subject, and Done goes back to walk-in', async ({ page, context, api }) => {

@@ -13,6 +13,9 @@ import { can } from '../../lib/roles'
 import { language, useT } from '../../i18n'
 import { Bell } from '../notifications/Bell'
 import { HelpButton } from '../help/HelpButton'
+import { helpHref } from '../help/links'
+import { ContactUs } from '../../components/ContactUs'
+import { ArrivedNote } from '../../components/ArrivedNote'
 import { NotificationsPrompt } from '../profile/Notifications'
 import { HandoverOffers } from '../shop/HandoverOffers'
 import { InviteOffers } from '../shop/InviteOffers'
@@ -202,12 +205,28 @@ export function Today() {
         </div>
       </div>
 
+      <ArrivedNote helpFrom="/salon/day" />
       {suspended && (
-        <Banner tone="bad">
-          {shop.statusReason
-            ? t('day.suspendedReason', { name: shop.name, reason: shop.statusReason })
-            : t('day.suspended', { name: shop.name })}
-        </Banner>
+        <div className="flex flex-col gap-3">
+          <Banner tone="bad">
+            {shop.statusReason
+              ? t('day.suspendedReason', { name: shop.name, reason: shop.statusReason })
+              : t('day.suspended', { name: shop.name })}
+          </Banner>
+          {/* "Write to us to sort it out": the button right here, the salon and its code already in the message */}
+          <Link
+            to={helpHref({
+              from: '/salon/day',
+              write: true,
+              about: t('help.topicSuspended'),
+              text: t('help.suspendedText', { name: shop.name, code: String(shop.shopCode) }),
+            })}
+            className="inline-flex min-h-12 items-center justify-center rounded-xl bg-brand px-5 font-semibold text-brand-ink"
+          >
+            {t('help.writeToUs')}
+          </Link>
+          <ContactUs screen={t('help.topicSuspended')} shopCode={shop.shopCode} />
+        </div>
       )}
       {waiting && <WaitingForVisit />}
       {/* The salon's subscription: paying soon, or ended (customers can't find it) */}

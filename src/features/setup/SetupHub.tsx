@@ -58,6 +58,8 @@ export function SetupHub() {
         ]
       : []),
     { to: '/setup/staff', title: t('setup.barbersTitle'), sub: sub(staff, staff.data ? t('setup.barbersWorking', { count: staff.data.filter((s) => s.active).length }) : null) },
+    // Helpers next to the barbers, where an owner looks to "add my staff" (also in More)
+    ...(rights.team ? [{ to: '/team', title: t('setup.rowTeam'), sub: t('setup.rowTeamSub') }] : []),
     // Next to the services and prices they are about (also in More)
     { to: '/salon/offers', title: t('setup.offersTitle'), sub: t('setup.rowOffersSub') },
     { to: '/salon/ratings', title: t('setup.rowRatings'), sub: t('setup.rowRatingsSub') },

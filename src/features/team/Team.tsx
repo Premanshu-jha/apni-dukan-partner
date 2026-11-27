@@ -4,13 +4,14 @@ import { fieldError, messageOf } from '../../api/errors'
 import { dayApi, forgetBarberInvite, salonKeys } from '../../api/salon'
 import { shopApi, shopKeys, useShopInvites } from '../../api/shop'
 import type { Member } from '../../api/types'
-import { Banner, Button, Card, ErrorState, Field, Loading, Page, Sheet, Switch } from '../../components/ui'
+import { Banner, Button, Card, ErrorBanner, ErrorState, Field, Loading, Page, Sheet, Switch } from '../../components/ui'
 import { useT } from '../../i18n'
 import { dateTimeIst } from '../../lib/ist'
 import { formatPhone, normalizePhone } from '../../lib/phone'
-import { useLocation } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { unsavedWarning } from '../../lib/unsaved'
 import { cameFrom } from '../shop/Register'
+import { TellThem } from './TellThem'
 
 /** The words for each role: keys in the language files. */
 const roleText = { OWNER: 'team.roleOwner', HELPER: 'team.roleHelper', BARBER: 'team.roleBarber' } as const
@@ -26,6 +27,8 @@ export function Team() {
   const members = useQuery({ queryKey: salonKeys.members, queryFn: dayApi.members })
   const invites = useShopInvites()
   const [sent, setSent] = useState<string | null>(null)
+  // The number just invited: the owner tells them which app and number (the backend can't reach a new number)
+  const [sentTo, setSentTo] = useState<string | null>(null)
   const [phone, setPhone] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -115,7 +118,7 @@ export function Team() {
         </section>
       )}
       {invites.isError && <Banner tone="warn">{t('team.invitesFailed', { reason: messageOf(invites.error) })}</Banner>}
-      {error && <Banner tone="bad">{error}</Banner>}
+      {error && <ErrorBanner message={error} />}
       <Card className="flex flex-col gap-3">
         <p className="font-semibold">{t('team.inviteHelper')}</p>
         <p className="text-sm text-muted">
@@ -128,6 +131,7 @@ export function Team() {
           onClick={() =>
             act('add', async () => {
               await shopApi.addHelper(normalized!)
+              setSentTo(normalized!)
               setPhone('')
               setSent('team.invitationSent')
             })
@@ -136,11 +140,16 @@ export function Team() {
           {t('team.sendInvitation')}
         </Button>
         {sent && <Banner tone="good">{t(sent)}</Banner>}
+        {sent && sentTo && <TellThem phone={sentTo} />}
       </Card>
+      {/* Barbers are invited on their own page (with their hours and services): from here too */}
+      <Link to="/setup/staff" state={{ from: '/team' }} className="inline-flex min-h-11 items-center justify-center text-sm text-link underline">
+        {t('team.addBarberInstead')}
+      </Link>
       <Sheet open={removing !== null} title={t('team.removeHelperTitle')} onClose={() => setRemoving(null)}>
         <div className="flex flex-col gap-3">
           <p className="text-muted">{removing?.name ? t('team.removedNamed', { name: removing.name }) : t('team.removedUnnamed')}</p>
-          {error && <Banner tone="bad">{error}</Banner>}
+          {error && <ErrorBanner message={error} />}
           <Button
             variant="danger"
             busy={busy === removing?.userId}

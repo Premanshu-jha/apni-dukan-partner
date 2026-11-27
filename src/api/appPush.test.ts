@@ -158,10 +158,11 @@ describe('notifications in the Play Store app (Firebase)', () => {
     listenForAppMessages((m) => got.push(['open', m]), (m) => got.push(['tap', m]))
     await Promise.resolve()
     fake.listeners.get('pushNotificationReceived')?.({ data: { type: 'SALON_NEW_BOOKING', url: '/salon/day' } })
-    fake.listeners.get('pushNotificationActionPerformed')?.({ notification: { data: { type: 'SHOP_APPROVED' } } })
+    fake.listeners.get('pushNotificationActionPerformed')?.({ notification: { title: 'Approved', data: { type: 'SHOP_APPROVED' } } })
+    // The title too: a message with no screen here is said on the start
     expect(got).toEqual([
-      ['open', { type: 'SALON_NEW_BOOKING', url: '/salon/day' }],
-      ['tap', { type: 'SHOP_APPROVED', url: null }],
+      ['open', { type: 'SALON_NEW_BOOKING', url: '/salon/day', title: null }],
+      ['tap', { type: 'SHOP_APPROVED', url: null, title: 'Approved' }],
     ])
   })
 

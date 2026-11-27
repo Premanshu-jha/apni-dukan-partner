@@ -39,6 +39,12 @@ const Khata = screen(() => import('../features/kirana/Khata').then((m) => m.Khat
 const Customer = screen(() => import('../features/kirana/Khata').then((m) => m.Customer))
 const KiranaTeam = screen(() => import('../features/kirana/KiranaTeam').then((m) => m.KiranaTeam))
 const KiranaUpi = screen(() => import('../features/kirana/KiranaTeam').then((m) => m.KiranaUpi))
+const SetupHome = screen(() => import('../features/kirana/Setup').then((m) => m.SetupHome))
+const ListPhoto = screen(() => import('../features/kirana/Setup').then((m) => m.ListPhoto))
+const CheckLines = screen(() => import('../features/kirana/Setup').then((m) => m.CheckLines))
+const SkippedLines = screen(() => import('../features/kirana/Setup').then((m) => m.SkippedLines))
+const CountProducts = screen(() => import('../features/kirana/Setup').then((m) => m.CountProducts))
+const ProductPhotos = screen(() => import('../features/kirana/Setup').then((m) => m.ProductPhotos))
 
 /** "What do you run?": first, and again from "Change" on any step until Submit (off: a salon, never asked). */
 export function kiranaKindRoute() {
@@ -70,7 +76,10 @@ export function kiranaTabRoutes() {
   )
 }
 
-/** A kirana's full-screen pages: a bill, the day, a product, a khata customer, and the owner's team, UPI ID, licences. */
+/**
+ * A kirana's full-screen pages: a bill, the day, a product, a khata customer, the product setup after Submit (owner and
+ * helpers: its list's pages, lines, counts and photos), and the owner's team, UPI ID, licences.
+ */
 export function kiranaScreenRoutes() {
   if (!kiranaOn()) return null
   return (
@@ -80,6 +89,12 @@ export function kiranaScreenRoutes() {
       <Route path="/kirana/products/new" element={<NewProduct />} />
       <Route path="/kirana/products/:id" element={<ProductPage />} />
       <Route path="/kirana/khata/:id" element={<Customer />} />
+      <Route path="/kirana/setup" element={<SetupHome />} />
+      <Route path="/kirana/setup/list" element={<ListPhoto />} />
+      <Route path="/kirana/setup/lines" element={<CheckLines />} />
+      <Route path="/kirana/setup/skipped" element={<SkippedLines />} />
+      <Route path="/kirana/setup/count" element={<CountProducts />} />
+      <Route path="/kirana/setup/photos" element={<ProductPhotos />} />
       <Route element={<RoleOnly roles={['OWNER']} />}>
         <Route path="/kirana/team" element={<KiranaTeam />} />
         <Route path="/kirana/upi" element={<EditGate><KiranaUpi /></EditGate>} />
