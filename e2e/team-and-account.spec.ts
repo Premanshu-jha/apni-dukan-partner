@@ -1,5 +1,5 @@
 import { addDays, todayIst } from './mockApi'
-import { atSalon, expect, signedIn, test } from './helpers'
+import { atSalon, expect, signedIn, test, languageKept } from './helpers'
 
 test('the owner invites a helper, gives walk-in access and removes the helper', async ({ page, context, api }) => {
   await atSalon(page, context, api)
@@ -44,6 +44,7 @@ test('messages: the salon’s news, opened on the right day', async ({ page, con
 })
 
 test('a helper leaves the salon and is signed out', async ({ page, context, api }) => {
+  await languageKept(context)
   await atSalon(page, context, api, 'HELPER')
   await page.getByRole('link', { name: 'More' }).click()
   await page.getByRole('button', { name: 'Leave Shine Unisex Salon' }).click()
@@ -52,6 +53,7 @@ test('a helper leaves the salon and is signed out', async ({ page, context, api 
 })
 
 test('the owner has no "leave", and signs out on this device', async ({ page, context, api }) => {
+  await languageKept(context)
   await atSalon(page, context, api)
   await page.getByRole('link', { name: 'More' }).click()
   await expect(page.getByText('Shop code 10234')).toBeVisible()
@@ -91,6 +93,7 @@ test('the history shows totals per outcome for the owner', async ({ page, contex
 })
 
 test('a barber deletes their account with the SMS code: signed out, "Your account has been deleted."', async ({ page, context, api }) => {
+  await languageKept(context)
   await atSalon(page, context, api, 'BARBER')
   await page.getByRole('link', { name: 'More' }).click()
   await page.getByRole('link', { name: 'Delete my account' }).click()

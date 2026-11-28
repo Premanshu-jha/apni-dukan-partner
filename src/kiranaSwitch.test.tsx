@@ -83,8 +83,8 @@ describe('kirana switch off (the default)', () => {
     expect(pickedKind(undefined)).toBe('SALON')
   })
 
-  it('keeps Start in the salon app’s words, straight to the salon’s first step', () => {
-    expect(startWords()).toMatchObject({ ownTitle: 'register.ownSalonTitle', register: 'register.registerMySalon', registerPath: '/register', workButton: 'register.workAtSalonButton' })
+  it('keeps Start in the salon app’s words, straight to the salon’s “Before you start”', () => {
+    expect(startWords()).toMatchObject({ ownTitle: 'register.ownSalonTitle', register: 'register.registerMySalon', registerPath: '/register/ready', workButton: 'register.workAtSalonButton' })
   })
 
   it('shows a kirana only "Kirana shops aren’t on Clozest yet", and nothing behind the gate', () => {

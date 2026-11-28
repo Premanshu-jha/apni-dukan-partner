@@ -1,4 +1,4 @@
-import { atSalon, expect, JPEG, signedIn, test } from './helpers'
+import { atSalon, expect, JPEG, signedIn, test, languageKept } from './helpers'
 import { MockApi, minutesFromNow } from './mockApi'
 
 /** The usability round "never stuck": Call us / WhatsApp us everywhere, messages that open their screen, no dead ends. */
@@ -16,7 +16,8 @@ test('Need help: Call us and WhatsApp us first, with the screen and the shop cod
   await expect(page.getByRole('button', { name: 'Write to us' })).toBeVisible()
 })
 
-test('signed out: Help opens Need help with Call us, and writing asks to sign in first', async ({ page }) => {
+test('signed out: Help opens Need help with Call us, and writing asks to sign in first', async ({ page, context }) => {
+  await languageKept(context)
   await page.goto('/signin')
   await page.getByRole('link', { name: 'Help' }).click()
   await expect(page.getByRole('heading', { name: 'Need help' })).toBeVisible()
@@ -49,6 +50,7 @@ test('the email step: no email? Call us there; Help opens Need help without boun
 })
 
 test('Wrong number on the email step: sign out and start again', async ({ page, context, api }) => {
+  await languageKept(context)
   await signedIn(context, api)
   api.user = { ...MockApi.completeUser(), emailVerified: false }
   await page.goto('/welcome/email')
@@ -56,7 +58,8 @@ test('Wrong number on the email step: sign out and start again', async ({ page, 
   await expect(page).toHaveURL(/\/signin$/)
 })
 
-test('the code step says what to do when no SMS comes, with Call us', async ({ page, api }) => {
+test('the code step says what to do when no SMS comes, with Call us', async ({ page, api, context }) => {
+  await languageKept(context)
   void api   // the fake backend answers the code request
   await page.goto('/signin')
   await page.getByLabel('Mobile number').fill('98480 12345')
@@ -249,7 +252,8 @@ test('walk-in: services no barber does together link to who does which service',
   await expect(page).toHaveURL(/\/salon\/walk-in$/)
 })
 
-test('signed out: Sign in from Need help comes back to the message form after sign-up', async ({ page, api }) => {
+test('signed out: Sign in from Need help comes back to the message form after sign-up', async ({ page, api, context }) => {
+  await languageKept(context)
   void api
   await page.goto('/help?from=%2Fsignin')
   await page.getByRole('button', { name: 'Sign in' }).click()

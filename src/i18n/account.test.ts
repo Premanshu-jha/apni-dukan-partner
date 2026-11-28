@@ -29,7 +29,7 @@ describe('each account its own language, kept texts, the phone language', () => 
   })
   afterEach(() => onAccountLanguage(null))
 
-  it('a language tapped on the sign-in screen is the signing-in account\'s, and saved on it', async () => {
+  it('a language picked while signed out goes to an account with none yet, and is saved on it', async () => {
     await setLanguage('hi')
     expect(saved).toEqual([]) // nobody signed in: nothing to save on an account yet
     await setAccount('u1', null)
@@ -163,12 +163,12 @@ describe('each account its own language, kept texts, the phone language', () => 
     expect(saved).toEqual([])
   })
 
-  it('a tap at sign-in that is already the account\'s drops an older choice still waiting to be sent', async () => {
+  it('a choice of this account\'s still waiting to be sent wins over one picked while signed out', async () => {
     window.localStorage.setItem('language.unsynced:u1', 'ta') // chosen offline earlier, never sent, then signed out
     await setLanguage('te')
     await setAccount('u1', 'te')
-    expect(language()).toBe('te')
-    expect(window.localStorage.getItem('language.unsynced:u1')).toBeNull()
+    expect(language()).toBe('ta')
+    // Sent by the sync's retry, not from here
     expect(saved).toEqual([])
   })
 
@@ -203,7 +203,7 @@ describe('each account its own language, kept texts, the phone language', () => 
     expect(saved).toEqual([['u1', 'ta']])
   })
 
-  it('the phone\'s own language kept at sign-in yields to the account\'s own (only a tap overrides it)', async () => {
+  it('the phone\'s own language kept at sign-in yields to the account\'s own (as any pick made signed out)', async () => {
     setBrowserLanguages(['ta-IN'])
     await restoreLanguage()
     keepShownLanguage()
@@ -213,11 +213,28 @@ describe('each account its own language, kept texts, the phone language', () => 
     expect(saved).toEqual([])
   })
 
-  it('a language tapped on the sign-in screen overrides the account\'s', async () => {
+  it('a language picked while signed out (the first screen, Change) yields to the account\'s own: nothing sent', async () => {
+    // A helper set the phone up in Kannada; the owner's account has Hindi
     await setLanguage('kn')
     await setAccount('u1', 'hi')
-    expect(language()).toBe('kn')
-    expect(saved).toEqual([['u1', 'kn']])
+    expect(language()).toBe('hi')
+    expect(saved).toEqual([])
+  })
+
+  it('on a shared phone, a pick left by someone who never signed in doesn\'t change the next account\'s language', async () => {
+    await setLanguage('hi')
+    await setAccount('u2', 'te')
+    expect(language()).toBe('te')
+    expect(saved).toEqual([])
+  })
+
+  it('a pick made before the app restarted still goes to an account with no language yet', async () => {
+    await setLanguage('mr')
+    resetLanguageForTests() // the app closed and opened again before sign-in
+    await restoreLanguage()
+    await setAccount('u1', null)
+    expect(language()).toBe('mr')
+    expect(saved).toEqual([['u1', 'mr']])
   })
 
   it('the robot check speaks Hindi; English for the languages Cloudflare lacks', () => {

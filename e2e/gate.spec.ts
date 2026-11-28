@@ -1,5 +1,5 @@
 import { MockApi } from './mockApi'
-import { atSalon, expect, signedIn, test } from './helpers'
+import { atSalon, expect, signedIn, test, languageKept } from './helpers'
 
 test('someone who works at a salon sees the number to give the owner, and gets in once in the shop', async ({ page, context, api }) => {
   await signedIn(context, api)
@@ -71,10 +71,24 @@ test('a helper has Salon to look at but not to change, and no Team or closed day
   await expect(page).toHaveURL(/\/salon\/day$/)
 })
 
-test('signed out: every screen goes to sign-in, and a link opened then comes back after sign-in', async ({ page, api }) => {
+test('signed out: every screen goes to sign-in, and a link opened then comes back after sign-in', async ({ page, api, context }) => {
+  await languageKept(context)
   api.user = MockApi.completeUser()
   api.approvedSalon()
   await page.goto('/salon/bookings')
+  await expect(page).toHaveURL(/\/signin$/)
+  await page.getByLabel('Mobile number').fill('9848012345')
+  await page.getByRole('button', { name: 'Send code' }).click()
+  await page.getByLabel('Code').fill('123456')
+  await expect(page).toHaveURL(/\/salon\/bookings$/)
+})
+
+test('a link opened on a new phone: the language first, then sign-in, then back to the link', async ({ page, api }) => {
+  api.user = MockApi.completeUser()
+  api.approvedSalon()
+  await page.goto('/salon/bookings')
+  await expect(page).toHaveURL(/\/language$/)
+  await page.getByRole('button', { name: 'English' }).click()
   await expect(page).toHaveURL(/\/signin$/)
   await page.getByLabel('Mobile number').fill('9848012345')
   await page.getByRole('button', { name: 'Send code' }).click()

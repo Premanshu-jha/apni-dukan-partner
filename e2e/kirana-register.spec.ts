@@ -9,6 +9,14 @@ test('a kirana owner answers "What do you run?", registers in five steps and sub
   await expect(page).toHaveURL(/\/register\/kind$/)
   await page.getByRole('button', { name: /Kirana \/ general store/ }).click()
 
+  // "Before you start" for a kirana: be at the shop, FSSAI and UPI to keep handy
+  await expect(page).toHaveURL(/\/register\/ready$/)
+  await expect(page.getByText('Be at your kirana shop')).toBeVisible()
+  await expect(page.getByText(/The food licence \(FSSAI\) if you sell food, and the UPI ID on your PhonePe or GPay QR/)).toBeVisible()
+  await expect(page.getByText('Be at your salon')).toHaveCount(0)
+  await page.getByRole('button', { name: "I'm at my shop. Let's start" }).click()
+  await expect(page.getByText('Stand inside your shop, then tap “Use my location”.')).toBeVisible()
+
   // Step 1: the shop's words, the kind line with Change, and the optional GSTIN
   await expect(page).toHaveURL(/\/register$/)
   await expect(page.getByRole('heading', { name: 'Register your shop' })).toBeVisible()

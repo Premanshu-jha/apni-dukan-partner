@@ -22,12 +22,17 @@ const noKiranaCall = (api: { calls: { path: string }[] }) => api.calls.filter((c
 test('registration has no kirana choice: Start is for salons, and Register goes straight to the salon’s details', async ({ page, context, api }) => {
   const downloads = watchDownloads(page)
   // Even with "Kirana" picked on this phone earlier (a build with the switch on), it is a salon
-  await signedIn(context, api, 'KIRANA')
+  await signedIn(context, api, 'KIRANA', false)
   await page.goto('/')
   await expect(page).toHaveURL(/\/start$/)
   await expect(page.getByText('I own a salon')).toBeVisible()
   await expect(page.getByText(/kirana/i)).toHaveCount(0)
   await page.getByRole('button', { name: 'Register my salon' }).click()
+  // "Before you start", in the salon's words
+  await expect(page).toHaveURL(/\/register\/ready$/)
+  await expect(page.getByText('Be at your salon')).toBeVisible()
+  await expect(page.getByText(/kirana|FSSAI/i)).toHaveCount(0)
+  await page.getByRole('button', { name: "I'm at my salon. Let's start" }).click()
   await expect(page).toHaveURL(/\/register$/)
   await expect(page.getByRole('heading', { name: 'Register your salon' })).toBeVisible()
   await expect(page.getByLabel('Salon name')).toBeVisible()

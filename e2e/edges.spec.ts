@@ -1,5 +1,5 @@
 import { addDays, MockApi, minutesFromNow, todayIst } from './mockApi'
-import { atSalon, expect, signedIn, test } from './helpers'
+import { atSalon, expect, signedIn, test, languageKept } from './helpers'
 
 test('five wrong start codes lock the code; the owner starts it anyway once the customer is there', async ({ page, context, api }) => {
   await signedIn(context, api)
@@ -105,6 +105,7 @@ test('removed from the salon while signed in: the next salon call sends them to 
 })
 
 test('signing out in one tab clears the other tab before the next person signs in', async ({ page, context, api }) => {
+  await languageKept(context)
   await atSalon(page, context, api)
   const other = await context.newPage()
   await other.goto('/more')
@@ -126,6 +127,7 @@ test('signing out in one tab clears the other tab before the next person signs i
 })
 
 test('an unsaved registration draft isn’t shown to the next person on the phone', async ({ page, context, api }) => {
+  await languageKept(context)
   await signedIn(context, api)
   await page.goto('/register')
   await page.getByLabel('Salon name').fill('Ravi’s Private Salon')
@@ -136,6 +138,9 @@ test('an unsaved registration draft isn’t shown to the next person on the phon
   await page.getByRole('button', { name: 'Send code' }).click()
   await page.getByLabel('Code').fill('123456')
   await page.goto('/register')
+  // The first owner's "I'm at my salon" was his: the next person is asked first
+  await expect(page).toHaveURL(/\/register\/ready$/)
+  await page.getByRole('button', { name: "I'm at my salon. Let's start" }).click()
   await expect(page.getByLabel('Salon name')).toHaveValue('')
 })
 
@@ -229,7 +234,8 @@ test('more than 99 unread shows "99+" on the bell and in the inbox (the backend 
   await expect(page.getByText('99+ unread')).toBeVisible()
 })
 
-test('sign-in from a network that must wait: 429 TRY_LATER says for how long', async ({ page, api }) => {
+test('sign-in from a network that must wait: 429 TRY_LATER says for how long', async ({ page, api, context }) => {
+  await languageKept(context)
   api.otpTryLater = 240
   await page.goto('/signin')
   await page.getByLabel('Mobile number').fill('98480 12345')

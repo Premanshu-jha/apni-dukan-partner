@@ -4,18 +4,18 @@ import { atSalon, expect, test } from './helpers'
 const hi = (area: string) => JSON.parse(readFileSync(`src/i18n/hi/${area}.json`, 'utf8')) as Record<string, string>
 const te = (area: string) => JSON.parse(readFileSync(`src/i18n/te/${area}.json`, 'utf8')) as Record<string, string>
 
-test('the sign-in screen offers every language in its own script, and the choice stays after a reload', async ({ page }) => {
+test('the first screen offers every language in its own script, and the choice stays after a reload', async ({ page }) => {
   await page.goto('/signin')
-  await expect(page.getByRole('button', { name: 'Send code' })).toBeVisible()
-  await page.getByRole('textbox').first().fill('98480')
+  await expect(page).toHaveURL(/\/language$/)
+  for (const name of ['English', 'हिन्दी', 'తెలుగు', 'मराठी', 'தமிழ்', 'ಕನ್ನಡ']) await expect(page.getByRole('button', { name })).toBeVisible()
   await page.getByRole('button', { name: 'हिन्दी' }).click()
   await expect(page.getByRole('button', { name: hi('auth').phoneSendCode })).toBeVisible()
-  await expect(page.getByRole('textbox').first()).toHaveValue('98480') // what was typed stays
   await expect(page.locator('html')).toHaveAttribute('lang', 'hi')
   await expect(page.getByText(hi('auth').phoneHint)).toBeVisible()
 
   await page.reload()
   await expect(page.getByRole('button', { name: hi('auth').phoneSendCode })).toBeVisible()
+  await page.getByRole('link', { name: hi('language').change }).click()
   await page.getByRole('button', { name: 'English' }).click()
   await expect(page.getByRole('button', { name: 'Send code' })).toBeVisible()
 })

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { expect, signedIn, test } from './helpers'
+import { expect, signedIn, test, languageKept } from './helpers'
 import type { MockApi } from './mockApi'
 
 async function atCounter(page: Page, context: Parameters<typeof signedIn>[0], api: MockApi, role: 'OWNER' | 'HELPER' = 'OWNER') {
@@ -141,6 +141,7 @@ test('a Save whose answer never came: only the same bill can be tried again, and
 })
 
 test('the bill being made stays on this phone, and the next person signed in never gets it', async ({ page, context, api }) => {
+  await languageKept(context)
   await atCounter(page, context, api)
   await page.getByLabel('Search your products').fill('lux')
   await page.getByRole('button', { name: /Lux Soap/ }).click()

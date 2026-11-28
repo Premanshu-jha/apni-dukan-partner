@@ -29,16 +29,23 @@ export { expect }
  * Starts the test already signed in with a complete profile. `registering`: what "What do you run?" was answered
  * with on this phone (a salon unless said otherwise, as the salon tests start at step 1; null: not answered yet).
  */
-export async function signedIn(context: BrowserContext, api: MockApi, registering: 'SALON' | 'KIRANA' | null = 'SALON') {
+export async function signedIn(
+  context: BrowserContext,
+  api: MockApi,
+  registering: 'SALON' | 'KIRANA' | null = 'SALON',
+  /** "Before you start" already answered "I'm at my shop" (the tests that start at step 1); false: not yet. */
+  ready = registering !== null,
+) {
   api.user = MockApi.completeUser()
   const session = api.savedSession()
-  await context.addInitScript(([s, kind, userId]) => {
+  await context.addInitScript(([s, kind, userId, atShop]) => {
     // Once per test (shared by all its tabs), so a reload or a second tab doesn't put the old token back.
     if (localStorage.getItem('e2e.seeded')) return
     localStorage.setItem('e2e.seeded', '1')
-    localStorage.setItem('adp.session', s!)
+    localStorage.setItem('adp.session', s as string)
     if (kind) localStorage.setItem('adp.registerKind', JSON.stringify({ userId, kind }))
-  }, [session, registering, api.user.id] as const)
+    if (atShop) localStorage.setItem('adp.registerReady', JSON.stringify({ userId }))
+  }, [session, registering, api.user.id, ready] as const)
 }
 
 /**

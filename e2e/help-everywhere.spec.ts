@@ -1,5 +1,5 @@
 import { addDays, minutesFromNow, todayIst } from './mockApi'
-import { atSalon, expect, signedIn, test } from './helpers'
+import { atSalon, expect, signedIn, test, languageKept } from './helpers'
 
 /** Reads of My requests (the Help button's dot and the help page share one cached list). */
 const requestReads = (api: { calls: Array<{ method: string; path: string }> }) =>
@@ -52,7 +52,8 @@ test.describe('on a small phone (360 px)', () => {
   })
 })
 
-test('signed out, Help on the sign-in screens opens Need help (Call us and WhatsApp us need no sign-in)', async ({ page }) => {
+test('signed out, Help on the sign-in screens opens Need help (Call us and WhatsApp us need no sign-in)', async ({ page, context }) => {
+  await languageKept(context)
   await page.goto('/signin')
   await page.getByRole('link', { name: 'Help' }).click()
   await expect(page).toHaveURL(/\/help\?from=%2Fsignin$/)
