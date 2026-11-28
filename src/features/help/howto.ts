@@ -33,7 +33,8 @@ const OWNER = ['OWNER'] as const
 const TAB_TODAY = 'app.tabToday'
 const TAB_BOOKINGS = 'app.tabBookings'
 const TAB_SALON = 'app.tabSalon'
-const TAB_MORE = 'app.tabMore'
+// The tab as named inside a sentence ("the “You” tab", "“प्रोफ़ाइल”")
+const TAB_MORE = 'app.tabMoreInText'
 
 export const GROUPS: readonly HowToGroup[] = ['setup', 'day', 'customers', 'account', 'registering', 'joining', 'kiranaSetup', 'kiranaDay']
 
@@ -43,7 +44,7 @@ export const HOWTOS: readonly HowTo[] = [
   { id: 'hours', group: 'setup', roles: OWNER_HELPER, to: '/setup/hours', ownerChanges: true,
     words: { salon: TAB_SALON, hours: 'setup.hoursTitle', save: 'setup.saveSalonHours' } },
   { id: 'closedDays', group: 'setup', roles: OWNER, to: '/salon/closures',
-    words: { more: TAB_MORE, salon: TAB_SALON, closed: 'profile.linkClosures', closeOn: 'day.closeSalonOn', openAgain: 'day.openAgain' } },
+    words: { salon: TAB_SALON, closed: 'profile.linkClosures', closeOn: 'day.closeSalonOn', openAgain: 'day.openAgain' } },
   { id: 'addBarbers', group: 'setup', roles: OWNER_HELPER, to: '/setup/staff', ownerChanges: true,
     words: { salon: TAB_SALON, barbers: 'setup.barbersTitle', add: 'setup.addBarber', addMe: 'setup.addMe' } },
   { id: 'barberHours', group: 'setup', roles: OWNER_HELPER, to: '/setup/staff', ownerChanges: true,
@@ -54,17 +55,17 @@ export const HOWTOS: readonly HowTo[] = [
   { id: 'inviteBarber', group: 'setup', roles: OWNER, to: '/setup/staff',
     words: { salon: TAB_SALON, barbers: 'setup.barbersTitle', signIn: 'setup.hisSignIn', invite: 'setup.inviteHim' } },
   { id: 'inviteHelper', group: 'setup', roles: OWNER, to: '/team',
-    words: { more: TAB_MORE, team: 'profile.linkTeam', invite: 'team.inviteHelper', send: 'team.sendInvitation' } },
+    words: { salon: TAB_SALON, team: 'setup.rowTeam', invite: 'team.inviteHelper', send: 'team.sendInvitation' } },
   { id: 'rules', group: 'setup', roles: OWNER_HELPER, to: '/setup/rules', ownerChanges: true,
     words: { salon: TAB_SALON, rules: 'setup.rulesTitle', notice: 'setup.noticeLabel', ahead: 'setup.aheadLabel', save: 'common.save' } },
 
   { id: 'newBooking', group: 'day', roles: ALL, to: '/salon/bookings',
     words: { today: TAB_TODAY, bookings: TAB_BOOKINGS, comingUp: 'day.comingUp' } },
   { id: 'notifications', group: 'day', roles: ALL, to: '/more',
-    words: { more: TAB_MORE, today: TAB_TODAY, row: 'profile.bookingNotifications', turnOn: 'profile.turnOn' } },
+    words: { more: TAB_MORE, today: TAB_TODAY, row: 'profile.bookingNotifications', turnOn: 'day.alertsTurnOn' } },
   { id: 'startCode', group: 'day', roles: ALL, to: '/salon/day', words: { today: TAB_TODAY, start: 'day.start' } },
   { id: 'walkIn', group: 'day', roles: ALL, to: '/salon/walk-in',
-    words: { today: TAB_TODAY, add: 'day.addWalkIn', more: TAB_MORE, team: 'profile.linkTeam' } },
+    words: { today: TAB_TODAY, add: 'day.addWalkIn', salon: TAB_SALON, team: 'setup.rowTeam' } },
   { id: 'doneEarly', group: 'day', roles: ALL, to: '/salon/day',
     words: { today: TAB_TODAY, doneEarly: 'day.doneEarly', noShow: 'day.markNoShow' } },
   { id: 'reassign', group: 'day', roles: OWNER_HELPER, to: '/salon/day',
@@ -78,12 +79,12 @@ export const HOWTOS: readonly HowTo[] = [
     words: { today: TAB_TODAY, add: 'day.addBreak', leave: 'day.leaveWholeDays', save: 'day.saveLeave' } },
 
   { id: 'offers', group: 'customers', roles: OWNER_HELPER, to: '/salon/offers', ownerChanges: true,
-    words: { more: TAB_MORE, salon: TAB_SALON, offers: 'profile.linkOffers', add: 'offers.newOffer', preview: 'offers.seePreview', publish: 'offers.publishAndSend' } },
+    words: { salon: TAB_SALON, offers: 'profile.linkOffers', add: 'offers.newOffer', preview: 'offers.seePreview', publish: 'offers.publishAndSend' } },
   { id: 'ratings', group: 'customers', roles: OWNER_HELPER, to: '/salon/ratings',
-    words: { more: TAB_MORE, salon: TAB_SALON, ratings: 'profile.linkRatings' } },
+    words: { salon: TAB_SALON, ratings: 'profile.linkRatings' } },
   // Where it is (More, and the Salon tab for the owner and helpers) and its buttons, in the screens' own words
   { id: 'share', group: 'customers', roles: ALL, to: '/salon/share',
-    words: { more: TAB_MORE, share: 'share.moreLink', whatsapp: 'share.whatsapp', poster: 'share.download' } },
+    words: { salon: TAB_SALON, share: 'share.moreLink', whatsapp: 'share.whatsapp', poster: 'share.download' } },
   { id: 'customersSee', group: 'customers', roles: ALL, to: '/salon/info', words: { info: 'setup.infoTitle', salon: TAB_SALON } },
 
   { id: 'subscription', group: 'account', roles: ALL, to: '/subscription',
@@ -170,7 +171,13 @@ export function howToFor(shop: Shop | null | undefined): readonly HowTo[] {
   if (shop.type !== 'SALON') return []
   const past = shop.myRole === 'OWNER' ? shop.status !== 'DRAFT' : shop.status === 'APPROVED' || shop.status === 'SUSPENDED'
   if (!past) return EARLY_HOWTOS.filter((h) => h.group === (shop.myRole === 'OWNER' ? 'registering' : 'joining'))
-  return HOWTOS.filter((h) => h.roles.includes(shop.myRole)).map(inThisApp)
+  return HOWTOS.filter((h) => h.roles.includes(shop.myRole)).map(inThisApp).map((h) => forRole(h, shop.myRole))
+}
+
+/** A barber has no Salon tab: his salon's link to share is on his You tab. */
+function forRole(h: HowTo, role: string): HowTo {
+  if (role === 'BARBER' && h.id === 'share') return { ...h, words: { ...h.words, salon: TAB_MORE } }
+  return h
 }
 
 /** The answers as the Play Store app has them: the poster is shared there (it has no Download). */

@@ -5,7 +5,7 @@ import { ApiError, explain, isApiError, messageOf } from '../../api/errors'
 import { dayApi, salonKeys, useServices, refreshSalonWork } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import { Banner, Button, Card, EmptyState, ErrorBanner, ErrorState, Field, Loading, Page } from '../../components/ui'
-import { useT } from '../../i18n'
+import { language, useT } from '../../i18n'
 import { clock12 } from '../../lib/ist'
 import { duration, rupees } from '../../lib/money'
 import { ServiceIcon } from '../../components/ServiceIcon'
@@ -17,10 +17,11 @@ import { unsavedWarning } from '../../lib/unsaved'
 import { can } from '../../lib/roles'
 
 /**
- * A customer who walked in: pick the services, then a barber who is free now (or see when each is next free), and
- * add it. A walk-in starts now (it is in the chair at once). Owner, or someone the owner gave walk-in access. Each
- * service shows its price now (the salon's offer price, with its own crossed out, while an offer applies), and the
- * total at the bottom follows every tick.
+ * A customer at the door without a booking: pick the services, then a barber who is free now, and start (it is in
+ * the chair at once). Everyone busy: pick a barber's next free time today and keep it for the customer, who comes back
+ * then (with their mobile number, they get an SMS with the time); the time is taken for online bookings at once.
+ * Owner, or someone the owner gave walk-in access. Each service shows its price now (the salon's offer price, with its
+ * own crossed out, while an offer applies), and the total at the bottom follows every tick.
  */
 /** The most services one walk-in can have (as the backend allows). */
 const MAX_SERVICES = 10
@@ -34,6 +35,7 @@ export function WalkIn() {
   const [chosenIds, setPicked] = useState<string[]>([])
   const [staffId, setStaffId] = useState<string | null>(null)
   const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // After no answer (or a server error) it may have been added: the choice is held as it was, so trying again with
@@ -45,7 +47,9 @@ export function WalkIn() {
   // One key per walk-in being added: a retry after a lost answer can't add it twice.
   const key = useRef(newIdempotencyKey())
   // Something ticked, typed or picked and not added yet: Back and Help ask first
-  const unsaved = chosenIds.length > 0 || name.trim() !== '' || staffId !== null
+  const unsaved = chosenIds.length > 0 || name.trim() !== '' || phone.trim() !== '' || staffId !== null
+  // Whether a time kept for later can be sent to the customer by SMS (asked once; off: no number asked)
+  const texts = useQuery({ queryKey: ['salon', 'walk-in-texts'], queryFn: dayApi.walkInTexts, staleTime: 3_600_000, retry: false })
 
   const active = services.data?.filter((s) => s.active) ?? []
   // A service the owner switched off meanwhile drops out of the choice (it can't be booked any more).
@@ -57,10 +61,14 @@ export function WalkIn() {
     enabled: picked.length > 0,
     retry: false,
   })
-  // Prices now, with the salon's offer: read again every minute (an offer's hours start or end while the screen is open)
+  const option = options.data?.find((o) => o.staffId === staffId)
+  // A barber busy now with a free time later today: that time is kept for the customer
+  const later = option && !option.freeNow && option.startAt ? option.startAt : null
+  // Prices now (or at the kept time), with the salon's offer: read again every minute (an offer's hours start or end
+  // while the screen is open)
   const prices = useQuery({
-    queryKey: salonKeys.walkInPrices,
-    queryFn: dayApi.walkInPrices,
+    queryKey: [...salonKeys.walkInPrices, later ?? 'now'],
+    queryFn: () => dayApi.walkInPrices(later ?? undefined),
     enabled: active.length > 0,
     refetchInterval: 60_000,
     retry: false,
@@ -73,7 +81,9 @@ export function WalkIn() {
   const chosen = active.filter((s) => picked.includes(s.id))
   const total = walkInTotal(chosen, pricesNow)
   const full = picked.length >= MAX_SERVICES
-  const option = options.data?.find((o) => o.staffId === staffId)
+  // Its "4:15 PM" (the option's India time "16:15")
+  const laterTime = later && option?.time ? clock12(option.time) : ''
+  const phoneDigits = phone.replace(/[^0-9]/g, '').replace(/^(91|0)(?=[6-9][0-9]{9}$)/, '')
 
   function toggle(id: string) {
     setPicked((p) => {
@@ -93,6 +103,10 @@ export function WalkIn() {
       setError(t('day.walkInNameTooShort'))
       return
     }
+    if (later && phone.trim() && !/^[6-9][0-9]{9}$/.test(phoneDigits)) {
+      setError(t('day.walkInPhoneWrong'))
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -103,9 +117,11 @@ export function WalkIn() {
         staffId,
         name: name.trim() || null,
         expectedPricePaise: toldPrice ?? total.pricePaise,
+        ...(later ? { startAt: later, ...(phone.trim() ? { phone: phoneDigits } : {}) } : {}),
       })
       refreshSalonWork(qc)
-      navigate('/salon/day', { replace: true })
+      // Kept for later: Today says once what to tell the customer (the time, with whom)
+      navigate('/salon/day', { replace: true, ...(later && option ? { state: { walkInKept: { time: laterTime, name: option.name } } } : {}) })
     } catch (e) {
       if (isApiError(e, 'PRICE_CHANGED')) {
         const now = (e as ApiError).details?.pricePaise
@@ -116,10 +132,13 @@ export function WalkIn() {
             : explain(e),
         )
         void prices.refetch()
+      } else if (later && isApiError(e, 'BARBER_BUSY')) {
+        // The kept time was taken by someone else meanwhile (the backend's English names the barber and the time)
+        setError(language() === 'en' ? explain(e) : t('day.walkInKeptTaken'))
       } else {
         setError(explain(e))
       }
-      if (isApiError(e, 'BARBER_BUSY')) {
+      if (isApiError(e, 'BARBER_BUSY') || isApiError(e, 'WALK_IN_TIME_PASSED')) {
         setStaffId(null)
         void options.refetch()
       }
@@ -187,15 +206,17 @@ export function WalkIn() {
             </div>
             {option && (
               <Button busy={busy} onClick={add}>
-                {t('day.walkInStartWith', { name: option.name })}
+                {later ? t('day.walkInKeepWith', { time: laterTime, name: option.name }) : t('day.walkInStartWith', { name: option.name })}
               </Button>
             )}
           </div>
         ) : undefined
       }
     >
+      {/* What this is, always said in one line: a customer at the door, without a booking */}
+      <p className="text-sm text-muted">{t('day.walkInIntro')}</p>
       {/* Only where a walk-in can be added (not to a barber the owner hasn't allowed) */}
-      <FirstTimeHint screen="walkIn" text={t('guide.hintWalkIn')} show={!services.isPending && active.length > 0 && !notAllowed} />
+      <FirstTimeHint screen="walkIn" text={t('guide.hintWalkIn', { free: t('guide.quoted', { text: t('day.freeNow') }) })} show={!services.isPending && active.length > 0 && !notAllowed} />
       {services.isPending ? (
         <Loading />
       ) : services.isError ? (
@@ -264,7 +285,14 @@ export function WalkIn() {
 
           {picked.length > 0 && (
             <section className="flex flex-col gap-2" aria-label={t('day.barber')}>
-              <p className="text-sm font-medium text-muted">{t('day.walkInWho')}</p>
+              {/* Nobody free now: what to do (keep a later time) said before the list, not under it */}
+              {options.data && options.data.length > 0 && !options.data.some((o) => o.freeNow) ? (
+                <Banner tone="info">
+                  {options.data.some((o) => o.startAt) ? t('day.walkInNobodyFreeNow') : t('day.walkInNoTimeToday')}
+                </Banner>
+              ) : (
+                <p className="text-sm font-medium text-muted">{t('day.walkInWho')}</p>
+              )}
               {options.isPending ? (
                 <Loading />
               ) : nobody ? (
@@ -287,16 +315,20 @@ export function WalkIn() {
                     key={o.staffId}
                     type="button"
                     aria-pressed={staffId === o.staffId}
-                    disabled={!o.freeNow || held}
+                    // Free now: starts now. Busy with a free time later today: that time can be kept for the customer
+                    disabled={(!o.freeNow && !o.startAt) || held}
                     onClick={() => {
                       setStaffId(o.staffId)
                       key.current = newIdempotencyKey()
                     }}
-                    className={`flex min-h-12 items-center justify-between rounded-xl border px-4 text-left disabled:opacity-50 ${staffId === o.staffId ? 'border-brand bg-brand/10' : 'border-line bg-surface'}`}
+                    className={`flex min-h-12 items-center justify-between gap-3 rounded-xl border px-4 py-2 text-left disabled:opacity-50 ${staffId === o.staffId ? 'border-brand bg-brand/10' : 'border-line bg-surface'}`}
                   >
-                    <span className="font-medium">{o.name}</span>
-                    <span className="text-sm text-muted">
-                      {o.freeNow ? t('day.freeNow') : o.time ? t('day.busyFreeAt', { time: clock12(o.time) }) : t('day.noTimeLeftToday')}
+                    <span className="min-w-0 font-medium break-words">{o.name}</span>
+                    <span className="flex shrink-0 flex-col items-end text-right text-sm">
+                      <span className={o.freeNow ? 'font-semibold text-good' : 'text-muted'}>
+                        {o.freeNow ? t('day.freeNow') : o.time ? t('day.busyFreeAt', { time: clock12(o.time) }) : t('day.noTimeLeftToday')}
+                      </span>
+                      {!o.freeNow && o.startAt && <span className="text-link">{t('day.keepThisTime')}</span>}
                     </span>
                   </button>
                 ))
@@ -306,7 +338,21 @@ export function WalkIn() {
 
           {option && (
             <Card className="flex flex-col gap-3">
+              {later && <Banner tone="info">{t('day.walkInKeepExplain', { time: laterTime, name: option.name })}</Banner>}
               <Field id="guest-name" label={t('day.walkInNameLabel')} value={name} maxLength={60} disabled={held} onChange={(e) => setName(e.target.value)} />
+              {later && texts.data?.sms && (
+                <Field
+                  id="guest-phone"
+                  label={t('day.walkInPhoneLabel')}
+                  hint={t('day.walkInPhoneHint', { time: laterTime })}
+                  value={phone}
+                  inputMode="tel"
+                  autoComplete="off"
+                  maxLength={16}
+                  disabled={held}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              )}
               {held && <Banner tone="warn">{t('day.walkInHeld')}</Banner>}
               {error && <ErrorBanner message={error} />}
               <p className="text-sm text-muted">{t('day.walkInCheckTotal')}</p>

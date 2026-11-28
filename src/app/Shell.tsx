@@ -21,14 +21,14 @@ export function tabsFor(role: Parameters<typeof can>[0], kind: ShopType = 'SALON
       { to: '/kirana/bills', label: t('app.tabBills'), icon: '▤' },
       { to: '/kirana/products', label: t('app.tabProducts'), icon: '▣' },
       { to: '/kirana/khata', label: t('app.tabKhata'), icon: '₹' },
-      { to: '/more', label: t('app.tabMore'), icon: '☰' },
+      { to: '/more', label: t('app.tabMore'), icon: '◉' },
     ]
   }
   return [
     { to: '/salon/day', label: t('app.tabToday'), icon: '◷' },
     { to: '/salon/bookings', label: t('app.tabBookings'), icon: '▤' },
     ...(can(role).seeSetup ? [{ to: '/setup', label: t('app.tabSalon'), icon: '✂' }] : []),
-    { to: '/more', label: t('app.tabMore'), icon: '☰' },
+    { to: '/more', label: t('app.tabMore'), icon: '◉' },
   ]
 }
 

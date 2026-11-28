@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { messageOf } from '../../api/errors'
 import { useDay } from '../../api/salon'
 import { useShop } from '../../api/shop'
@@ -16,7 +16,7 @@ import { HelpButton } from '../help/HelpButton'
 import { helpHref } from '../help/links'
 import { ContactUs } from '../../components/ContactUs'
 import { ArrivedNote } from '../../components/ArrivedNote'
-import { NotificationsPrompt } from '../profile/Notifications'
+import { AlertsLine, DaySummary, GoogleListingCard, SlowDayShare, useGoogleCard } from './DayGlance'
 import { HandoverOffers } from '../shop/HandoverOffers'
 import { InviteOffers } from '../shop/InviteOffers'
 import { WaitingForVisit } from '../shop/Home'
@@ -110,6 +110,13 @@ export function Today() {
   }, [openParam, setParams])
   const suspended = shop.status === 'SUSPENDED'
   const waiting = shop.status === 'PENDING_VISIT'
+  // Just kept a walk-in for later: what to tell the customer, until they leave Today
+  const location = useLocation()
+  const [kept] = useState(() => (location.state as { walkInKept?: { time: string; name: string } } | null)?.walkInKept)
+  // Said once: not again on Back or a reload (the page's history entry forgets it)
+  useEffect(() => {
+    if (kept) window.history.replaceState({ ...window.history.state, usr: undefined }, '')
+  }, [kept])
 
   // The first-time tips: once per account and role, or again from Help (?tips=1, then out of the address so a
   // reload doesn't open them again)
@@ -141,6 +148,10 @@ export function Today() {
   // The salon can take bookings (no needed setup step left): only then is pausing them worth offering. Barbers
   // have no setup card (and can't pause).
   const bookable = !setupCard || checklist === 'good' || checklist === 'none'
+  // Nothing else asking first (the tips, the language, the setup card's steps): room for one growth card
+  const calm = !suspended && !waiting && !showTips && !languageOffer && (!setupCard || checklist === 'none')
+  const google = useGoogleCard(calm && shop.myRole === 'OWNER')
+  const googleShows = calm && shop.myRole === 'OWNER' && Boolean(google.data?.show)
   const closeTips = useCallback(() => {
     setTipsAsked(false)
     markTipsSeen()
@@ -239,12 +250,28 @@ export function Today() {
       {shop.myRole !== 'OWNER' && <HandoverOffers />}
       {/* An invitation to another shop (accepting says to leave this one first) */}
       {shop.myRole !== 'OWNER' && <InviteOffers />}
+      {kept && <Banner tone="good">{t('day.walkInKeptDone', kept)}</Banner>}
       {showTips && <Tips role={shop.myRole} onClose={closeTips} />}
-      {/* The owner's and helpers' setup card asks about notifications itself (one of its steps): only barbers get this */}
-      {!suspended && !showTips && !languageOffer && !setupCard && <NotificationsPrompt />}
       {setupCard && <SetupChecklist hidden={showTips || languageOffer} onState={setChecklist} />}
+      {/* Whether a booking will ring this phone, always said (the setup card asks it itself while it is up) */}
+      {!suspended && !languageOffer && !showTips && (!setupCard || checklist !== 'needed') && <AlertsLine />}
+      {/* The owner's: his salon isn't on Google Maps yet (people searching Google can't find it). One growth card at a
+          time, after the setup card's steps: Google's, else the slow-day share */}
+      {googleShows && <GoogleListingCard />}
       {/* Paused: always said, with Resume. "Too busy?" only once customers can book (one next step at a time) */}
       {!suspended && !waiting && rights.pause && <PauseControl offer={bookable} />}
+      {/* The day at a glance (and tomorrow's from 6 pm), on today's board */}
+      {!suspended && !waiting && date === today && day.data && columns.length > 0 && (
+        <DaySummary
+          columns={columns}
+          own={day.data.myStaffId !== null && columns.length === 1}
+          onTomorrow={() => go(addDays(today, 1))}
+        />
+      )}
+      {/* Nothing more booked today: one tap to bring customers in */}
+      {calm && !googleShows && bookable && rights.seeSetup && date === today && day.data && columns.length > 0 && (
+        <SlowDayShare columns={columns} />
+      )}
 
       <div className="flex items-center gap-2">
         <Button variant="secondary" aria-label={t('day.previousDay')} onClick={() => go(addDays(date, -1))} disabled={date <= addDays(today, -PAST_DAYS)}>
@@ -365,8 +392,14 @@ function DayActions({ columns, date, myStaffId }: { columns: BarberColumn[]; dat
   return (
     <div className="flex gap-2">
       {today && (
-        <Button className="flex-1" onClick={() => navigate('/salon/walk-in')}>
-          {t('day.addWalkIn')}
+        // Says what it is for under its name: a customer at the door, without a booking
+        <Button
+          className="flex-1 flex-col py-1 leading-tight"
+          aria-label={`${t('day.addWalkIn')}, ${t('day.addWalkInSub')}`}
+          onClick={() => navigate('/salon/walk-in')}
+        >
+          <span>{t('day.addWalkIn')}</span>
+          <span className="text-xs font-normal opacity-90">{t('day.addWalkInSub')}</span>
         </Button>
       )}
       {showBreak && (
