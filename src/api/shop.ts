@@ -230,6 +230,13 @@ export function useShopInvites() {
   return useQuery({ queryKey: shopKeys.invites, queryFn: shopApi.invites })
 }
 
+/** The owner's "Get found on Google Maps too" card (shown while the salon isn't on Google Maps). */
+export const googleListingApi = {
+  get: () => api<{ show: boolean; addUrl: string }>('GET', `${S}/me/google-listing`),
+  answer: (answer: 'ADDED' | 'NOT_NOW') =>
+    api<{ show: boolean; addUrl: string }>('POST', `${S}/me/google-listing/answer`, { body: { answer } }),
+}
+
 export const fileApi = {
   upload: async (file: Blob, name: string, purpose: FilePurpose) => {
     await ensureShopInToken()
