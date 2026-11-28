@@ -2,7 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { authApi } from '../../api/auth'
 import { refreshSettled } from '../../api/client'
 import { closeShownNotifications, turnOffPush } from '../../api/push'
-import { forgetRegisterDraft, forgetRegisterKind } from '../../lib/registerDraft'
+import { forgetRegisterDraft, forgetRegisterKind, forgetRegisterReady } from '../../lib/registerDraft'
 import { kiranaOn } from '../../lib/config'
 import { forgetReturn } from '../auth/flow'
 import { forgetHelpDrafts } from '../help/drafts'
@@ -40,6 +40,7 @@ export function forgetThisPerson(qc: QueryClient) {
   forgetReturn()
   forgetRegisterDraft()
   forgetRegisterKind()
+  forgetRegisterReady()
   // A new kirana product's typing isn't kept per person: forgotten here at once, switch on or off (a tiny module, no
   // download). The counter's bill being made is kept per person and shop, so its own download may come a moment later.
   forgetProductDraft()

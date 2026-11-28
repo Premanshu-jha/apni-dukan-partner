@@ -33,3 +33,28 @@ export function loadRegisterKind(userId: string | undefined): 'KIRANA' | 'SALON'
 export function forgetRegisterKind() {
   storage.remove(KIND_KEY)
 }
+
+/**
+ * "Before you start" answered with "I'm at my shop" on this phone, by this person: registration's first step opens
+ * without asking again. Kept until the shop is saved (then there is a shop, and nothing asks).
+ */
+const READY_KEY = 'adp.registerReady'
+/** The same answer for this visit, when the phone can't keep it (storage blocked or full): never asked in a circle. */
+let readyThisVisit: string | null = null
+
+export function saveRegisterReady(userId: string) {
+  readyThisVisit = userId
+  storage.setJson(READY_KEY, { userId })
+}
+
+export function loadRegisterReady(userId: string | undefined): boolean {
+  if (!userId) return false
+  if (readyThisVisit === userId) return true
+  const d = storage.getJson<{ userId: string }>(READY_KEY)
+  return Boolean(d && d.userId === userId)
+}
+
+export function forgetRegisterReady() {
+  readyThisVisit = null
+  storage.remove(READY_KEY)
+}
