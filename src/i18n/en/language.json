@@ -1,13 +1,13 @@
 {
   "title": "Language",
   "choose": "Choose your language",
-  "hint": "You can change it any time in More → Language.",
+  "hint": "You can change it any time in “You” → Language.",
   "offline": "Couldn't download this language. Check your internet and try again.",
   "offerTitle": "Use the app in your language",
   "keepEnglish": "Keep English",
   "keepShown": "Keep {name}",
   "profileHint": "Saved to your account too: your messages come in this language. Someone else on this phone can choose their own.",
-  "changedToast": "Done. You can change the language any time in More → Language.",
+  "changedToast": "Done. You can change the language any time in “You” → Language.",
   "button": "Language: {name}",
   "shownIn": "Language:",
   "change": "Change"

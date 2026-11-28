@@ -12,7 +12,7 @@ describe('the crash screen', () => {
   })
   afterEach(() => vi.restoreAllMocks())
 
-  it('says the shop\'s data is safe (a salon\'s or a kirana\'s) and never traps: More, Write to us, Call us, WhatsApp us', () => {
+  it('says the shop\'s data is safe (a salon\'s or a kirana\'s) and never traps: You, Write to us, Call us, WhatsApp us', () => {
     // No router around it: every way out is a plain link (a fresh page load leaves the broken screen behind)
     render(
       <ErrorBoundary>
@@ -23,7 +23,7 @@ describe('the crash screen', () => {
     expect(screen.getByText("Your shop's data is safe. Start again to carry on.")).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Start again' })).toBeInTheDocument()
     // Today itself may be what breaks: More is reachable without it
-    expect(screen.getByRole('link', { name: 'Open More (help, language, sign out)' })).toHaveAttribute('href', '/more')
+    expect(screen.getByRole('link', { name: 'Open the “You” tab (help, language, sign out)' })).toHaveAttribute('href', '/more')
     const write = new URL(screen.getByRole('link', { name: 'Write to us' }).getAttribute('href')!, 'https://x.test')
     expect(write.pathname).toBe('/help')
     expect(write.searchParams.get('write')).toBe('1')

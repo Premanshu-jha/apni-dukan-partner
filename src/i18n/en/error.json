@@ -4,5 +4,6 @@
   "TRY_LATER": {
     "one": "Too many tries from this network. Try again in {count} minute.",
     "other": "Too many tries from this network. Try again in {count} minutes."
-  }
+  },
+  "WALK_IN_TIME_PASSED": "That time has just passed. Pick another time."
 }

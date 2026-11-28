@@ -6,7 +6,7 @@
   "tabToday": "ಇಂದು",
   "tabBookings": "ಬುಕಿಂಗ್‌ಗಳು",
   "tabSalon": "ಸಲೂನ್",
-  "tabMore": "ಇನ್ನಷ್ಟು",
+  "tabMore": "ಪ್ರೊಫೈಲ್",
   "tabCounter": "ಕೌಂಟರ್",
   "tabBills": "ಬಿಲ್‌ಗಳು",
   "tabProducts": "ಪ್ರಾಡಕ್ಟ್‌ಗಳು",
@@ -30,5 +30,6 @@
   "switching": "ಆ್ಯಪ್ ಅಪ್‌ಡೇಟ್ ಆಗುತ್ತಿದೆ…",
   "updateRequiredHint": "Play Store ನಲ್ಲಿ ಇನ್ನೂ ಅಪ್‌ಡೇಟ್ ಕಾಣಿಸದಿದ್ದರೆ, ಆ್ಯಪ್ ಮುಚ್ಚಿ ಕೆಲವು ಗಂಟೆಗಳ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ, ಅಥವಾ \"ಮತ್ತೆ ನೋಡಿ\" ಒತ್ತಿ.",
   "updateRequiredCheck": "ಮತ್ತೆ ನೋಡಿ",
-  "updateRequiredChecking": "ನೋಡುತ್ತಿದ್ದೇವೆ…"
+  "updateRequiredChecking": "ನೋಡುತ್ತಿದ್ದೇವೆ…",
+  "tabMoreInText": "“ಪ್ರೊಫೈಲ್”"
 }

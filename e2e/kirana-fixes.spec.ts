@@ -309,7 +309,7 @@ test('a kirana\'s screens have Help too, about that screen; More\'s help card is
   const q = new URLSearchParams((await help.getAttribute('href'))!.split('?')[1])
   expect(q.get('from')).toBe('/kirana/counter')
   expect(q.get('topic')).toBe('Counter')
-  await page.getByRole('link', { name: 'More', exact: true }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await expect(page.getByText('Need help?')).toBeInViewport()
   // Writing from More is about the screen before it
   const write = page.getByRole('link', { name: 'Write to support' })

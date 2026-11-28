@@ -52,7 +52,7 @@ test('a barber keeps working while the owner’s changes are re-checked (the sal
 test('leaving the salon details with unsaved changes asks first', async ({ page, context, api }) => {
   await atSalon(page, context, api)
   await page.goto('/setup/details')
-  await expect(page.getByText('Your own sign-in name is changed in More', { exact: false })).toBeVisible()
+  await expect(page.getByText('Your own sign-in name is changed in the “You” tab', { exact: false })).toBeVisible()
   await page.getByLabel('Salon name').fill('Shine Salon Sector 63')
   page.once('dialog', (d) => void d.dismiss())
   await page.getByRole('button', { name: 'Back' }).click()

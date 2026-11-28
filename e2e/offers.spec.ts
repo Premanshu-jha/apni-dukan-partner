@@ -4,8 +4,8 @@ import { atSalon, expect, test } from './helpers'
 test('the owner makes an offer for some services and hours, sees both prices and who is told, and publishes it', async ({ page, context, api }) => {
   await atSalon(page, context, api)
   api.hours = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({ weekday, open: '10:00', close: weekday === 6 ? '18:00' : '21:00' }))
-  await page.goto('/more')
-  await page.getByRole('link', { name: 'Offers' }).click()
+  await page.goto('/setup')
+  await page.getByRole('link', { name: /^Offers/ }).click()
   await expect(page.getByText('No offers yet')).toBeVisible()
   await page.getByRole('link', { name: 'New offer' }).click()
 

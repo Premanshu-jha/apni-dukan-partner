@@ -194,8 +194,9 @@ test('the owner reads the ratings with the comments; a barber has no ratings pag
     { bookingId: 'a1', bookingNo: 'K7M1QX', stars: 5, tags: ['CLEAN', 'SKILLED'], comment: 'Best fade in Noida', services: ['Haircut'], customerName: 'Riya Sharma', visitAt: '2026-11-09T06:30:00Z', ratedAt: '2026-11-09T08:00:00Z' },
     { bookingId: 'a2', bookingNo: 'K7M2QX', stars: 3, tags: [], comment: null, services: ['Beard trim'], customerName: null, visitAt: '2026-11-08T06:30:00Z', ratedAt: '2026-11-08T08:00:00Z' },
   ]
-  await page.goto('/more')
-  await page.getByRole('link', { name: 'Ratings' }).click()
+  // In the Salon tab (the owner's weekly work), not in "You"
+  await page.goto('/setup')
+  await page.getByRole('link', { name: /^Ratings/ }).click()
   await expect(page.getByText('4.3')).toBeVisible()
   await expect(page.getByText('customers see "New" until you have 5')).toBeVisible()
   await expect(page.getByText('“Best fade in Noida”')).toBeVisible()

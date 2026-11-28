@@ -1,4 +1,6 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
+import { dayApi } from '../../api/salon'
 import { needsHomeScreen, pushIsOn, pushSupported, turnOffPush, turnOnPush, type PushResult } from '../../api/push'
 import { noTokenError, openNotificationSettings } from '../../api/appPush'
 import { messageOf } from '../../api/errors'
@@ -149,6 +151,50 @@ export function NotificationsRow() {
         </button>
       </div>
       {error && <PushProblem text={error} />}
+    </div>
+  )
+}
+
+/**
+ * "Morning: today's bookings" and "Evening: tomorrow's bookings": the two day summaries (8 am and 8 pm), each a
+ * switch, on unless switched off. A salon's people only (a kirana has none). A failed save says so and leaves the
+ * switch as it was.
+ */
+export function SummariesRow() {
+  const t = useT()
+  const qc = useQueryClient()
+  const q = useQuery({ queryKey: ['salon', 'summaries'], queryFn: dayApi.summaries, retry: false })
+  const [busy, setBusy] = useState<'morning' | 'evening' | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  if (!q.data) return null
+  const flip = async (which: 'morning' | 'evening') => {
+    setBusy(which)
+    setError(null)
+    try {
+      qc.setQueryData(['salon', 'summaries'], await dayApi.setSummaries({ [which]: !q.data![which] }))
+    } catch (e) {
+      setError(messageOf(e))
+    } finally {
+      setBusy(null)
+    }
+  }
+  return (
+    <div className="flex flex-col gap-2 border-t border-line pt-3">
+      <p className="text-sm text-muted">{t('profile.summariesIntro')}</p>
+      {(['morning', 'evening'] as const).map((which) => (
+        <label key={which} className="flex min-h-11 items-center justify-between gap-3">
+          <span>{t(which === 'morning' ? 'profile.summaryMorning' : 'profile.summaryEvening')}</span>
+          <input
+            type="checkbox"
+            role="switch"
+            className="h-6 w-6 accent-brand"
+            checked={q.data![which]}
+            disabled={busy !== null}
+            onChange={() => void flip(which)}
+          />
+        </label>
+      ))}
+      {error && <Banner tone="bad">{error}</Banner>}
     </div>
   )
 }

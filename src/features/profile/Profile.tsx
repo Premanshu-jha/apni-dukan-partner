@@ -15,7 +15,7 @@ import { takePhoneChanged } from '../../lib/phoneMoved'
 import { SUPPORT_EMAIL } from '../../lib/config'
 import { LegalLinks } from '../legal/LegalPage'
 import { useSession } from '../../store/session'
-import { NotificationsRow } from './Notifications'
+import { NotificationsRow, SummariesRow } from './Notifications'
 import { licenceSummary } from '../shop/RegistrationDoc'
 import { signOutHere } from './signOut'
 import { LeaveShop } from './LeaveShop'
@@ -83,16 +83,12 @@ export function Profile() {
     owner && { to: '/kirana/licences', text: t('profile.linkKiranaLicences') },
     { to: '/notifications', text: t('profile.linkMessages') },
   ] : [
-    // Where owners look for setup first (it is also the Salon tab): services, hours and barbers
-    rights.seeSetup && { to: '/setup/services', text: t('setup.servicesTitle') },
-    rights.seeSetup && { to: '/setup/hours', text: t('setup.hoursTitle') },
-    rights.seeSetup && { to: '/setup/staff', text: t('setup.barbersTitle') },
-    { to: '/salon/share', text: t('share.moreLink') },
-    rights.team && { to: '/team', text: t('profile.linkTeam') },
-    rights.closures && { to: '/salon/closures', text: t('profile.linkClosures') },
-    rights.seeSetup && { to: '/salon/offers', text: t('profile.linkOffers') },
-    rights.seeSetup && { to: '/salon/ratings', text: t('profile.linkRatings') },
+    // The salon's own pages are in the Salon tab (owner and helpers) and the everyday ones on Today: this tab ("You")
+    // keeps only what is rare. A barber has no Salon tab: his salon's details and its link to share are here.
     !rights.seeSetup && { to: '/salon/info', text: t('profile.linkSalonInfo') },
+    !rights.seeSetup && { to: '/salon/share', text: t('share.moreLink') },
+    // For whoever looked for them here before: where the salon's pages are now
+    rights.seeSetup && { to: '/setup', text: t('profile.linkSalonTab', { salon: t('app.tabSalon') }) },
     { to: '/notifications', text: t('profile.linkMessages') },
   ]).filter(Boolean) as Array<{ to: string; text: string }>
 
@@ -270,8 +266,10 @@ export function Profile() {
         />
       </Card>
 
-      <Card>
+      <Card className="flex flex-col gap-3">
         <NotificationsRow />
+        {/* The 8 am and 8 pm messages about the day (a salon's) */}
+        {!kirana && <SummariesRow />}
       </Card>
 
       <Card id="language" className="flex scroll-mt-20 flex-col gap-2">

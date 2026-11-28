@@ -138,7 +138,7 @@ test('a cold start shows the saved language at once from its cached texts, then 
 test('More has a language button at the top that leads to the picker', async ({ page, context, api }) => {
   await atSalon(page, context, api)
   await page.getByRole('region', { name: 'Use the app in your language' }).getByRole('button', { name: 'Keep English' }).click()
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'More' }).click()
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'You', exact: true }).click()
   await page.getByRole('button', { name: 'Language: English' }).click()
   await expect(page.getByRole('button', { name: 'English', exact: true })).toBeFocused()
 })

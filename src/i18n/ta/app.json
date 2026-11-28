@@ -6,7 +6,7 @@
   "tabToday": "இன்று",
   "tabBookings": "புக்கிங்",
   "tabSalon": "சலூன்",
-  "tabMore": "மேலும்",
+  "tabMore": "ப்ரொஃபைல்",
   "tabCounter": "கவுண்டர்",
   "tabBills": "பில்கள்",
   "tabProducts": "பொருட்கள்",
@@ -30,5 +30,6 @@
   "switching": "ஆப் அப்டேட் ஆகிறது…",
   "updateRequiredHint": "Play Store இல் இன்னும் அப்டேட் தெரியவில்லை என்றால், ஆப்பை மூடி சில மணி நேரம் கழித்து மீண்டும் முயற்சி செய்யுங்கள், அல்லது \"மீண்டும் பாருங்கள்\" என்பதைத் தட்டுங்கள்.",
   "updateRequiredCheck": "மீண்டும் பாருங்கள்",
-  "updateRequiredChecking": "பார்க்கிறோம்…"
+  "updateRequiredChecking": "பார்க்கிறோம்…",
+  "tabMoreInText": "“ப்ரொஃபைல்”"
 }

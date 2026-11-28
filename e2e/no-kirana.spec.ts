@@ -56,8 +56,9 @@ test('a salon has no kirana page, tab or link, and the app makes no kirana call'
   await expect(nav.getByRole('link', { name: 'Today' })).toBeVisible()
   for (const tab of ['Counter', 'Bills', 'Products', 'Khata']) await expect(nav.getByRole('link', { name: tab })).toHaveCount(0)
 
-  await page.goto('/more')
+  await page.goto('/setup')
   await expect(page.getByRole('link', { name: /Team/ }).first()).toBeVisible()
+  await page.goto('/more')
   await expect(page.locator('a[href^="/kirana"]')).toHaveCount(0)
 
   // An old link to a kirana page: the app's "Page not found", with the way back to today

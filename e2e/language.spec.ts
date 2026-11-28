@@ -29,7 +29,7 @@ test('someone signed in before is offered the languages once; later it is under 
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Use the app in your language' })).toBeHidden()
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'More' }).click()
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'You', exact: true }).click()
   await atSalonProfile(page)
   await page.getByRole('button', { name: 'తెలుగు', exact: true }).click()
   await expect(page.getByText(te('language').title, { exact: true })).toBeVisible()

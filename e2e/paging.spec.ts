@@ -111,6 +111,9 @@ test('offline: "Show more" says so at once and asks nothing; back online it load
 test('a refresh asks only what changed; reopening asks again only the pages on screen, each 304 ("s1-" tag) when unchanged', async ({ page, context, api }) => {
   bookings(api, 150, addDays(todayIst(), 1))
   await atSalon(page, context, api)
+  // The board has loaded (its glance line comes from it), so coming back to the app has a seq to ask from
+  await expect(page.getByRole('status').filter({ hasText: 'No more bookings today' })).toBeVisible()
+  await page.waitForLoadState('networkidle')
   // The day board: coming back to the app asks only what changed (nothing) and keeps the board (its 304 is in day-delta.spec)
   await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
   await expect.poll(() => api.deltas.length).toBe(1)
@@ -274,12 +277,14 @@ test('messages: a refresh with every page loaded asks those 10 pages again, no m
 test('a busy backend (503 SERVICE_BUSY, Retry-After): the client waits and tries once, then the query waits Retry-After too', async ({ page, context, api }) => {
   await signedIn(context, api)
   api.approvedSalon()
-  api.addBooking({ startsAt: new Date(Date.now() + 2 * 3600_000).toISOString(), customerName: 'Late Riya' })
+  // Later today, whatever the hour the test runs at (a booking past midnight would be tomorrow's)
+  const endOfToday = new Date(`${todayIst()}T23:50:00+05:30`).getTime()
+  api.addBooking({ startsAt: new Date(Math.min(Date.now() + 2 * 3600_000, endOfToday)).toISOString(), customerName: 'Late Riya' })
   api.dayDown = 2
   api.busyRetryAfter = 2
   await page.goto('/salon/day')
   await expect(page.getByText('Late Riya')).toBeVisible({ timeout: 15_000 })
-  const at = api.calls.filter((c) => c.path.startsWith('/api/v1/salon/day')).map((c) => c.at)
+  const at = api.calls.filter((c) => c.path.startsWith(`/api/v1/salon/day?date=${todayIst()}`)).map((c) => c.at)
   expect(at.length).toBeGreaterThanOrEqual(3)
   expect(at[1] - at[0]).toBeGreaterThanOrEqual(1900) // the client's own wait
   expect(at[2] - at[1]).toBeGreaterThanOrEqual(1900) // the query's retry, after Retry-After (not 1 s)

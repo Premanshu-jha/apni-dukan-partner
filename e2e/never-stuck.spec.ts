@@ -92,12 +92,11 @@ test('Messages: "Pay your subscription" opens the pay screen; shop news opens Mo
   await expect(page.getByText('That message is about: A new kind of message')).toHaveCount(0)
 })
 
-test('More → Messages → back comes back to More', async ({ page, context, api }) => {
+test('the bell → Messages → back comes back to Today', async ({ page, context, api }) => {
   await atSalon(page, context, api)
-  await page.getByRole('link', { name: 'More', exact: true }).click()
   await page.getByRole('link', { name: 'Messages' }).click()
   await page.getByRole('button', { name: 'Back' }).click()
-  await expect(page).toHaveURL(/\/more$/)
+  await expect(page).toHaveURL(/\/salon\/day$/)
 })
 
 test('a barber opening an owner-only screen is told why on Today, and who to ask', async ({ page, context, api }) => {
@@ -183,7 +182,7 @@ test('a booking: the sheet\'s Help is at its top in every step; a barber is told
 
 test('every confirmation sheet has Help (sign out everywhere on More)', async ({ page, context, api }) => {
   await atSalon(page, context, api)
-  await page.getByRole('link', { name: 'More', exact: true }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await page.getByRole('button', { name: /Sign out on all devices|Sign out everywhere/ }).click()
   await expect(page.getByRole('dialog').getByRole('link', { name: 'Help' })).toBeVisible()
 })

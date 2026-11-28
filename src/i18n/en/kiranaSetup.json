@@ -231,7 +231,7 @@
   "helperHintBody": "You can bill, scan stock and take khata payments. Ask the owner to change prices, khata limits or old bills.",
   "gotIt": "Got it",
   "askOwnerDiscount": "Please give a discount of ₹{amount} on this bill.",
-  "askOwnerUpiMessage": "Please add our shop's UPI ID in the Clozest Partner app (More → UPI ID), so customers can pay by UPI.",
+  "askOwnerUpiMessage": "Please add our shop's UPI ID in the Clozest Partner app (“You” → UPI ID), so customers can pay by UPI.",
   "askOwnerLimit": "Please raise {name}'s khata limit in the Clozest Partner app.",
   "askOwnerBill": "Please change bill {billNo} in the Clozest Partner app.",
   "askOwnerProduct": "Please change {name} in the Clozest Partner app (price, name or alert).",

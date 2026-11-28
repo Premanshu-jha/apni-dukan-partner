@@ -15,7 +15,7 @@ test.describe('on a small phone (360 px)', () => {
       ['/salon/day', 'Today'],
       ['/salon/bookings', 'Bookings'],
       ['/setup', 'Salon'],
-      ['/more', 'More'],
+      ['/more', 'You'],
       ['/salon/walk-in', 'New walk-in'],
       ['/setup/services', 'Services and prices'],
       ['/subscription', 'Subscription'],
@@ -121,7 +121,7 @@ test('"Support replied" dot: on every screen until the request is opened; one re
   api.supportReplies(t, 'It goes out on Monday.')
   await page.goto('/salon/day')
   await expect(page.getByRole('link', { name: 'Help (Support replied)' })).toBeVisible()
-  for (const tab of ['Bookings', 'Salon', 'More', 'Today']) {
+  for (const tab of ['Bookings', 'Salon', 'You', 'Today']) {
     await page.getByRole('link', { name: tab, exact: true }).click()
     await expect(page.getByRole('link', { name: 'Help (Support replied)' })).toBeVisible()
   }
@@ -166,7 +166,7 @@ test('a barber sees only answers for his screens; Today\'s come first from Today
 
 test('in Hindi the answers and the Help button are in Hindi, with the buttons\' Hindi names', async ({ page, context, api }) => {
   await atSalon(page, context, api)
-  await page.getByRole('link', { name: 'More', exact: true }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await page.getByRole('button', { name: 'हिन्दी' }).first().click()
   await expect(page.getByRole('link', { name: /^मदद/ })).toBeVisible()
   await page.getByRole('link', { name: /^मदद/ }).click()
@@ -174,22 +174,27 @@ test('in Hindi the answers and the Help button are in Hindi, with the buttons\' 
   await expect(page.getByText('त्योहार या छुट्टी पर सैलून बंद कैसे रखें?')).toBeVisible()
 })
 
-test('More: help right under the salon card, and the setup screens owners look for there', async ({ page, context, api }) => {
+test('You: help right under the salon card; the setup screens are in the Salon tab only (not twice)', async ({ page, context, api }) => {
   await atSalon(page, context, api)
-  await page.getByRole('link', { name: 'More', exact: true }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await expect(page.getByText('Need help?')).toBeInViewport()
-  for (const [name, url] of [['Services and prices', /\/setup\/services$/], ['Opening hours', /\/setup\/hours$/], ['Barbers', /\/setup\/staff$/]] as const) {
-    await page.getByRole('link', { name, exact: true }).click()
+  for (const name of ['Services and prices', 'Opening hours', 'Barbers']) {
+    await expect(page.getByRole('main').getByRole('link', { name, exact: true })).toHaveCount(0)
+  }
+  await page.getByRole('link', { name: 'Salon', exact: true }).click()
+  for (const [name, url] of [[/^Services and prices/, /\/setup\/services$/], [/^Opening hours/, /\/setup\/hours$/], [/^Barbers/, /\/setup\/staff$/]] as const) {
+    await page.getByRole('link', { name }).click()
     await expect(page).toHaveURL(url)
     await page.goBack()
   }
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await page.getByRole('link', { name: 'How do I…? Answers' }).click()
   await expect(page.getByLabel('Search the answers')).toBeVisible()
 })
 
 test('More for a barber: no setup links (he can\'t open them)', async ({ page, context, api }) => {
   await atSalon(page, context, api, 'BARBER')
-  await page.getByRole('link', { name: 'More', exact: true }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await expect(page.getByText('Need help?')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Services and prices', exact: true })).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'Barbers', exact: true })).toHaveCount(0)
@@ -199,8 +204,8 @@ test('offline: the error says so and still offers support', async ({ page, conte
   await atSalon(page, context, api)
   // No connection for the ratings (the page's own route comes before the fake backend's)
   await page.route('**/api/v1/salon/ratings*', (route) => route.abort('internetdisconnected'))
-  await page.getByRole('link', { name: 'More', exact: true }).click()
-  await page.getByRole('link', { name: 'Ratings', exact: true }).click()
+  await page.getByRole('link', { name: 'Salon', exact: true }).click()
+  await page.getByRole('link', { name: /^Ratings/ }).click()
   await expect(page.getByText('Still not working?')).toBeVisible({ timeout: 15_000 })
   await page.unroute('**/api/v1/salon/ratings*')
   await page.getByRole('link', { name: 'Write to us' }).click()

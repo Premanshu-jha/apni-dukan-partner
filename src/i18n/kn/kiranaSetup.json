@@ -231,7 +231,7 @@
   "helperHintBody": "ನೀವು ಬಿಲ್ ಮಾಡಬಹುದು, ಸ್ಟಾಕ್ ಸ್ಕ್ಯಾನ್ ಮಾಡಬಹುದು, ಖಾತೆ ಹಣ ತೆಗೆದುಕೊಳ್ಳಬಹುದು. ಬೆಲೆ, ಖಾತೆ ಲಿಮಿಟ್ ಅಥವಾ ಹಳೆಯ ಬಿಲ್ ಬದಲಿಸಲು ಓನರ್‌ಗೆ ಕೇಳಿ.",
   "gotIt": "ಅರ್ಥವಾಯಿತು",
   "askOwnerDiscount": "ದಯವಿಟ್ಟು ಈ ಬಿಲ್‌ಗೆ ₹{amount} ರಿಯಾಯಿತಿ ಕೊಡಿ.",
-  "askOwnerUpiMessage": "ದಯವಿಟ್ಟು Clozest Partner ಆ್ಯಪ್‌ನಲ್ಲಿ ನಮ್ಮ ಅಂಗಡಿಯ UPI ID ಸೇರಿಸಿ (ಇನ್ನಷ್ಟು → UPI ID), ಗ್ರಾಹಕರು UPI ಯಲ್ಲಿ ಪಾವತಿಸುವಂತೆ.",
+  "askOwnerUpiMessage": "ದಯವಿಟ್ಟು Clozest Partner ಆ್ಯಪ್‌ನಲ್ಲಿ ನಮ್ಮ ಅಂಗಡಿಯ UPI ID ಸೇರಿಸಿ (\"ಪ್ರೊಫೈಲ್\" → UPI ID), ಗ್ರಾಹಕರು UPI ಯಲ್ಲಿ ಪಾವತಿಸುವಂತೆ.",
   "askOwnerLimit": "ದಯವಿಟ್ಟು Clozest Partner ಆ್ಯಪ್‌ನಲ್ಲಿ {name} ಅವರ ಖಾತೆ ಲಿಮಿಟ್ ಹೆಚ್ಚಿಸಿ.",
   "askOwnerBill": "ದಯವಿಟ್ಟು Clozest Partner ಆ್ಯಪ್‌ನಲ್ಲಿ ಬಿಲ್ {billNo} ಬದಲಿಸಿ.",
   "askOwnerProduct": "ದಯವಿಟ್ಟು Clozest Partner ಆ್ಯಪ್‌ನಲ್ಲಿ {name} ಬದಲಿಸಿ (ಬೆಲೆ, ಹೆಸರು ಅಥವಾ ಅಲರ್ಟ್).",

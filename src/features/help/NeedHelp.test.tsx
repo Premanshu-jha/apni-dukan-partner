@@ -86,7 +86,7 @@ describe('the help page', () => {
     open('/help')
     fireEvent.change(screen.getByLabelText('Search the answers'), { target: { value: 'holiday' } })
     expect(screen.getByText('1 answer')).toBeInTheDocument()
-    expect(screen.getByText(/More › “Closed days” \(also in the Salon tab\)/)).toBeInTheDocument()
+    expect(screen.getByText(/^Salon › “Closed days”\. Pick the date/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('link', { name: 'Take me there: How do I close the salon for a festival or holiday?' }))
     expect(screen.getByTestId('where')).toHaveTextContent('/salon/closures')
   })
@@ -107,7 +107,7 @@ describe('the help page', () => {
   })
 
   it('in another language, the English words find an answer too', async () => {
-    provideForTests('hi', { howto: { closedDaysQ: 'त्योहार पर सैलून कैसे बंद करें?', closedDaysA: '{more} › “{closed}”' } })
+    provideForTests('hi', { howto: { closedDaysQ: 'त्योहार पर सैलून कैसे बंद करें?', closedDaysA: '{salon} › “{closed}”' } })
     await act(() => setLanguage('hi'))
     open('/help')
     fireEvent.change(screen.getByLabelText('Search the answers'), { target: { value: 'holiday' } })
@@ -129,8 +129,8 @@ describe('the help page', () => {
   it('the share answer says where it is and the buttons by their names', () => {
     open('/help')
     fireEvent.change(screen.getByLabelText('Search the answers'), { target: { value: 'share' } })
-    // Where every role finds it (More), not the Salon tab barbers don't have
-    expect(screen.getByText(/More › “Share your salon”\. Tap “Share on WhatsApp”.*“Download poster”/)).toBeInTheDocument()
+    // The owner and helpers find it in the Salon tab (a barber, who has none, on his You tab)
+    expect(screen.getByText(/Salon › “Share your salon”\. Tap “Share on WhatsApp”.*“Download poster”/)).toBeInTheDocument()
   })
 
   it('while the salon is still a draft: the answers about registering (what the video shows, the licence, the pin)', () => {

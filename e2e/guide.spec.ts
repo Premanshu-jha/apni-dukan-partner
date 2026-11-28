@@ -51,11 +51,11 @@ test('a brand-new owner: the card leads step by step to the exact barber still m
 test('needed steps done: the tips first, then the good-to-do steps; skips and tips are remembered', async ({ page, context, api }) => {
   await atSalon(page, context, api)
   await expect(tips(page)).toBeVisible()
-  await expect(tips(page)).toContainText('Tip 1 of 5')
+  await expect(tips(page)).toContainText('Tip 1 of 6')
   await expect(card(page)).toHaveCount(0)
   await tips(page).getByRole('button', { name: 'Next' }).click()
-  await expect(tips(page)).toContainText('Tip 2 of 5')
-  await expect(tips(page)).toContainText('“Start”')
+  await expect(tips(page)).toContainText('Tip 2 of 6')
+  await expect(tips(page)).toContainText('this phone rings')
   await tips(page).getByRole('button', { name: 'Skip tips' }).click()
   await expect(tips(page)).toHaveCount(0)
 
@@ -135,9 +135,9 @@ test('a helper: the tips, then what is left with "Only the owner can do this"', 
   api.staff[0].hours = []
   api.staff[1].hours = []
   await page.goto('/salon/day')
-  await expect(tips(page)).toContainText('Tip 1 of 5')
-  // The start tip, with the button only owners and helpers have
-  await tips(page).getByRole('button', { name: 'Next' }).click()
+  await expect(tips(page)).toContainText('Tip 1 of 6')
+  // The start tip (the 4th), with the button only owners and helpers have
+  for (let i = 0; i < 3; i++) await tips(page).getByRole('button', { name: 'Next' }).click()
   await expect(tips(page)).toContainText('“Customer can\'t show the code: start anyway”')
   await tips(page).getByRole('button', { name: 'Skip tips' }).click()
   await expect(card(page)).toBeVisible()
@@ -151,7 +151,7 @@ test('a barber: no card, his own tips (own column, own breaks up to 4 hours)', a
   api.approvedSalon('BARBER')
   await page.goto('/salon/day')
   await expect(tips(page)).toContainText('your column')
-  for (let i = 0; i < 4; i++) await tips(page).getByRole('button', { name: 'Next' }).click()
+  for (let i = 0; i < 5; i++) await tips(page).getByRole('button', { name: 'Next' }).click()
   await expect(tips(page)).toContainText('today or tomorrow, up to 4 hours a day')
   await tips(page).getByRole('button', { name: 'Done' }).click()
   await expect(tips(page)).toHaveCount(0)
@@ -162,7 +162,7 @@ test('Help’s link opens the tips again (?tips=1), and the address loses it', a
   await atSalon(page, context, api)
   await tips(page).getByRole('button', { name: 'Skip tips' }).click()
   await page.goto('/salon/day?tips=1')
-  await expect(tips(page)).toContainText('Tip 1 of 5')
+  await expect(tips(page)).toContainText('Tip 1 of 6')
   await expect(page).toHaveURL(/\/salon\/day$/)
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
@@ -195,7 +195,7 @@ test('first-time hints: one line at the top of each screen, once per account, Go
     ['/setup/staff', 'Your barbers. Tap “+ Add a barber”'],
     ['/setup/hours', 'The days and times your salon is open.'],
     ['/salon/offers', 'Discounts to fill quiet days. Tap “New offer”'],
-    ['/salon/walk-in', 'For a customer who came without booking'],
+    ['/salon/walk-in', 'Tick what they want, then pick a barber'],
   ] as const) {
     await page.goto(path)
     await expect(hint).toContainText(text)
@@ -262,7 +262,7 @@ test('a helper\'s walk-in tip says "if the owner lets you" (helpers start withou
   await page.goto('/salon/day')
   await tips(page).getByRole('button', { name: 'Next' }).click()
   await tips(page).getByRole('button', { name: 'Next' }).click()
-  await expect(tips(page)).toContainText('If the owner lets you, tap “+ Walk-in”')
+  await expect(tips(page)).toContainText('If the owner lets you: tap “+ Walk-in”')
 })
 
 test('a brand-new owner has one next step: no second "Add barbers" on the empty board, no "Too busy?" yet', async ({ page, context, api }) => {
@@ -319,11 +319,9 @@ test('back where it came from: the setup card\'s screens come back to Today, the
     await page.getByRole('button', { name: 'Back', exact: true }).click()
     await expect(page).toHaveURL(/\/setup$/)
   }
-  // From More: back to More
+  // From the You tab (a barber's): his salon's details come back to it
   await page.goto('/more')
-  await page.getByRole('main').getByRole('link', { name: 'Services and prices' }).click()
-  await page.getByRole('button', { name: 'Back', exact: true }).click()
-  await expect(page).toHaveURL(/\/more$/)
+  await expect(page.getByRole('main').getByRole('link', { name: 'Services and prices' })).toHaveCount(0)
 })
 
 test('a setup list that fails to load: the card says so with Try again, instead of silently not being there', async ({ page, context, api }) => {

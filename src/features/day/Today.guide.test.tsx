@@ -134,8 +134,8 @@ describe('Get your salon ready', () => {
     // Needed steps can't be skipped
     expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull()
     expect(screen.queryByRole('region', { name: 'Tips for using the app' })).toBeNull()
-    // The card asks about notifications itself: no second card for it
-    expect(screen.queryByText('Notifications prompt')).toBeNull()
+    // The card asks about notifications itself: no second line for it
+    expect(screen.queryByText(/Booking alerts are/)).toBeNull()
   })
 
   it('no barber yet: Add a barber, and Add me as a barber right there', async () => {
@@ -284,13 +284,16 @@ describe('Get your salon ready', () => {
     expect(screen.queryByRole('link', { name: 'Add your services and prices' })).toBeNull()
   })
 
-  it('a barber: no card, the tips, then the notifications prompt', async () => {
+  it('a barber: no card, the tips, then whether booking alerts are on (with Turn on)', async () => {
     state.shop = { ...state.shop, myRole: 'BARBER' }
     show()
-    expect(await screen.findByRole('region', { name: 'Tips for using the app' })).toHaveTextContent('your column')
-    expect(screen.queryByText('Notifications prompt')).toBeNull()
+    const tips = await screen.findByRole('region', { name: 'Tips for using the app' })
+    expect(tips).toHaveTextContent('your column')
+    // One card at a time: the alerts line waits for the tips
+    expect(screen.queryByText(/Booking alerts are off/)).toBeNull()
     skipTips()
-    expect(screen.getByText('Notifications prompt')).toBeInTheDocument()
+    expect(screen.getByText('Booking alerts are off. You may miss bookings.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Turn on booking alerts' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Get your salon ready' })).toBeNull()
   })
 })
@@ -382,7 +385,7 @@ describe('the tips', () => {
     readySalon()
     localStorage.setItem('adp.guide.tips.BARBER.u1', '1')
     show()
-    expect(await screen.findByRole('region', { name: 'Tips for using the app' })).toHaveTextContent('Tip 1 of 5')
+    expect(await screen.findByRole('region', { name: 'Tips for using the app' })).toHaveTextContent('Tip 1 of 6')
   })
 
   it('a second account on the same phone sees them once too', async () => {

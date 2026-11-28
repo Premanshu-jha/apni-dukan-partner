@@ -59,8 +59,8 @@ describe('what each role may do', () => {
   })
 
   it('shows barbers no Salon tab', () => {
-    expect(tabsFor('BARBER').map((t) => t.label)).toEqual(['Today', 'Bookings', 'More'])
-    expect(tabsFor('HELPER').map((t) => t.label)).toEqual(['Today', 'Bookings', 'Salon', 'More'])
+    expect(tabsFor('BARBER').map((t) => t.label)).toEqual(['Today', 'Bookings', 'You'])
+    expect(tabsFor('HELPER').map((t) => t.label)).toEqual(['Today', 'Bookings', 'Salon', 'You'])
   })
 })
 

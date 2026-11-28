@@ -47,7 +47,7 @@ test('a suspended salon shows why, and the day can only be looked at', async ({ 
 test('each role sees its own tabs and is kept out of screens it cannot use', async ({ page, context, api }) => {
   await atSalon(page, context, api, 'BARBER')
   const nav = page.getByRole('navigation', { name: 'Main' })
-  await expect(nav.getByRole('link')).toHaveText([/Today$/, /Bookings$/, /More$/])
+  await expect(nav.getByRole('link')).toHaveText([/Today$/, /Bookings$/, /You$/])
   await page.goto('/setup/services')
   await expect(page).toHaveURL(/\/salon\/day$/)
   await page.goto('/team')

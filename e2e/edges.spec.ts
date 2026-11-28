@@ -100,7 +100,8 @@ test('a failed shop re-check keeps the screen and what was typed', async ({ page
 test('removed from the salon while signed in: the next salon call sends them to the start', async ({ page, context, api }) => {
   await atSalon(page, context, api, 'HELPER')
   api.shop = null // the owner removed this helper
-  await page.getByRole('link', { name: 'Bookings' }).click()
+  // Today's own calls (the board, the owner's cards) may get there first; otherwise the next tap does
+  await page.getByRole('link', { name: 'Bookings' }).click({ timeout: 3000 }).catch(() => {})
   await expect(page).toHaveURL(/\/start$/)
 })
 
@@ -110,7 +111,7 @@ test('signing out in one tab clears the other tab before the next person signs i
   const other = await context.newPage()
   await other.goto('/more')
   await expect(other.getByText('Shop code 10234')).toBeVisible()
-  await page.getByRole('link', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
   await expect(other).toHaveURL(/\/signin$/)
 

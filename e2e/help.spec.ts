@@ -2,7 +2,7 @@ import { atSalon, expect, signedIn, test } from './helpers'
 
 test('More → Write to support: the message becomes a ticket, kept while typed, sent once', async ({ page, context, api }) => {
   await atSalon(page, context, api)
-  await page.getByRole('link', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await expect(page.getByRole('link', { name: 'support@example.com' })).toHaveAttribute('href', 'mailto:support@example.com')
   await page.getByRole('link', { name: 'Write to support' }).click()
   await expect(page.getByRole('heading', { name: 'Need help' })).toBeVisible()
@@ -42,11 +42,11 @@ test('a registering owner can reach Need help from every step', async ({ page, c
   await expect(page.getByRole('heading', { name: 'Need help' })).toBeVisible()
 })
 
-test('My requests: from More or Need help; support replies show; adding sends it back; a resolved one opens again', async ({ page, context, api }) => {
+test('My requests: from You or Need help; support replies show; adding sends it back; a resolved one opens again', async ({ page, context, api }) => {
   await atSalon(page, context, api)
   const t = api.newTicket('PARTNER', 'Payout', 'My payout for last week has not arrived yet.')
   api.supportReplies(t, 'It goes out on Monday. Sorry for the wait.')
-  await page.getByRole('link', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await page.getByRole('link', { name: /My requests/ }).click()
   await expect(page.getByText('We replied')).toBeVisible()
   await page.getByText('Payout').click()

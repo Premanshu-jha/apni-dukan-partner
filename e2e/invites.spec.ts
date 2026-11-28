@@ -99,7 +99,7 @@ test('a helper of one salon invited to another must leave first', async ({ page,
   await atSalon(page, context, api, 'HELPER')
   await expect(page.getByText('Join Style Point?')).toBeVisible()
   await page.getByRole('button', { name: 'Accept', exact: true }).click()
-  await expect(page.getByText('You work in another shop. Leave it first, then accept. You can leave Shine Unisex Salon from More.')).toBeVisible()
+  await expect(page.getByText('You work in another shop. Leave it first, then accept. You can leave Shine Unisex Salon from the “You” tab.')).toBeVisible()
 })
 
 test('a waiting barber invitation: "Invited" on the barbers list; cancelled from Team, his page and card drop it', async ({ page, context, api }) => {

@@ -157,12 +157,24 @@ export const dayApi = {
   cancel: (id: string, reason: string) => api<Appointment>('POST', `${S}/appointments/${id}/cancel`, { body: { reason } }),
 
   /** Every active service's price for a walk-in starting now, with the salon's offer where one applies now. */
-  walkInPrices: () => api<WalkInPrice[]>('GET', `${S}/walk-ins/prices`),
+  /** Prices now, or at a time kept for later today (an offer may start or end in between). */
+  walkInPrices: (at?: string) => api<WalkInPrice[]>('GET', `${S}/walk-ins/prices${at ? `?at=${encodeURIComponent(at)}` : ''}`),
   walkInOptions: (serviceIds: string[]) =>
     api<WalkInOption[]>('GET', `${S}/walk-ins/options?${serviceIds.map((s) => `services=${s}`).join('&')}`),
-  /** expectedPricePaise: the total the screen showed; a different price now is 409 PRICE_CHANGED (nothing added). */
-  addWalkIn: (key: string, body: { serviceIds: string[]; staffId: string; name: string | null; expectedPricePaise?: number }) =>
-    api<Appointment>('POST', `${S}/walk-ins`, { body, headers: { 'Idempotency-Key': key } }),
+  /**
+   * expectedPricePaise: the total the screen showed; a different price now is 409 PRICE_CHANGED (nothing added).
+   * startAt: keep this later time today for the customer (the barber's "free at"); phone: sent an SMS with it.
+   */
+  addWalkIn: (
+    key: string,
+    body: { serviceIds: string[]; staffId: string; name: string | null; expectedPricePaise?: number; startAt?: string; phone?: string },
+  ) => api<Appointment>('POST', `${S}/walk-ins`, { body, headers: { 'Idempotency-Key': key } }),
+  /** Whether a walk-in kept for later can send its customer an SMS (the SMS is set up on the server). */
+  walkInTexts: () => api<{ sms: boolean }>('GET', `${S}/walk-ins/texts`),
+  /** The morning and evening day summaries: whether this person gets each. */
+  summaries: () => api<{ morning: boolean; evening: boolean }>('GET', `${S}/summaries`),
+  setSummaries: (body: { morning?: boolean; evening?: boolean }) =>
+    api<{ morning: boolean; evening: boolean }>('PUT', `${S}/summaries`, { body }),
 
   conflicts: (staffId: string, from: string, to: string) =>
     api<Appointment[]>(

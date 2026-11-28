@@ -101,7 +101,8 @@ test('a failed poll keeps the board and its seq; the next one carries on from th
   api.addBooking({ startsAt: minutesFromNow(60), customerName: 'Riya Sharma' })
   await page.goto('/salon/day')
   await expect(page.getByText('Riya Sharma')).toBeVisible()
-  const seq = [...api.daySeqs.keys()].at(-1)!
+  // Today's board's (from 6 pm the glance also reads tomorrow's)
+  const seq = [...api.daySeqs.keys()].filter((s) => s.endsWith(todayIst())).at(-1)!
 
   api.failOnce.set('/salon/day', { status: 400, code: 'BAD', message: 'The board could not be read.' })
   await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))

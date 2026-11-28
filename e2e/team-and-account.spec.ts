@@ -3,8 +3,8 @@ import { atSalon, expect, signedIn, test, languageKept } from './helpers'
 
 test('the owner invites a helper, gives walk-in access and removes the helper', async ({ page, context, api }) => {
   await atSalon(page, context, api)
-  await page.getByRole('link', { name: 'More' }).click()
-  await page.getByRole('link', { name: 'Team and walk-in access' }).click()
+  await page.getByRole('link', { name: 'Salon', exact: true }).click()
+  await page.getByRole('link', { name: /^Team \(helpers\)/ }).click()
   await page.getByLabel("Helper's mobile number").fill('+91 99999 00001')
   await page.getByRole('button', { name: 'Send invitation' }).click()
   await expect(page.getByText("Invitation sent. They'll see it in the Clozest Partner app")).toBeVisible()
@@ -46,7 +46,7 @@ test('messages: the salon’s news, opened on the right day', async ({ page, con
 test('a helper leaves the salon and is signed out', async ({ page, context, api }) => {
   await languageKept(context)
   await atSalon(page, context, api, 'HELPER')
-  await page.getByRole('link', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await page.getByRole('button', { name: 'Leave Shine Unisex Salon' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Leave' }).click()
   await expect(page).toHaveURL(/\/signin$/)
@@ -55,7 +55,7 @@ test('a helper leaves the salon and is signed out', async ({ page, context, api 
 test('the owner has no "leave", and signs out on this device', async ({ page, context, api }) => {
   await languageKept(context)
   await atSalon(page, context, api)
-  await page.getByRole('link', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await expect(page.getByText('Shop code 10234')).toBeVisible()
   await expect(page.getByText('· You are the owner')).toBeVisible()
   await expect(page.getByRole('button', { name: /^Leave/ })).toBeHidden()
@@ -95,7 +95,7 @@ test('the history shows totals per outcome for the owner', async ({ page, contex
 test('a barber deletes their account with the SMS code: signed out, "Your account has been deleted."', async ({ page, context, api }) => {
   await languageKept(context)
   await atSalon(page, context, api, 'BARBER')
-  await page.getByRole('link', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await page.getByRole('link', { name: 'Delete my account' }).click()
   await expect(page.getByText(/This can't be undone\. You leave Shine Unisex Salon/)).toBeVisible()
   await page.getByRole('button', { name: /^Send code to \+91/ }).click()
@@ -146,7 +146,7 @@ test('a helper with a booking starting within the hour is told to wait (BOOKING_
 
 test('the owner has no delete: "close or hand over your shop first", on More and on the screen itself', async ({ page, context, api }) => {
   await atSalon(page, context, api)
-  await page.getByRole('link', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await expect(page.getByText('To delete your account, close or hand over your shop first.')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Delete my account' })).toBeHidden()
   await page.goto('/profile/delete')

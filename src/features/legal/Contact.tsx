@@ -45,8 +45,8 @@ export function Contact() {
       <Section title={t('about.contactHelpTitle')}>
         <p>
           {t('about.contactHelpBefore')} <strong>{t('help.writeToSupport')}</strong>
-          {spaceBefore(t('about.contactHelpMiddle', { more: t('app.tabMore') }))}
-          {t('about.contactHelpMiddle', { more: t('app.tabMore') })} <strong>{t('help.myRequests')}</strong>
+          {spaceBefore(t('about.contactHelpMiddle', { more: t('app.tabMoreInText') }))}
+          {t('about.contactHelpMiddle', { more: t('app.tabMoreInText') })} <strong>{t('help.myRequests')}</strong>
           {spaceBefore(t('about.contactHelpAfter'))}
           {t('about.contactHelpAfter')}
         </p>

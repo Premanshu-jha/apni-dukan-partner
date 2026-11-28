@@ -6,7 +6,7 @@
   "tabToday": "ఈరోజు",
   "tabBookings": "బుకింగ్‌లు",
   "tabSalon": "సెలూన్",
-  "tabMore": "మరిన్ని",
+  "tabMore": "ప్రొఫైల్",
   "tabCounter": "కౌంటర్",
   "tabBills": "బిల్లులు",
   "tabProducts": "ప్రొడక్ట్‌లు",
@@ -30,5 +30,6 @@
   "switching": "యాప్ అప్‌డేట్ అవుతోంది…",
   "updateRequiredHint": "Play Store లో ఇంకా అప్‌డేట్ కనిపించకపోతే, యాప్‌ను మూసి కొన్ని గంటల తర్వాత మళ్లీ ప్రయత్నించండి, లేదా \"మళ్లీ చూడండి\" నొక్కండి.",
   "updateRequiredCheck": "మళ్లీ చూడండి",
-  "updateRequiredChecking": "చూస్తున్నాం…"
+  "updateRequiredChecking": "చూస్తున్నాం…",
+  "tabMoreInText": "“ప్రొఫైల్”"
 }
