@@ -183,7 +183,7 @@ export function EmptyState({ title, body, action }: { title: string; body?: stri
  * The globe and the language showing (in its own script): opens the languages in a sheet. For screens where More, and
  * its language card, can't be opened yet (sign-up, registration, the wait for approval, the start).
  */
-export function LanguageButton({ className = '' }: { className?: string }) {
+export function LanguageButton({ className = '', stacked = false }: { className?: string; stacked?: boolean }) {
   const t = useT()
   const lang = useLanguage()
   const [open, setOpen] = useState(false)
@@ -194,10 +194,17 @@ export function LanguageButton({ className = '' }: { className?: string }) {
         type="button"
         aria-label={t('language.button', { name })}
         onClick={() => setOpen(true)}
-        className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-line px-3 text-sm text-link hover:bg-raised ${className}`}
+        className={
+          stacked
+            ? // The globe with the name under it, like a tab: narrow enough for a crowded header on a 360px phone
+              `inline-flex min-h-11 min-w-11 shrink-0 flex-col items-center justify-center rounded-xl px-1.5 text-link hover:bg-raised ${className}`
+            : `inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-line px-3 text-sm text-link hover:bg-raised ${className}`
+        }
       >
-        <GlobeIcon />
-        <span lang={lang}>{name}</span>
+        <GlobeIcon size={stacked ? 18 : undefined} />
+        <span lang={lang} className={stacked ? 'text-[11px] leading-tight' : undefined}>
+          {name}
+        </span>
       </button>
       {/* Out of the header: its backdrop blur would hold a fixed panel inside it */}
       {open &&

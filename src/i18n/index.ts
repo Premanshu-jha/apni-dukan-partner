@@ -98,17 +98,20 @@ let shown = 0
 let chosen = false
 /** Bumped by each choice: a slower download started earlier never overrides a later choice. */
 let choice = 0
+/** Choices still downloading. */
+let changing = 0
 const listeners = new Set<() => void>()
 const RELOADED = 'language.reloaded'
 
 /** The account signed in on this phone (null: nobody), set by {@link setAccount}. */
 let account: string | null = null
 /**
- * What the sign-in screen left for the next account to sign in: 'tapped' a language tapped there (it is that
- * account's, saved on it), 'shown' the phone's own language that was showing and kept at sign-in
- * ({@link keepShownLanguage}: saved on the account unless the account already has one).
+ * The language chosen on this phone while signed out (the first screen, sign-in's Change, About), left for the next
+ * account to sign in: it is the phone's, and the account gets it only when it has no language of its own yet (the
+ * account's own language wins: a helper setting up the phone, or someone before on a shared phone, doesn't change
+ * it). Once signed in, a change is the account's ({@link setLanguage}).
  */
-let pickedSignedOut: 'tapped' | 'shown' | null = null
+let pickedSignedOut: 'shown' | null = null
 /** Told when the signed-in account's language changes (to save it on the account: {@link onAccountLanguage}). */
 let accountListener: ((userId: string, lang: Lang) => void) | null = null
 
@@ -216,8 +219,12 @@ export async function restoreLanguage(retry = false): Promise<void> {
  */
 async function change(lang: Lang): Promise<'done' | 'failed' | 'later'> {
   const mine = ++choice
-  if (!(await load(lang))) {
-    if (choice === mine) choice-- // a choice that couldn't download doesn't cancel the saved one coming back
+  changing++
+  const ok = await load(lang).finally(() => changing--)
+  if (!ok) {
+    // A choice that couldn't download doesn't cancel the saved one coming back; but an earlier choice still
+    // downloading stays cancelled (the person tapped past it)
+    if (choice === mine && changing === 0) choice--
     return 'failed'
   }
   if (choice !== mine) return 'later'
@@ -240,7 +247,7 @@ export async function setLanguage(lang: Lang): Promise<boolean> {
     storage.set(accountKey(account), lang)
     accountListener?.(account, lang)
   } else {
-    pickedSignedOut = 'tapped'
+    pickedSignedOut = 'shown'
   }
   return true
 }
@@ -262,16 +269,15 @@ export function keepShownLanguage(): void {
 /**
  * Who is signed in on this phone (null: signed out); call it on every sign-in and at start-up. Which language the
  * account gets, first that applies:
- *  1. one tapped on the sign-in screen just now: a real choice, saved on the account;
- *  2. one chosen on this phone for this account and not yet saved on it (`language.unsynced:<id>`): it stays, and
+ *  1. one chosen on this phone for this account and not yet saved on it (`language.unsynced:<id>`): it stays, and
  *     ./sync sends it;
- *  3. the one saved on the account ({@code saved}, from /me): the account's truth, also over this phone's own
+ *  2. the one saved on the account ({@code saved}, from /me): the account's truth, also over this phone's own
  *     `language:<id>` (stale when it was changed on another phone since); nothing is sent;
- *  4. the account has none yet: the phone's language kept at sign-in, else this account's last one on this phone,
- *     else the phone's choice (the saved choice, never what happens to show while its words still download). It is
- *     saved on the account, once: after that the account has one.
- * Nothing chosen anywhere: nothing changes and nothing is sent. {@link onAccountLanguage} is told only for 1 and 4,
- * so two phones with different languages never send theirs back and forth at every start.
+ *  3. the account has none yet: the language chosen on this phone while signed out just now, else this account's
+ *     last one on this phone, else the phone's choice (the saved choice, never what happens to show while its words
+ *     still download). It is saved on the account, once: after that the account has one.
+ * Nothing chosen anywhere: nothing changes and nothing is sent. {@link onAccountLanguage} is told only for 3, so
+ * two phones with different languages never send theirs back and forth at every start.
  */
 export async function setAccount(userId: string | null, saved?: string | null): Promise<void> {
   if (userId === account) return
@@ -285,12 +291,7 @@ export async function setAccount(userId: string | null, saved?: string | null): 
   const phone = storage.get(KEY)
   let lang: Lang
   let send = false
-  if (picked === 'tapped') {
-    lang = current
-    send = lang !== server
-    // Already the account's: an older choice from this phone still waiting to be sent must not be sent after it
-    if (!send) storage.remove(unsyncedKey(userId))
-  } else if (isLang(pending)) {
+  if (isLang(pending)) {
     lang = pending
   } else if (server) {
     lang = server
