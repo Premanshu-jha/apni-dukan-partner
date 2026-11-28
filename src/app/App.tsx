@@ -32,6 +32,7 @@ import { AddressRequestPage } from '../features/shop/AddressRequest'
 import { EditGate } from '../features/shop/EditGate'
 import { SalonInfo } from '../features/setup/SalonInfo'
 import { RegisterServices } from '../features/shop/RegisterServices'
+import { RegisterReady } from '../features/shop/RegisterReady'
 import { SalonHoursPage } from '../features/setup/SalonHours'
 import { Ratings } from '../features/ratings/Ratings'
 import { NewOffer } from '../features/offers/NewOffer'
@@ -50,6 +51,7 @@ import { MyRequests, RequestDetail } from '../features/help/MyRequests'
 import { helpHref } from '../features/help/links'
 import { EmptyState, Page } from '../components/ui'
 import { useT } from '../i18n'
+import { LanguageFirst, LanguageFirstGate } from '../i18n/LanguageFirst'
 import { kiranaOn } from '../lib/config'
 import { FinishingProfile, KindOnly, PastRegistration, RoleOnly, SignedIn, SignedOutOnly } from './guards'
 import { kiranaKindRoute, kiranaRegisterRoutes, kiranaScreenRoutes, kiranaTabRoutes } from './kiranaRoutes'
@@ -88,14 +90,31 @@ export function App() {
     <Routes>
       <Route element={<Bare />}>
         <Route element={<SignedOutOnly />}>
-          <Route path="/signin" element={<PhoneStep />} />
+          {/* The first screen on a phone where no language was chosen yet: the language, then sign-in in it */}
+          <Route
+            path="/signin"
+            element={
+              <LanguageFirstGate>
+                <PhoneStep />
+              </LanguageFirstGate>
+            }
+          />
           <Route path="/signin/code" element={<CodeStep />} />
-          <Route path="/signin/recover" element={<RecoverStep />} />
+          <Route
+            path="/signin/recover"
+            element={
+              <LanguageFirstGate>
+                <RecoverStep />
+              </LanguageFirstGate>
+            }
+          />
         </Route>
         <Route element={<FinishingProfile />}>
           <Route path="/welcome/email" element={<EmailStep />} />
           <Route path="/welcome/name" element={<NameStep />} />
         </Route>
+        {/* Choose the language: first on a new phone, and from "Change" on the sign-in screen */}
+        <Route path="/language" element={<LanguageFirst />} />
         {/* Public pages: open to everyone, signed in or not (Razorpay's website check, and anyone opening a link) */}
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
@@ -119,6 +138,8 @@ export function App() {
           <Route element={<RegisterLayout needShop={false} />}>
             {/* "What do you run?" (kirana switch on only; off, every shop registered is a salon) */}
             {kiranaKindRoute()}
+            {/* "Before you start": be at the shop, what to keep ready (worded for the kind picked) */}
+            <Route path="/register/ready" element={<RegisterReady />} />
             <Route path="/register" element={<RegisterDetails />} />
           </Route>
           <Route element={<RegisterLayout needShop />}>

@@ -44,7 +44,8 @@ export function RegisterKind() {
     setError(null)
     if (!shop) {
       if (userId) saveRegisterKind(userId, kind)
-      navigate('/register')
+      // "Before you start", worded for this kind (it goes on to the first step)
+      navigate('/register/ready', { state: { stepsFromStart: 2 } })
       return
     }
     if (kind === shop.type) {
