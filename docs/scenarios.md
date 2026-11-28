@@ -984,3 +984,29 @@ key, no Play Store bundle, never sent to phones, artifact `clozest-partner-andro
 | 903 | Registration | "I'm not at my salon now" → OK | — | Back to Start the way it came (no second Start in the history; with the kirana switch on, not back to "What do you run?") | — | (by reading RegisterReady: `stepsFromStart`) | OK-untested |
 | 904 | Language | Telugu tapped (slow), then Hindi, whose download fails first | — | "Couldn't download" for Hindi; Telugu arriving later doesn't take over (the person tapped past it) | — | (by reading `change`: `changing`) | OK-untested |
 | 905 | Language | Change on sign-in opened in a new tab (long press, ctrl-click) | — | Nothing is kept behind for later: the number typed stays only for a plain tap | — | (by reading LanguageLine) | OK-untested |
+
+## Explaining the day: what to expect, walk-ins, the day at a glance — 2026-11-28
+
+Tests: `DG` = `src/features/day/DayGlance.test.tsx`, `TG` = `Today.guide.test.tsx`, `GT` = `guide.test.tsx`; e2e:
+`DH` = `e2e/day-help.spec.ts`, `GS` = `e2e/guide.spec.ts`, `DS` = `e2e/day.spec.ts`. Backend rows: its scenario list §13.
+
+| # | Scenario | API answer | Screen | Test | Verdict |
+| --- | --- | --- | --- | --- | --- |
+| E.1 | A new owner, helper or barber opens Today | — | Six picture tips for their role, Next/Done, again from Help | TG; GT; GS | OK-tested |
+| E.2 | Bookings still to come today; none left | from the day board (no extra call) | "2 bookings still to come today · next at 12:00 PM with Raju"; "No more bookings today"; a barber: his own | DG; DH | OK-tested |
+| E.3 | After 6 pm | `GET /salon/day?date=tomorrow`, every 5 minutes, only in the evening | "Tomorrow: 2 bookings · first at 9:30 AM", See tomorrow | DG | OK-tested |
+| E.4 | Alerts on / off / this phone can't have them | — | "Booking alerts: on"; off with Turn on (problem said under it), shown unless the setup card's needed steps or the tips are up; nothing (an iPhone browser: as before, no line) | TG; DH | OK-tested |
+| E.5 | A slow day (at most 2 today) between 8 am and 6 pm; Not today; Today left open past midnight; bookings left; a full day done; after 6 pm | — | Share card; hidden for the day; back the next day; hidden; hidden; hidden | DG; DH (fixed 11 am) | OK-tested |
+| E.6 | The owner's salon isn't on Google | `GET /shops/me/google-listing` show | The card; Add opens Google's page; I've added it / Don't show again hide it for good (offline: hidden until the app is opened again); both buttons wait while one answer is sent | DG; DH | OK-tested |
+| E.7 | A helper or barber | — | No Google card | DH | OK-tested |
+| E.8 | Walk-in, a barber free now | as before | "Free now", Start now | DS | OK-tested |
+| E.9 | Walk-in, every barber busy: keep a later time | `POST /salon/walk-ins` with `startAt`; prices `?at=` that time | "Nobody is free right now…" above the barbers; "Keep this time" on a busy barber with a time; "Keep 4:30 PM with Imran"; back on Today "Kept 4:30 PM with Imran. Tell the customer to come at 4:30 PM." | DH; DS | OK-tested |
+| E.10 | SMS set up / not set up | `GET /salon/walk-ins/texts` | The mobile field only when it can be sent; a wrong number says so | DH | OK-tested |
+| E.11 | The time was taken meanwhile; the time came while typing | 409 `BARBER_BUSY` with the 12-hour time; 409 `WALK_IN_TIME_PASSED` | "That time was just taken…" / "That time has just passed…" (in each language; other BARBER_BUSY answers keep their own words); the barbers read again, pick again | (by reading `WalkIn.add`); backend DH | OK-untested |
+| E.12 | Morning / evening messages switched | `PUT /salon/summaries` | Switches in You → Booking messages (salons only) | DH | OK-tested |
+| E.13 | Everyday things without More | — | Today and Salon hold them; You only rare personal ones; help answers point to Salon (a barber's share: You) | help-everywhere; NeedHelp test | OK-tested |
+| E.16 | A first-time owner on Today | — | One card at a time: the language, the tips, the setup card's steps; then the alerts line, one growth card (Google's, else the slow-day share), the board | DH (`setupDone`) | OK-tested |
+| E.17 | The tab's name in Hindi, Telugu… | — | "You" in English ("the “You” tab" in help answers); प्रोफ़ाइल and the like elsewhere (a pronoun reads as part of the sentence) | (by reading the texts) | OK-untested |
+| E.18 | An owner looks in You for Services or Messages as before | — | "Services, hours, team, offers: in the Salon tab" and Messages rows | (by reading `Profile.tsx`) | OK-untested |
+| E.14 | Many at once | the glance reads the board already loaded; tomorrow at most every 5 minutes, evenings only; the Google card cached 10 minutes | — | (by reading) | OK-untested |
+| E.15 | INCONVENIENCE: tests that cross midnight (bookings "an hour from now" after 11 pm) | — | Some older e2e tests fail when run after about 11 pm IST (day-delta, fixes, never-stuck's cancel reason); the ones this round touched use fixed times | — | GAP (tests only) |

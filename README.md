@@ -761,6 +761,30 @@ and keeps whatever was typed.
 
 ## Changelog
 
+### Unreleased — explaining the day: what to expect, walk-ins, the day at a glance
+
+Needs the backend's round (new endpoints: `/salon/summaries`, `/salon/walk-ins/texts`, `/shops/me/google-listing`,
+and `startAt`/`phone` on a walk-in): deploy the backend first. No new APK needed. Words in all six languages.
+
+- **What to expect** (the tips on Today, `guide/Tips.tsx`): six short picture tips per role. Owner and helpers: your
+  salon is live (with Share), how a booking reaches you (with the alerts switch), walk-ins, Start with the code,
+  changing a booking, too busy. Barbers: the same for their own column, and breaks.
+- **Walk-ins explained** on the button ("+ Walk-in · Customer at the door") and on the screen ("For a customer at
+  your door without a booking"). A busy barber with a free time later today can be picked: "Keep 3:30 PM with Raju"
+  keeps that time for the customer, with an optional mobile for one SMS with the time (only when the backend can send
+  it). The tip names the barbers free now.
+- **Today at a glance** (`day/DayGlance.tsx`): "2 bookings still to come today · next at 12:00 PM with Raju"; from
+  6 pm also tomorrow's, with See tomorrow. "Booking alerts: on" or "off, you may miss bookings · Turn on". On a slow
+  day before 6 pm: "Few bookings today? Share my salon" (Not today hides it for the day).
+- **Get found on Google Maps too**: the owner's card when Google has no such salon near its pin, three steps and
+  "Add my salon to Google" (Google's free page), then "I've added it" or "Not now".
+- **Morning and evening messages**: 8 am today's bookings, 8 pm tomorrow's; switches in You → Booking messages.
+- **More is now "You"** in English (प्रोफ़ाइल and the like in the other languages, where a pronoun would read as part
+  of the sentence), holding only rare personal things (language, alerts, help, sign out, Messages, and a pointer to
+  the Salon tab); everyday things are on Today and Salon. Every text that pointed to More now names it.
+- **One thing at a time on Today**: the language, the tips and the setup card come first; then the alerts line and at
+  most one growth card (Google's, else the slow-day share, only when at most 2 are booked, 8 am to 6 pm).
+
 ### Unreleased — the language first, and "Before you start"
 
 No backend change, no new APK needed (nothing native changed). The words are in all six languages.
