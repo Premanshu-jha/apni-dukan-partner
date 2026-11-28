@@ -1,5 +1,5 @@
 {
-  "title": "More",
+  "title": "You",
   "signOutAllFailed": "{message} Your other devices are still signed in.",
   "linkTeam": "Team and walk-in access",
   "linkClosures": "Closed days",
@@ -99,7 +99,7 @@
   "pushIphoneHint": "To get booking notifications on iPhone, tap Share, then \"Add to Home Screen\", and open Clozest Partner from there.",
   "pushCantShow": "This browser can't show notifications. You'll still see every message under the bell.",
   "pushCantShowApp": "Notifications aren't available in this version of the app yet. You'll still see every message under the bell.",
-  "bookingNotifications": "Booking notifications",
+  "bookingNotifications": "Booking alerts",
   "bookingNotificationsBody": "New bookings, changes and cancellations, on this device",
   "deleteAccountTitle": "Delete account",
   "deleteOwnerFirst": "Close or hand over your shop first. Then you can delete your account.",
@@ -120,5 +120,9 @@
   "pushNoToken": "This phone couldn't connect for notifications. Try again later; new bookings still show on the day board and under the bell.",
   "openSettings": "Open settings",
   "leaveSignsOut": "Leaving signs you out here. Sign in again with the same number.",
-  "leaveSignsOutInvite": "Leaving signs you out here. Sign in again with the same number: your invitation opens straight away."
+  "leaveSignsOutInvite": "Leaving signs you out here. Sign in again with the same number: your invitation opens straight away.",
+  "summariesIntro": "Messages about your day:",
+  "summaryMorning": "Morning (8 am): today's bookings",
+  "summaryEvening": "Evening (8 pm): tomorrow's bookings",
+  "linkSalonTab": "Services, hours, team, offers: in the {salon} tab"
 }

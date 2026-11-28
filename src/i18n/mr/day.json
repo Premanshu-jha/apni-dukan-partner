@@ -70,7 +70,10 @@
   "setupGood": "केले तर चांगले",
   "setupBarberHours": "प्रत्येक बार्बरला त्याच्या सर्व्हिसेस आणि आठवड्याच्या वेळा द्या",
   "setupBarberHoursNamed": "{name} ला त्याच्या सर्व्हिसेस आणि आठवड्याच्या वेळा द्या",
-  "setupBarbersLeft": { "one": "अजून {count} बार्बरचे बाकी आहे", "other": "अजून {count} बार्बरचे बाकी आहे" },
+  "setupBarbersLeft": {
+    "one": "अजून {count} बार्बरचे बाकी आहे",
+    "other": "अजून {count} बार्बरचे बाकी आहे"
+  },
   "setupOpeningHours": "सलून उघडण्याच्या वेळा टाका",
   "setupNotifications": "प्रत्येक बुकिंगची सूचना या फोनवर मिळवा",
   "setupTeam": "तुमच्या बार्बर आणि हेल्परला त्यांचे स्वतःचे साइन-इन द्या",
@@ -86,7 +89,10 @@
   "setupGoShare": "सलून पाठवा",
   "setupGoOffer": "ऑफर बनवा",
   "setupSkip": "सोडा",
-  "setupSkippedCount": { "one": "{count} काम सोडले", "other": "{count} कामे सोडली" },
+  "setupSkippedCount": {
+    "one": "{count} काम सोडले",
+    "other": "{count} कामे सोडली"
+  },
   "setupShowSkipped": "दाखवा",
   "setupOwnerOnly": "हे फक्त मालक करू शकतात. त्यांना त्यांच्या फोनवर 'आज' उघडायला सांगा.",
   "setupLaterWaiting": "मंजुरीनंतर: तुमचे सलून ग्राहकांना पाठवा आणि पहिली ऑफर बनवा.",
@@ -138,14 +144,20 @@
   "cancelReason": "कारण",
   "cancelReasonExample": "आज बार्बरची तब्येत बरी नाही",
   "confirmRemoveBlock": "ही वेळ पुन्हा बुकिंगसाठी मोकळी होईल.",
-  "triesLeft": { "one": "{message} {count} प्रयत्न उरला.", "other": "{message} {count} प्रयत्न उरले." },
+  "triesLeft": {
+    "one": "{message} {count} प्रयत्न उरला.",
+    "other": "{message} {count} प्रयत्न उरले."
+  },
   "statusChanged": "मधल्या वेळेत कोणीतरी हे बदलले: आता ते \"{status}\" आहे.",
   "walkInNameTooShort": "नावाची कमीत कमी 2 अक्षरे लिहा, किंवा रिकामे ठेवा.",
   "walkInPriceChanged": "किंमत आत्ताच बदलली (ऑफर सुरू झाली किंवा संपली): आता ती {price} आहे. ग्राहकाला विचारून घ्या, मग पुन्हा \"सुरू करा\" वर टॅप करा.",
   "walkInTitle": "नवीन वॉक-इन",
   "walkInSuspended": "सलून ॲपवर बंद आहे.",
   "walkInTotalLabel": "एकूण",
-  "walkInTotal": { "one": "एकूण: {count} सर्व्हिस", "other": "एकूण: {count} सर्व्हिसेस" },
+  "walkInTotal": {
+    "one": "एकूण: {count} सर्व्हिस",
+    "other": "एकूण: {count} सर्व्हिसेस"
+  },
   "srWas": "आधी",
   "srNow": "आता",
   "walkInAbout": "साधारण {duration}",
@@ -195,7 +207,10 @@
   "noUpcomingBody": "नवीन ऑनलाइन बुकिंग इथे आणि दिवसाच्या बोर्डवर दिसतात.",
   "upcomingSection": "येणारी बुकिंग",
   "nextBookings": "पुढची {count} बुकिंग, सर्वात जवळची आधी",
-  "bookingsComingUp": { "one": "{count} बुकिंग येणार आहे", "other": "{count} बुकिंग येणार आहेत" },
+  "bookingsComingUp": {
+    "one": "{count} बुकिंग येणार आहे",
+    "other": "{count} बुकिंग येणार आहेत"
+  },
   "bookingsShown": "{count} बुकिंग दाखवली आहेत",
   "upcomingCapped": "पुढची {count} बुकिंग दाखवत आहोत. त्यानंतरची पाहण्यासाठी \"आज\" मध्ये तो दिवस उघडा.",
   "showMoreBookings": "आणखी बुकिंग दाखवा",
@@ -206,7 +221,10 @@
   "historyDone": "झालेले (यादीतल्या किमतीने)",
   "historyEmpty": "या दिवसांत काही नाही",
   "historyLatest": "सर्वात नवीन {count}, नवीन आधी",
-  "historyCount": { "one": "{count} बुकिंग किंवा वॉक-इन, नवीन आधी", "other": "{count} बुकिंग आणि वॉक-इन, नवीन आधी" },
+  "historyCount": {
+    "one": "{count} बुकिंग किंवा वॉक-इन, नवीन आधी",
+    "other": "{count} बुकिंग आणि वॉक-इन, नवीन आधी"
+  },
   "historyShown": "{count} दाखवली आहेत",
   "historyCapped": "सर्वात नवीन {count} दाखवत आहोत. आधीची पाहण्यासाठी कमी दिवस निवडा.",
   "showMore": "आणखी दाखवा",
@@ -255,5 +273,50 @@
   "walkInNoServicesBodyOwner": "आधी तुमच्या सर्व्हिस जोडा, मग वॉक-इन जोडता येईल.",
   "walkInAddServices": "तुमच्या सर्व्हिस जोडा",
   "walkInSetWhoDoes": "कोणती सर्व्हिस कोण करतो ते ठरवा",
-  "startCodeAskOwner": "ग्राहक कोड दाखवू शकत नाहीत? मालक किंवा हेल्परला हे सुरू करायला सांगा."
+  "startCodeAskOwner": "ग्राहक कोड दाखवू शकत नाहीत? मालक किंवा हेल्परला हे सुरू करायला सांगा.",
+  "addWalkInSub": "दारात आलेला ग्राहक",
+  "walkInIntro": "बुकिंगशिवाय तुमच्या दारात आलेल्या ग्राहकासाठी.",
+  "keepThisTime": "ही वेळ राखून ठेवा",
+  "walkInKeepWith": "{name} कडे {time} राखून ठेवा",
+  "walkInKeepExplain": "{name} {time} वाजता मोकळे आहेत. ग्राहकाला तेव्हा परत यायला सांगा: ही वेळ त्यांच्यासाठी ठेवली जाईल, कोणी ऑनलाइन बुक करू शकणार नाही.",
+  "walkInNobodyFreeNow": "आत्ता कोणी मोकळे नाही. ग्राहकासाठी पुढची मोकळी वेळ ठेवायला खाली एखाद्या बार्बरवर टॅप करा.",
+  "walkInNoTimeToday": "आज यासाठी कोणत्याही बार्बरकडे वेळ उरलेला नाही. ग्राहकाला दुसऱ्या दिवसासाठी ऑनलाइन बुक करायला सांगा.",
+  "walkInPhoneLabel": "ग्राहकाचा मोबाइल (गरजेचा नाही)",
+  "walkInPhoneHint": "त्यांना वेळेसह SMS मिळेल: {time}.",
+  "walkInPhoneWrong": "मोबाइल नंबर तपासा: 10 अंक, 6, 7, 8 किंवा 9 ने सुरू. किंवा रिकामा ठेवा.",
+  "glanceLeft": {
+    "one": "आज अजून 1 बुकिंग बाकी आहे",
+    "other": "आज अजून {count} बुकिंग बाकी आहेत"
+  },
+  "glanceLeftMine": {
+    "one": "आज तुमची अजून 1 बुकिंग बाकी आहे",
+    "other": "आज तुमच्या अजून {count} बुकिंग बाकी आहेत"
+  },
+  "glanceNoneLeft": "आज आणखी बुकिंग नाहीत",
+  "glanceNext": "पुढची {time} वाजता, {name} सोबत",
+  "glanceNextMine": "पुढची {time} वाजता",
+  "glanceTomorrow": {
+    "one": "उद्या: 1 बुकिंग",
+    "other": "उद्या: {count} बुकिंग"
+  },
+  "glanceTomorrowNone": "उद्या: अजून बुकिंग नाहीत",
+  "glanceFirst": "पहिली {time} वाजता",
+  "glanceSeeTomorrow": "उद्या पाहा",
+  "alertsOn": "बुकिंग अलर्ट चालू आहेत: प्रत्येक बुकिंगला हा फोन वाजेल.",
+  "alertsOff": "बुकिंग अलर्ट बंद आहेत. बुकिंग चुकू शकतात.",
+  "alertsTurnOn": "बुकिंग अलर्ट चालू करा",
+  "slowDayTitle": "आज बुकिंग कमी आहेत?",
+  "slowDayBody": "तुमच्या सलूनची लिंक ग्राहकांना WhatsApp वर पाठवा. ते एका टॅपमध्ये बुक करू शकतात.",
+  "slowDayShare": "माझे सलून शेअर करा",
+  "slowDayNotToday": "आज नको",
+  "googleTitle": "Google Maps वरही दिसा",
+  "googleBody": "Google वर “जवळचे सलून” शोधणाऱ्यांना तुमचे सलून अजून दिसत नाही. जोडणे मोफत आहे, जास्त नवीन ग्राहक तुम्हाला शोधतील.",
+  "googleStep1": "खालचे बटण दाबा. Google चे पेज उघडेल.",
+  "googleStep2": "तुमच्या सलूनचे नाव लिहा आणि “Salon” (किंवा “Hair salon”) निवडा.",
+  "googleStep3": "तुमच्या सलूनच्या आत उभे राहून तुमचे लोकेशन द्या, मग Google च्या पायऱ्या पूर्ण करा.",
+  "googleAdd": "माझे सलून Google वर जोडा",
+  "googleDone": "मी जोडले",
+  "googleNotNow": "पुन्हा दाखवू नका",
+  "walkInKeptDone": "{name} कडे {time} राखून ठेवली. ग्राहकाला {time} वाजता यायला सांगा.",
+  "walkInKeptTaken": "ती वेळ आत्ताच दुसऱ्याने घेतली. दुसरी वेळ निवडा."
 }

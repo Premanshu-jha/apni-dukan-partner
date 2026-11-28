@@ -6,7 +6,7 @@
   "tabToday": "Today",
   "tabBookings": "Bookings",
   "tabSalon": "Salon",
-  "tabMore": "More",
+  "tabMore": "You",
   "tabCounter": "Counter",
   "tabBills": "Bills",
   "tabProducts": "Products",
@@ -30,5 +30,6 @@
   "switching": "Updating the app…",
   "updateRequiredHint": "If the Play Store shows no update yet, close the app and try again in a few hours, or tap Check again.",
   "updateRequiredCheck": "Check again",
-  "updateRequiredChecking": "Checking…"
+  "updateRequiredChecking": "Checking…",
+  "tabMoreInText": "the “You” tab"
 }

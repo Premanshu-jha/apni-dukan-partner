@@ -70,7 +70,10 @@
   "setupGood": "Good to do",
   "setupBarberHours": "Give each barber his services and weekly hours",
   "setupBarberHoursNamed": "Give {name} his services and weekly hours",
-  "setupBarbersLeft": { "one": "{count} barber still needs them", "other": "{count} barbers still need them" },
+  "setupBarbersLeft": {
+    "one": "{count} barber still needs them",
+    "other": "{count} barbers still need them"
+  },
   "setupOpeningHours": "Set your opening hours",
   "setupNotifications": "Get a notification on this phone for every booking",
   "setupTeam": "Give your barbers and helper their own sign-in",
@@ -86,7 +89,10 @@
   "setupGoShare": "Share your salon",
   "setupGoOffer": "Make an offer",
   "setupSkip": "Skip",
-  "setupSkippedCount": { "one": "{count} step skipped", "other": "{count} steps skipped" },
+  "setupSkippedCount": {
+    "one": "{count} step skipped",
+    "other": "{count} steps skipped"
+  },
   "setupShowSkipped": "Show them",
   "setupOwnerOnly": "Only the owner can do this. Ask them to open Today on their phone.",
   "setupLaterWaiting": "After approval: share your salon and make your first offer.",
@@ -138,14 +144,20 @@
   "cancelReason": "Reason",
   "cancelReasonExample": "Barber is unwell today",
   "confirmRemoveBlock": "This time becomes free for bookings again.",
-  "triesLeft": { "one": "{message} {count} try left.", "other": "{message} {count} tries left." },
+  "triesLeft": {
+    "one": "{message} {count} try left.",
+    "other": "{message} {count} tries left."
+  },
   "statusChanged": "Someone changed it meanwhile: it is now \"{status}\".",
   "walkInNameTooShort": "Write at least 2 letters of the name, or leave it empty.",
   "walkInPriceChanged": "The price changed just now (an offer started or ended): it's {price} now. Check it with the customer, then tap Start again.",
   "walkInTitle": "New walk-in",
   "walkInSuspended": "The salon is off the app.",
   "walkInTotalLabel": "Total",
-  "walkInTotal": { "one": "Total: {count} service", "other": "Total: {count} services" },
+  "walkInTotal": {
+    "one": "Total: {count} service",
+    "other": "Total: {count} services"
+  },
   "srWas": "was",
   "srNow": "now",
   "walkInAbout": "About {duration}",
@@ -195,7 +207,10 @@
   "noUpcomingBody": "New online bookings show here and on the day board.",
   "upcomingSection": "Bookings coming up",
   "nextBookings": "The next {count} bookings, soonest first",
-  "bookingsComingUp": { "one": "{count} booking coming up", "other": "{count} bookings coming up" },
+  "bookingsComingUp": {
+    "one": "{count} booking coming up",
+    "other": "{count} bookings coming up"
+  },
   "bookingsShown": "{count} bookings shown",
   "upcomingCapped": "Showing the next {count} bookings. Open a day on Today to see the ones after.",
   "showMoreBookings": "Show more bookings",
@@ -206,7 +221,10 @@
   "historyDone": "Done (at list prices)",
   "historyEmpty": "Nothing in these days",
   "historyLatest": "The latest {count}, latest first",
-  "historyCount": { "one": "{count} booking or walk-in, latest first", "other": "{count} bookings and walk-ins, latest first" },
+  "historyCount": {
+    "one": "{count} booking or walk-in, latest first",
+    "other": "{count} bookings and walk-ins, latest first"
+  },
   "historyShown": "{count} shown",
   "historyCapped": "Showing the latest {count}. Pick fewer days to see the earlier ones.",
   "showMore": "Show more",
@@ -255,5 +273,50 @@
   "walkInNoServicesBodyOwner": "Add your services first, then you can add a walk-in.",
   "walkInAddServices": "Add your services",
   "walkInSetWhoDoes": "Set who does which service",
-  "startCodeAskOwner": "Customer can't show the code? Ask the owner or the helper to start it."
+  "startCodeAskOwner": "Customer can't show the code? Ask the owner or the helper to start it.",
+  "addWalkInSub": "Customer at the door",
+  "walkInIntro": "For a customer at your door without a booking.",
+  "keepThisTime": "Keep this time",
+  "walkInKeepWith": "Keep {time} with {name}",
+  "walkInKeepExplain": "{name} is free at {time}. Tell the customer to come back then: the time is kept for them, so nobody can book it online.",
+  "walkInNobodyFreeNow": "Nobody is free right now. Tap a barber below to keep his next free time for the customer.",
+  "walkInNoTimeToday": "No barber has time left today for this. Ask the customer to book online for another day.",
+  "walkInPhoneLabel": "Customer's mobile (optional)",
+  "walkInPhoneHint": "They get an SMS with the time: {time}.",
+  "walkInPhoneWrong": "Check the mobile number: 10 digits, starting with 6, 7, 8 or 9. Or leave it empty.",
+  "glanceLeft": {
+    "one": "1 booking still to come today",
+    "other": "{count} bookings still to come today"
+  },
+  "glanceLeftMine": {
+    "one": "You have 1 booking still to come today",
+    "other": "You have {count} bookings still to come today"
+  },
+  "glanceNoneLeft": "No more bookings today",
+  "glanceNext": "next at {time} with {name}",
+  "glanceNextMine": "next at {time}",
+  "glanceTomorrow": {
+    "one": "Tomorrow: 1 booking",
+    "other": "Tomorrow: {count} bookings"
+  },
+  "glanceTomorrowNone": "Tomorrow: no bookings yet",
+  "glanceFirst": "first at {time}",
+  "glanceSeeTomorrow": "See tomorrow",
+  "alertsOn": "Booking alerts are on: this phone rings for each booking.",
+  "alertsOff": "Booking alerts are off. You may miss bookings.",
+  "alertsTurnOn": "Turn on booking alerts",
+  "slowDayTitle": "Few bookings today?",
+  "slowDayBody": "Share your salon's link with your customers on WhatsApp. They can book in one tap.",
+  "slowDayShare": "Share my salon",
+  "slowDayNotToday": "Not today",
+  "googleTitle": "Get found on Google Maps too",
+  "googleBody": "People searching “salon near me” on Google can't see your salon yet. Adding it is free, and more new customers will find you.",
+  "googleStep1": "Tap the button below. Google's page opens.",
+  "googleStep2": "Type your salon's name and choose “Salon” (or “Hair salon”).",
+  "googleStep3": "Stand inside your salon and use your location, then follow Google's steps.",
+  "googleAdd": "Add my salon to Google",
+  "googleDone": "I've added it",
+  "googleNotNow": "Don't show again",
+  "walkInKeptDone": "Kept {time} with {name}. Tell the customer to come at {time}.",
+  "walkInKeptTaken": "That time was just taken. Pick another time."
 }

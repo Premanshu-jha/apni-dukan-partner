@@ -231,7 +231,7 @@
   "helperHintBody": "तुम्ही बिल करू शकता, स्टॉक स्कॅन करू शकता आणि खात्याचे पैसे घेऊ शकता. दाम, खात्याची मर्यादा किंवा जुनी बिले बदलायला मालकाला सांगा.",
   "gotIt": "समजले",
   "askOwnerDiscount": "कृपया या बिलावर ₹{amount} सूट द्या.",
-  "askOwnerUpiMessage": "कृपया Clozest Partner ॲपमध्ये आपल्या दुकानाचा UPI ID टाका (आणखी → UPI ID), म्हणजे ग्राहक UPI ने देऊ शकतील.",
+  "askOwnerUpiMessage": "कृपया Clozest Partner ॲपमध्ये आपल्या दुकानाचा UPI ID टाका (\"प्रोफाइल\" → UPI ID), म्हणजे ग्राहक UPI ने देऊ शकतील.",
   "askOwnerLimit": "कृपया Clozest Partner ॲपमध्ये {name} ची खात्याची मर्यादा वाढवा.",
   "askOwnerBill": "कृपया Clozest Partner ॲपमध्ये बिल {billNo} बदला.",
   "askOwnerProduct": "कृपया Clozest Partner ॲपमध्ये {name} बदला (दाम, नाव किंवा अलर्ट).",

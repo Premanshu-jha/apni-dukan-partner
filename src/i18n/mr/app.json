@@ -6,7 +6,7 @@
   "tabToday": "आज",
   "tabBookings": "बुकिंग",
   "tabSalon": "सलून",
-  "tabMore": "आणखी",
+  "tabMore": "प्रोफाइल",
   "tabCounter": "काउंटर",
   "tabBills": "बिले",
   "tabProducts": "वस्तू",
@@ -30,5 +30,6 @@
   "switching": "ॲप अपडेट होत आहे…",
   "updateRequiredHint": "Play Store मध्ये अजून अपडेट दिसत नसेल, तर ॲप बंद करून काही तासांनी पुन्हा प्रयत्न करा, किंवा \"पुन्हा तपासा\" दाबा.",
   "updateRequiredCheck": "पुन्हा तपासा",
-  "updateRequiredChecking": "तपासत आहोत…"
+  "updateRequiredChecking": "तपासत आहोत…",
+  "tabMoreInText": "“प्रोफाइल”"
 }
