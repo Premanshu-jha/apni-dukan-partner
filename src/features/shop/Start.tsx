@@ -29,7 +29,7 @@ export function startWords() {
       }
     : {
         welcome: 'register.welcome', closedNotice: 'register.closedNotice', ownTitle: 'register.ownSalonTitle',
-        ownBody: 'register.ownSalonBody', register: 'register.registerMySalon', registerPath: '/register',
+        ownBody: 'register.ownSalonBody', register: 'register.registerMySalon', registerPath: '/register/ready',
         workTitle: 'register.workAtSalonTitle', workBody: 'register.workAtSalonBody', workButton: 'register.workAtSalonButton',
       }
 }
@@ -98,7 +98,7 @@ export function Start() {
             <p className="text-sm text-muted">
               {t(w.ownBody)}
             </p>
-            <Button onClick={() => navigate(w.registerPath)}>{t(w.register)}</Button>
+            <Button onClick={() => navigate(w.registerPath, { state: { stepsFromStart: 1 } })}>{t(w.register)}</Button>
           </Card>
           <Card className="flex flex-col gap-3">
             <p className="text-lg font-semibold">{t(w.workTitle)}</p>

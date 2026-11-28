@@ -41,12 +41,12 @@ test('a send that failed is tried again at the next start', async ({ page, conte
   expect(api.user.language).toBe('hi')
 })
 
-test('a language chosen on the sign-in screen is sent once after signing in', async ({ page, api }) => {
+test('a language chosen on the first screen is sent once after signing in', async ({ page, api }) => {
   api.user = MockApi.completeUser()
   api.approvedSalon()
   await page.goto('/signin')
-  await page.getByLabel('Mobile number').fill('9848012345')
   await page.getByRole('button', { name: 'हिन्दी' }).click()
+  await page.getByLabel(hi('auth').phoneLabel).fill('9848012345')
   await page.getByRole('button', { name: hi('auth').phoneSendCode }).click()
   await page.getByLabel(hi('auth').codeLabel).fill('123456')
   await expect(page.getByRole('navigation', { name: hi('app').navMain })).toBeVisible()

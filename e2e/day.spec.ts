@@ -262,8 +262,12 @@ test('a walk-in for a barber who just got busy, and someone without walk-in acce
   await expect(page.getByRole('button', { name: /Start now/ })).toBeHidden()
 
   api.walkIns = false
-  await page.getByLabel(/Beard trim/).check()
-  await expect(page.getByText("Walk-ins need the owner's OK")).toBeVisible()
+  // The refusal's refetch may already have brought "no walk-in access" (then there is no list to tick)
+  const beard = page.getByLabel(/Beard trim/)
+  const refused = page.getByText("Walk-ins need the owner's OK")
+  // (it can also arrive while ticking: the list goes, which is the answer this test waits for)
+  await beard.check({ timeout: 3000 }).catch(() => undefined)
+  await expect(refused).toBeVisible()
 })
 
 test('the board is per day, refreshes, and recovers from a short outage', async ({ page, context, api }) => {

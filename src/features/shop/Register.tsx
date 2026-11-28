@@ -30,7 +30,7 @@ import {
   type LocateError,
 } from '../../lib/locate'
 import { t, useT } from '../../i18n'
-import { forgetRegisterDraft, forgetRegisterKind, loadRegisterDraft, loadRegisterKind, saveRegisterDraft } from '../../lib/registerDraft'
+import { forgetRegisterDraft, forgetRegisterKind, forgetRegisterReady, loadRegisterDraft, loadRegisterKind, loadRegisterReady, saveRegisterDraft } from '../../lib/registerDraft'
 import { useSession } from '../../store/session'
 import {
   ADDRESS_FIELDS,
@@ -206,6 +206,26 @@ export function KindLine({ leaveWarning = null }: { leaveWarning?: string | null
 
 type Form = Omit<ShopDetailsIn, 'latitude' | 'longitude' | 'gstin'>
 
+/**
+ * A GPS location farther than this from the address found is worth a question: an exact address is on the building,
+ * a street can be a few hundred metres off, an area only says the neighbourhood.
+ */
+export const FAR_FROM_ADDRESS_METRES: Record<GeocodePrecision, number> = { EXACT: 300, STREET: 700, AREA: 2000 }
+
+/** "450 m" or "1.2 km": the same in every language (the digits and units read on any phone). */
+export function distanceText(metres: number): string {
+  const tens = Math.round(metres / 10) * 10
+  return tens < 1000 ? `${tens} m` : `${(metres / 1000).toFixed(1)} km`
+}
+
+/**
+ * Whether the phone's location is too far from the address found to be inside the shop: farther than the search's
+ * precision allows plus the phone's own uncertainty (a rough indoor fix isn't taken for being elsewhere).
+ */
+export function farFromAddressFound(metres: number, precision: GeocodePrecision, gpsAccuracy: number): boolean {
+  return metres > FAR_FROM_ADDRESS_METRES[precision] + Math.max(0, gpsAccuracy)
+}
+
 const empty: Form = { name: '', ownerName: '', addressLine: '', area: '', city: '', pincode: '' }
 
 /** The address fields of a request, as the form holds them. */
@@ -281,6 +301,8 @@ export function RegisterDetails({
   const locked = Boolean(shop?.addressLocked) && !request
   // What was picked on "What do you run?", read once: forgetting it after the first save mustn't send this screen back
   const [picked] = useState(() => pickedKind(userId))
+  // "Before you start" answered on this phone ("I'm at my shop"): read once, as the kind is
+  const [ready] = useState(() => loadRegisterReady(userId))
   const kind = shop?.type ?? picked
   const kirana = kind === 'KIRANA'
   const noun = nounFor(kind)
@@ -347,6 +369,14 @@ export function RegisterDetails({
    * the owner is asked to check the address still matches the new pin. Cleared when he edits an address field.
    */
   const [checkAddress, setCheckAddress] = useState(false)
+  /**
+   * Where "Find my salon on the map" put the typed address, and how exactly Google found it: a GPS location taken
+   * afterwards farther from it than that precision allows ({@link FAR_FROM_ADDRESS_METRES}) asks whether the owner is
+   * really at the shop.
+   */
+  const [addressPoint, setAddressPoint] = useState<{ lat: number; lng: number; precision: GeocodePrecision } | null>(null)
+  /** "Yes, I'm inside": the owner answered the far-from-address question (or placed the pin by hand) for this fix. */
+  const [farAnswered, setFarAnswered] = useState(false)
 
   // Nothing is on the backend before the first save: keep the typing on this phone meanwhile.
   useEffect(() => {
@@ -368,6 +398,8 @@ export function RegisterDetails({
     setConfirmRecheck(false)
     if ((ADDRESS_FIELDS as readonly string[]).includes(k)) {
       setCheckAddress(false)
+      // The address found was for the address as it was: no distance to it is worth a question any more
+      setAddressPoint(null)
       setNeedFields(false)
       setSearchError(null)
       if (found) {
@@ -395,6 +427,7 @@ export function RegisterDetails({
     setPin((p) => (p ? { ...p, lat, lng } : p))
     setFound(null)
     setAddressChanged(false)
+    setFarAnswered(true)
   }
   const show = (k: keyof Form) => (touched ? problems[k] : undefined) ?? fieldError(error, k)
 
@@ -406,6 +439,7 @@ export function RegisterDetails({
       const fix = await locateOnce()
       if (tap !== latest.current) return
       place(fix.lat, fix.lng, fix, 18)
+      setFarAnswered(false)
       setFound(null)
       setSearchError(null)
       setAddressChanged(false)
@@ -464,12 +498,14 @@ export function RegisterDetails({
       place(at.latitude, at.longitude, null, zoomFor(at.precision))
       // Edited while the search ran: the pin is for the address as it was
       const edited = ADDRESS_FIELDS.some((k) => formNow.current[k].trim() !== sent[k])
+      setAddressPoint(edited ? null : { lat: at.latitude, lng: at.longitude, precision: at.precision })
       setFound(edited ? null : at.precision)
       setAddressChanged(edited)
       setLocError(null)
     } catch (e) {
       if (tap !== latest.current) return
       const failure = searchFailure(e)
+      setAddressPoint(null)
       // The old "on your door" hint no longer fits; the pin itself stays for the owner to drag
       setFound(null)
       setAddressChanged(false)
@@ -559,6 +595,7 @@ export function RegisterDetails({
         : await shopApi.create(details, kind ?? 'SALON')
       forgetRegisterDraft()
       forgetRegisterKind()
+      forgetRegisterReady()
       setGstin(result.gstin ?? '')
       setGstinBase(result.gstin ?? '')
       qc.setQueryData(shopKeys.mine, result)
@@ -594,6 +631,13 @@ export function RegisterDetails({
   }
 
   const moved = pin?.gps ? metresBetween(pin.gps, pin) : 0
+  // The phone's location far from the address found: is the owner really at the shop?
+  const far =
+    pin?.gps && addressPoint && !farAnswered
+      ? farFromAddressFound(metresBetween(pin.gps, addressPoint), addressPoint.precision, pin.gps.accuracy)
+        ? metresBetween(pin.gps, addressPoint)
+        : 0
+      : 0
   // Editing: something typed or moved that isn't saved yet (leaving asks first, so it isn't lost)
   // Something typed or moved since the last load or save (a saved draft too: the step pills leave this page)
   const dirty =
@@ -620,6 +664,8 @@ export function RegisterDetails({
 
   // Nothing saved and nothing picked yet: "What do you run?" comes first
   if (!shop && !kind && !edit && !request) return <Navigate to="/register/kind" replace />
+  // A new registration starts at "Before you start" (be at the shop, what to keep ready), worded for the kind picked
+  if (!shop && !edit && !request && !ready) return <Navigate to="/register/ready" replace />
 
   return (
     // A saved draft has no screen before this one ("/" comes back here), so no back arrow then
@@ -770,19 +816,42 @@ export function RegisterDetails({
               <Banner tone="warn">{t('register.gpsRough')}</Banner>
             )}
             {!insideIndia(pin.lat, pin.lng) && <Banner tone="bad">{t('register.pinInIndia')}</Banner>}
-            {checkAddress && (
-              <Banner tone="info">
-                {t('register.checkAddressMatches')}
-              </Banner>
+            {/* Far from the address: one question with its two answers (not also "check the address") */}
+            {far > 0 ? (
+              <div className="flex flex-col gap-2 rounded-xl border border-warn/40 bg-warn/10 p-3">
+                <p className="text-sm font-semibold">
+                  {t(kirana ? 'register.locationFarKirana' : 'register.locationFar', { distance: distanceText(far) })}
+                </p>
+                <Button variant="secondary" onClick={() => setFarAnswered(true)}>
+                  {t('register.locationFarYes')}
+                </Button>
+                <Button variant="ghost" busy={locating} onClick={locate}>
+                  {t('register.takeLocationAgain')}
+                </Button>
+              </div>
+            ) : (
+              checkAddress && <Banner tone="info">{t('register.checkAddressMatches')}</Banner>
             )}
           </>
         )}
         {locError === 'denied' || (!pin && blocked) ? (
           <LocationGuide onRetry={locate} />
         ) : (
+          <>
+          {/* Said where it matters: the location is only right when taken inside the shop */}
+          {!edit && !pin?.gps && (
+            <p className="flex items-start gap-2 rounded-xl bg-raised p-3 text-sm font-semibold">
+              <svg viewBox="0 0 24 24" className="mt-0.5 h-5 w-5 shrink-0 text-link" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" focusable="false">
+                <path d="M12 22s7-7 7-12a7 7 0 1 0-14 0c0 5 7 12 7 12z" />
+                <circle cx="12" cy="10" r="2.5" />
+              </svg>
+              {t(kirana ? 'register.locationAtShopAskKirana' : 'register.locationAtShopAsk', { button: t('register.useMyLocation') })}
+            </p>
+          )}
           <Button id="use-my-location" variant={pin ? 'secondary' : 'primary'} busy={locating} disabled={searching} onClick={locate}>
             {pin?.gps ? t('register.takeLocationAgain') : t('register.useMyLocation')}
           </Button>
+          </>
         )}
         {touched && !pin && <p className="text-sm text-bad">{t(kirana ? 'register.needLocationKirana' : 'register.needLocation')}</p>}
       </Card>

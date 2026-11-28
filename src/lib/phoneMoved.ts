@@ -26,6 +26,30 @@ export function takePhoneMove(): string | null {
   }
 }
 
+/**
+ * The number typed on the sign-in screen, kept while the language screen is open ("Change"): the sign-in screen
+ * closes, and comes back with it filled in. Kept in this tab only; read once.
+ */
+const TYPED = 'ad.signInTyped'
+
+export function keepTypedPhone(phone: string): void {
+  try {
+    if (phone) window.sessionStorage.setItem(TYPED, phone)
+  } catch {
+    /* storage blocked: typed again */
+  }
+}
+
+export function takeTypedPhone(): string | null {
+  try {
+    const phone = window.sessionStorage.getItem(TYPED)
+    window.sessionStorage.removeItem(TYPED)
+    return phone
+  } catch {
+    return null
+  }
+}
+
 /** A Profile/More notice after a change: shown once, not again on reload or Back. */
 let changedTo: string | null = null
 

@@ -1,4 +1,4 @@
-import { atSalon, expect, test } from './helpers'
+import { atSalon, expect, test, languageKept } from './helpers'
 
 test('the owner changes the mobile number with both codes; the shop stays theirs and this phone stays signed in', async ({ page, context, api }) => {
   await atSalon(page, context, api)
@@ -30,6 +30,7 @@ test('the owner changes the mobile number with both codes; the shop stays theirs
 })
 
 test('the number taken meanwhile goes back to the number step; a lost answer leads to sign-in with the new number', async ({ page, context, api }) => {
+  await languageKept(context)
   await atSalon(page, context, api)
   await page.goto('/profile/phone')
   await page.getByLabel('New mobile number').fill('9700000006')

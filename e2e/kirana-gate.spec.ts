@@ -34,6 +34,11 @@ test('with the switch on, Start says "shop", and a salon is registered after "Wh
   await page.getByRole('button', { name: 'Register my shop' }).click()
   await expect(page).toHaveURL(/\/register\/kind$/)
   await page.getByRole('button', { name: /Salon \/ barber shop/ }).click()
+  // "Before you start" for the kind picked: a salon
+  await expect(page).toHaveURL(/\/register\/ready$/)
+  await expect(page.getByText('Be at your salon')).toBeVisible()
+  await expect(page.getByText('Keep your trade licence handy')).toBeVisible()
+  await page.getByRole('button', { name: "I'm at my salon. Let's start" }).click()
   await expect(page).toHaveURL(/\/register$/)
   await expect(page.getByText('Registering a Salon / barber shop')).toBeVisible()
   await expect(page.getByLabel('Salon name')).toHaveValue('')

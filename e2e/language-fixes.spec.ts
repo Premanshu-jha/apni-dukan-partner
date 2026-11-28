@@ -130,10 +130,15 @@ test.describe('the phone\'s own language', () => {
     expect(await page.evaluate(() => localStorage.getItem('language'))).toBe('ta')
   })
 
-  test('signing in with it showing counts as choosing it: saved for the offline page and on the account', async ({ page, api }) => {
+  test('the first screen puts it first and marks it, in it; one tap and sign-in is in it: saved for the offline page and on the account', async ({ page, api }) => {
     api.user = MockApi.completeUser()
     api.approvedSalon()
     await page.goto('/signin')
+    await expect(page).toHaveURL(/\/language$/)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('உங்கள் மொழியைத் தேர்ந்தெடுங்கள்')
+    const buttons = page.getByRole('group').getByRole('button')
+    await expect(buttons.first()).toHaveAccessibleName('தமிழ், Tamil')
+    await buttons.first().click()
     const auth = read('ta', 'auth')
     await page.getByLabel(auth.phoneLabel).fill('9848012345')
     await page.getByRole('button', { name: auth.phoneSendCode }).click()
@@ -145,7 +150,25 @@ test.describe('the phone\'s own language', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'ta')
   })
 
-  test('the account\'s own language (from another phone) wins over the phone\'s guess, and nothing is sent', async ({ page, api }) => {
+  test('picked on a new phone\'s first screen, the language is the phone\'s: an account with its own (from another phone) keeps it, nothing sent', async ({ page, api }) => {
+    api.user = { ...MockApi.completeUser(), language: 'kn' }
+    api.approvedSalon()
+    await page.goto('/signin')
+    await page.getByRole('button', { name: /^தமிழ்/ }).click()
+    const auth = read('ta', 'auth')
+    await page.getByLabel(auth.phoneLabel).fill('9848012345')
+    await page.getByRole('button', { name: auth.phoneSendCode }).click()
+    await page.getByLabel(auth.codeLabel).fill('123456')
+    // A helper may have set the phone up: the owner's own language comes back
+    await expect(page.getByRole('navigation', { name: read('kn', 'app').navMain })).toBeVisible()
+    await page.waitForTimeout(300)
+    expect(api.languagePatches).toEqual([])
+  })
+
+  test('a phone with a language chosen before: the account\'s own language (from another phone) wins, and nothing is sent', async ({ page, context, api }) => {
+    await context.addInitScript(() => {
+      if (!localStorage.getItem('language')) localStorage.setItem('language', 'ta')
+    })
     api.user = { ...MockApi.completeUser(), language: 'kn' }
     api.approvedSalon()
     await page.goto('/signin')

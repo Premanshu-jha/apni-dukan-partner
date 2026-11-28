@@ -159,10 +159,12 @@ there, and reviews walk the list against the code.
 | Screen | Address | Who |
 | --- | --- | --- |
 | About ("Clozest for salons": what salons get, ₹500 a month after a 30-day trial, Sign in or sign up) | `/about` (a first-time visitor at `/` lands here) | Public |
+| Choose your language (each language in its own script; first on a phone where none was chosen, and from Change on sign-in) | `/language` | Public |
 | Contact, Terms, Privacy, Refund policy, Delivery | `/contact`, `/terms`, `/privacy`, `/refunds`, `/delivery` | Public (Razorpay's website check) |
 | Sign in, code, email, name | `/signin`, `/signin/code`, `/welcome/*` | Everyone (same as the customer app); links to the public pages at the bottom |
 | Start (no shop yet) | `/start` | New people |
 | What do you run? (Kirana or Salon; again from "Change" on any step until Submit) | `/register/kind` | New owners, owner of a draft (kirana switch on only) |
+| Before you start (be at the shop, photos and video, papers for that kind, about 10 minutes) | `/register/ready` | New owners, before step 1 |
 | Register: details, photos, submit (a salon also services and hours; a kirana its UPI ID) | `/register`, `/register/photos`, `/register/services`, `/register/hours`, `/register/upi`, `/register/review` | Owner of a draft |
 | Kirana: Counter, Bills, Products, Khata (the bottom bar) | `/kirana/counter`, `/kirana/bills`, `/kirana/products`, `/kirana/khata` | A kirana's owner and helpers (kirana switch on only) |
 | Kirana: a bill, the day's totals, a product, a new product, a khata customer | `/kirana/bills/:id`, `/kirana/day?date=`, `/kirana/products/:id`, `/kirana/products/new?barcode=&name=&from=`, `/kirana/khata/:id` | A kirana's owner and helpers (owner-only changes hidden from helpers; kirana switch on only) |
@@ -250,6 +252,7 @@ sequenceDiagram
   participant A as Partner app
   participant B as Backend
   participant R2 as Cloudflare R2
+  O->>A: "Register my salon", then Before you start (be at the salon; "I'm at my salon. Let's start")
   O->>A: Details, then "Use my location" (GPS; empty address fields filled from POST /shops/reverse-geocode) or "Find my salon on the map" (POST /shops/geocode), drag the pin
   A->>B: POST /shops (type SALON)
   B-->>A: 201 DRAFT
@@ -757,6 +760,40 @@ and keeps whatever was typed.
   (`docs/translation-review.md` lists what to look at first).
 
 ## Changelog
+
+### Unreleased — the language first, and "Before you start"
+
+No backend change, no new APK needed (nothing native changed). The words are in all six languages.
+
+- **The language comes first.** On a phone where no language was ever chosen, the app opens on "Choose your
+  language" (`i18n/LanguageFirst.tsx`, route `/language`), before About, sign-in and recover: one big button per
+  language, each in its own script with its English name under it. On a phone set to a language the app has, the
+  question is in it and that language is first, worked out once from the phone's setting so the buttons never move
+  when its words arrive. One tap downloads it, keeps it on the phone and goes on (to About on a fresh visit, to
+  sign-in or the link opened, with its notices). A slow download never holds the screen: another tap (English) takes
+  over. A language that can't download says so in that language and in English. Phones with a language already
+  chosen never see it.
+- **The account's own language wins at sign-in.** A language picked while signed out (the first screen, Change) is
+  the phone's: an account that already has one keeps it (a helper setting the phone up, or the last person on a shared
+  phone, doesn't change it); an account with none gets the pick. A change while signed in is the account's.
+- **Sign-in shows "🌐 Language: हिन्दी · बदलें (Change)"** (`LanguageLine`) instead of the six buttons; Change opens
+  the language screen with Back, and coming back keeps the number typed and the "number probably changed" notice.
+- **The language one tap away on Today**: "🌐 हिन्दी" beside Help and the bell (`LanguageButton stacked`), for owners,
+  helpers and barbers alike, besides Home, More and every registration step.
+- **"Before you start"** (`features/shop/RegisterReady.tsx`, route `/register/ready`) between Start (or "What do you
+  run?" with the kirana switch on) and step 1, worded for the kind picked: about 10 minutes, each step saved when it
+  is finished; be inside the salon (or kirana shop), the owner's photo, the front with its board and the 15–45 second
+  video, and the papers to keep handy (a salon's trade licence, which can be added later; a kirana's food licence
+  (FSSAI) if it sells food, the UPI ID on its PhonePe or GPay QR, a trade licence if it has one). "I'm at my salon.
+  Let's start" goes on and isn't asked again (`adp.registerReady`, per person, held for the visit when the phone can't
+  keep it, forgotten on sign-out and when the shop is saved): Start's button, a link to step 1 or changing the kind
+  go straight to step 1. "I'm not at my salon now" says to come back from "Register my salon" with nothing lost. A
+  saved draft never asks.
+- **Step 1, by "Use my location":** "Stand inside your salon, then tap “Use my location”." (until a location is
+  taken). A GPS location farther from the address found than its precision allows (300 m for an exact address, 700 m
+  for a street, 2 km for an area) plus the phone's own accuracy asks "Your phone is 900 m from the address you
+  typed. Are you inside your salon?", with "Yes, I'm inside. Keep it" and "Take my location again" right there. It
+  goes away once answered, when the pin is dragged, or when the address is edited or searched again without a match.
 
 ### Unreleased — kirana by branch
 

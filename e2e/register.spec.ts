@@ -3,8 +3,10 @@ import { expect, fakeMp4, JPEG, signedIn, stubVideoLength, test } from './helper
 
 test('a new owner signs up, registers the salon in five steps and waits for the visit', async ({ page, context, api }) => {
   await stubVideoLength(context, 30)
-  // A new visitor first sees what Clozest offers salons (the About page), then signs up from there
+  // A new phone: the language first, then what Clozest offers salons (the About page), then sign-up from there
   await page.goto('/')
+  await expect(page).toHaveURL(/\/language$/)
+  await page.getByRole('button', { name: /^English/ }).click()
   await expect(page).toHaveURL(/\/about$/)
   await page.getByRole('link', { name: 'Sign in or sign up' }).click()
   await expect(page).toHaveURL(/\/signin$/)
@@ -22,8 +24,18 @@ test('a new owner signs up, registers the salon in five steps and waits for the 
   await expect(page).toHaveURL(/\/start$/)
   await page.getByRole('button', { name: 'Register my salon' }).click()
 
-  // Step 1: details and the GPS pin
+  // Before you start: be at the salon, the photos and video, the trade licence, about 10 minutes
+  await expect(page).toHaveURL(/\/register\/ready$/)
+  await expect(page.getByRole('heading', { name: 'Before you start' })).toBeVisible()
+  await expect(page.getByText('Be at your salon')).toBeVisible()
+  await expect(page.getByText(/15–45 second video/)).toBeVisible()
+  await expect(page.getByText('Keep your trade licence handy')).toBeVisible()
+  await expect(page.getByText(/kirana|FSSAI/i)).toHaveCount(0)
+  await page.getByRole('button', { name: "I'm at my salon. Let's start" }).click()
+
+  // Step 1: details and the GPS pin, with the reminder by the location button
   await expect(page).toHaveURL(/\/register$/)
+  await expect(page.getByText('Stand inside your salon, then tap “Use my location”.')).toBeVisible()
   await page.getByRole('button', { name: 'Save and continue' }).click()
   await expect(page.getByText('Enter the salon name')).toBeVisible()
   await expect(page.getByText("Add the salon's location to continue.")).toBeVisible()

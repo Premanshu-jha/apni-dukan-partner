@@ -5,7 +5,7 @@ import { useDay } from '../../api/salon'
 import { useShop } from '../../api/shop'
 import type { Appointment, BarberColumn } from '../../api/types'
 import { OFFSCREEN_CHEAP } from '../../components/ShowMore'
-import { Banner, Button, Chip, EmptyState, ErrorState, Loading, Page, Pill } from '../../components/ui'
+import { Banner, Button, Chip, EmptyState, ErrorState, LanguageButton, Loading, Page, Pill } from '../../components/ui'
 import { addDays, clock12, dateOfIst, dayLabel, isDate, timeIst, todayIst } from '../../lib/ist'
 import { useTodayIst } from '../../lib/useNow'
 import { rupees } from '../../lib/money'
@@ -200,6 +200,8 @@ export function Today() {
           <h1 className="text-xl font-bold">{dayLabel(date)}</h1>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {/* The language one tap away on the screen everyone starts on (not only in More) */}
+          <LanguageButton stacked />
           <HelpButton />
           <Bell />
         </div>
