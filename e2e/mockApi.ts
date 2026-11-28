@@ -233,6 +233,8 @@ export class MockApi {
   /** Paths (with the query) answered 304 Not Modified, in order. */
   notModified: string[] = []
   calls: Call[] = []
+  /** The backend's clock for the walk-in rules (null: the real time); a test that fixes the page's clock sets it too. */
+  nowMs: number | null = null
   /** The person's shop (null = 404 NO_SHOP). */
   shop: Json | null = null
   /** The next answers to these paths (not GET) are lost after the call was done (outcome unknown in the app). */
@@ -259,6 +261,16 @@ export class MockApi {
   walkInPricesDown = false
   /** The walk-ins asked for (their bodies), oldest first. */
   walkInRequests: Record<string, unknown>[] = []
+  /** GET /salon/walk-ins/texts: whether a walk-in kept for later can send an SMS (its template is set on the server). */
+  walkInSms = true
+  /** The SMS a kept walk-in sent (WalkInTexts): the number and the time. The number is kept nowhere else. */
+  walkInTexts: { phone: string; startAt: string }[] = []
+  /** This person's day summaries (SalonSummaries): both on until switched off. */
+  summaries = { morning: true, evening: true }
+  /** The owner's "Get found on Google Maps too" card (GoogleListingService): shown while true. */
+  googleMissing = false
+  /** The owner's answer to that card. */
+  googleAnswer: string | null = null
   offerCustomers = 3
   ratingSummary: Json = { count: 0, average: null, tags: [] }
   appointments: Json[] = []
@@ -1171,6 +1183,17 @@ export class MockApi {
     if (p === '/push/public-key') return ok(200, { publicKey: null })
 
     // ---------- the shop ----------
+    if (p === '/shops/me/google-listing' || p === '/shops/me/google-listing/answer') {
+      // GoogleListingService: the owner's card only; "I've added it" / "Not now" puts it away for good
+      const ownerHere = this.role === 'OWNER'
+      if (method === 'POST') {
+        if (!ownerHere) return fail(403, 'OWNER_ONLY', 'Only the owner can do this.')
+        if (body.answer !== 'ADDED' && body.answer !== 'NOT_NOW') return fail(400, 'VALIDATION_FAILED', 'answer must be ADDED or NOT_NOW')
+        this.googleAnswer = body.answer
+        this.googleMissing = false
+      }
+      return ok(200, { show: ownerHere && this.googleMissing, addUrl: 'https://business.google.com/create' })
+    }
     if (p === '/shops/me' && method === 'GET') {
       if (this.shopDown > 0) {
         this.shopDown--
@@ -1340,7 +1363,7 @@ export class MockApi {
         return ok(204)
       }
       if (!this.shop.addressLocked) return fail(409, 'ADDRESS_NOT_LOCKED', "Your address isn't verified yet: change it yourself in Salon details.")
-      if (this.shop.status === 'SUSPENDED' || this.shop.status === 'CLOSED') return fail(409, 'WRONG_STATUS', `${this.shop.status === 'SUSPENDED' ? 'Your shop is suspended' : 'Your shop is closed'}, so it can't ask for a new address. Write to us from More → Need help.`, { status: this.shop.status })
+      if (this.shop.status === 'SUSPENDED' || this.shop.status === 'CLOSED') return fail(409, 'WRONG_STATUS', `${this.shop.status === 'SUSPENDED' ? 'Your shop is suspended' : 'Your shop is closed'}, so it can't ask for a new address. Write to us from “You” → Need help.`, { status: this.shop.status })
       if (this.editLocked()) return fail(403, 'EDIT_LOCKED', "Your shop is verified: confirm it's you with the code we send to your phone first.")
       const same = ['addressLine', 'area', 'city', 'pincode'].every((k) => String(body[k]).trim() === this.shop![k])
         && body.latitude === this.shop.latitude && body.longitude === this.shop.longitude
@@ -1942,7 +1965,8 @@ export class MockApi {
     }
 
     if (p === '/salon/day') {
-      if (this.dayDown > 0) {
+      // Only today's board goes down (Today's glance at tomorrow, after 6 pm, is another query)
+      if (this.dayDown > 0 && (url.searchParams.get('date') ?? todayIst()) === todayIst()) {
         this.dayDown--
         // With Retry-After when a test sets it, as GlobalExceptionHandler sends it (5)
         return ok(503, { code: 'SERVICE_BUSY', message: "We're having a short problem. Try again in a few seconds.", details: {} },
@@ -2195,8 +2219,20 @@ export class MockApi {
       return ok(
         200,
         able
-          .map((s, i) => ({ staffId: s.id, name: s.name, freeNow: i === 0, startAt: i === 0 ? null : minutesFromNow(40), time: i === 0 ? null : '16:30', bookedMinutesToday: 0 })),
+          .map((s, i) => ({ staffId: s.id, name: s.name, freeNow: i === 0, startAt: i === 0 ? null : istInstant(todayIst(), '16:30'), time: i === 0 ? null : '16:30', bookedMinutesToday: 0 })),
       )
+    }
+    if (p === '/salon/walk-ins/texts' && method === 'GET') {
+      if (!this.walkIns) return fail(403, 'WALK_INS_NOT_ALLOWED', 'The owner hasn’t allowed you to add walk-ins.')
+      return ok(200, { sms: this.walkInSms })
+    }
+    if (p === '/salon/summaries') {
+      // SalonSummaries: anyone of the salon; a field left out stays as it is
+      if (method === 'PUT') {
+        if (typeof body.morning === 'boolean') this.summaries.morning = body.morning
+        if (typeof body.evening === 'boolean') this.summaries.evening = body.evening
+      }
+      return ok(200, { ...this.summaries })
     }
     if (p === '/salon/walk-ins') {
       if (!this.walkIns) return fail(403, 'WALK_INS_NOT_ALLOWED', 'The owner hasn’t allowed you to add walk-ins.')
@@ -2213,6 +2249,25 @@ export class MockApi {
         .reduce((t, x) => t + (x.pricePaise as number), 0)
       if (body.expectedPricePaise != null && body.expectedPricePaise !== total) {
         return fail(409, 'PRICE_CHANGED', 'The price changed just now. Check the new total with the customer, then add again.', { pricePaise: total })
+      }
+      // SalonDayService.addWalkIn: a later time today (CONFIRMED, its time taken) with an optional mobile (an SMS)
+      if (body.phone != null && body.startAt == null) {
+        return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { phone: 'is only for a walk-in kept for later (startAt)' })
+      }
+      if (body.phone != null && !/^[6-9][0-9]{9}$/.test(String(body.phone).replace(/[^0-9]/g, '').replace(/^(91|0)(?=[6-9][0-9]{9}$)/, ''))) {
+        return fail(400, 'VALIDATION_FAILED', 'Some fields are not valid', { phone: 'must be a 10-digit mobile number' })
+      }
+      if (body.startAt != null) {
+        // SalonDayService.addWalkIn: a time that just passed is 409 (pick another), one that isn't today 400
+        if (Date.parse(body.startAt) <= (this.nowMs ?? Date.now())) return fail(409, 'WALK_IN_TIME_PASSED', 'That time has just passed. Pick another time.')
+        const st = this.staff.find((s) => s.id === body.staffId)
+        const len = (body.serviceIds as string[]).reduce((m, id) => m + ((this.services.find((s) => s.id === id)?.durationMinutes as number) ?? 30), 0)
+        if (this.holdsBetween(body.staffId, Date.parse(body.startAt), Date.parse(body.startAt) + len * 60_000).length) {
+          return fail(409, 'BARBER_BUSY', `${st?.name ?? 'He'} isn't free at that time any more. Pick another time.`, { freeNow: false, freeAt: 'not today' })
+        }
+        const kept = this.addBooking({ kind: 'WALK_IN', staffId: body.staffId, serviceIds: body.serviceIds, startsAt: body.startAt, status: 'CONFIRMED', customerName: null, customerPhone: null, bookingNo: null, guestName: body.name, key, createdBy: this.user.id, startedAt: null })
+        if (body.phone && this.walkInSms) this.walkInTexts.push({ phone: body.phone, startAt: body.startAt })
+        return ok(201, this.view(kept))
       }
       const a = this.addBooking({ kind: 'WALK_IN', staffId: body.staffId, serviceIds: body.serviceIds, startsAt: minutesFromNow(0), status: 'IN_SERVICE', customerName: null, customerPhone: null, bookingNo: null, guestName: body.name, key, createdBy: this.user.id, startedAt: minutesFromNow(0) })
       return ok(201, this.view(a))

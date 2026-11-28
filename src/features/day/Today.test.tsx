@@ -34,7 +34,8 @@ vi.mock('./status', async (orig) => {
   }
 })
 vi.mock('../notifications/Bell', () => ({ Bell: () => null }))
-vi.mock('../profile/Notifications', () => ({ NotificationsPrompt: () => null }))
+// The day glance's cards have their own tests (DayGlance.test.tsx): left out of the big board's render budget
+vi.mock('./DayGlance', () => ({ AlertsLine: () => null, DaySummary: () => null, GoogleListingCard: () => null, SlowDayShare: () => null, useGoogleCard: () => ({ data: undefined }) }))
 vi.mock('../shop/HandoverOffers', () => ({ HandoverOffers: () => null }))
 vi.mock('../shop/InviteOffers', () => ({ InviteOffers: () => null }))
 vi.mock('./Pause', () => ({ PauseControl: () => null }))

@@ -6,7 +6,7 @@ import { atSalon, expect, signedIn, test } from './helpers'
 test('close the shop: the warning, a reason, then no shop: the start screen says so, and the account can be deleted', async ({ page, context, api }) => {
   await atSalon(page, context, api)
   const booking = api.addBooking({ startsAt: minutesFromNow(120) })
-  await page.getByRole('link', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await page.getByRole('link', { name: 'Close Shine Unisex Salon' }).click()
   await expect(page.getByText("Closing is for good. It can't be undone.")).toBeVisible()
   await expect(page.getByText('Every upcoming online booking is cancelled, and each customer is told the salon has closed.')).toBeVisible()
@@ -46,7 +46,7 @@ test('closing refused because the shop changed: it is read again and the next tr
 
 test('hand over: the neutral answer, the waiting request with Cancel, and the errors', async ({ page, context, api }) => {
   await atSalon(page, context, api)
-  await page.getByRole('link', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await page.getByRole('link', { name: 'Hand over Shine Unisex Salon' }).click()
   const field = page.getByLabel('Their mobile number')
 
@@ -113,7 +113,7 @@ test('someone without a shop is asked: the request on the start screen, Accept m
   // The session was refreshed after accepting, so the token carries the shop as OWNER
   const accept = api.calls.findIndex((c) => c.path.endsWith('/accept'))
   expect(api.calls.slice(accept).some((c) => c.path === '/api/v1/auth/refresh')).toBe(true)
-  await page.getByRole('link', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await expect(page.getByText(/You are the owner/)).toBeVisible()
 })
 
@@ -145,7 +145,7 @@ test('a helper of another salon: ALREADY_IN_A_SHOP says to leave it first; the r
   await expect(page).toHaveURL(/\/handover$/)
   await page.getByRole('button', { name: 'Accept', exact: true }).click()
   await page.getByRole('button', { name: 'Accept and become the owner' }).click()
-  await expect(page.getByText('You work in another shop. Leave it first, then accept. You can leave Shine Unisex Salon from More.')).toBeVisible()
+  await expect(page.getByText('You work in another shop. Leave it first, then accept. You can leave Shine Unisex Salon from the “You” tab.')).toBeVisible()
   await page.goto('/salon/day')
   await expect(page.getByText('Take over Royal Cuts?')).toBeVisible()
 })
@@ -158,7 +158,7 @@ test('a helper asked to take over his own salon is promoted to owner', async ({ 
   await expect(page.getByText('You stay in it, as the owner now.', { exact: false })).toBeVisible()
   await page.getByRole('button', { name: 'Accept and become the owner' }).click()
   await expect(page.getByText('Take over Shine Unisex Salon?')).toHaveCount(0)
-  await page.getByRole('link', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'You', exact: true }).click()
   await expect(page.getByText(/You are the owner/)).toBeVisible()
   await expect(page.getByRole('link', { name: 'Close Shine Unisex Salon' })).toBeVisible()
 })

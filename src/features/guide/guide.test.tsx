@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import type { User } from '../../api/types'
 import { provideForTests, resetLanguageForTests, setLanguage } from '../../i18n'
 import { useSession } from '../../store/session'
@@ -108,11 +109,17 @@ describe('the setup skips', () => {
 })
 
 describe('the first-time tips', () => {
-  it('owner and helpers: five tips with the app’s real button names', () => {
+  it('owner and helpers: six tips (what to expect, then the day) with the app’s real button names and pictures', () => {
     const tips = tipsFor('OWNER')
-    expect(tips).toHaveLength(5)
+    expect(tips).toHaveLength(6)
+    // What to expect first: customers can book now (share the link), how a booking reaches them (alerts on or off)
+    expect(tips[0].title).toBe('Customers near you can now book you')
+    expect(tips[0].action).toBe('share')
+    expect(tips[1].action).toBe('alerts')
+    expect(tips[1].body).toContain('8 am and 8 pm')
+    expect(tips.every((x) => x.pic)).toBe(true)
     const all = tips.map((x) => `${x.title} ${x.body}`).join('\n')
-    for (const button of ['Start', '+ Walk-in', 'Done early', 'Mark no-show', 'Give to another barber', 'Too busy? Pause online bookings', 'Add break']) {
+    for (const button of ['Start', '+ Walk-in', 'Free now', 'Done early', 'Mark no-show', 'Give to another barber', 'Too busy? Pause online bookings', 'Add break']) {
       expect(all).toContain(`“${button}”`)
     }
     expect(all).toContain('4-digit code')
@@ -131,12 +138,14 @@ describe('the first-time tips', () => {
 
   it('Next walks through them with dots; the last one says Done; Skip tips closes at once', () => {
     const onClose = vi.fn()
-    render(<Tips role="OWNER" onClose={onClose} />)
-    expect(screen.getByText('Tip 1 of 5')).toBeInTheDocument()
-    expect(screen.getByTestId('tip-dots').children).toHaveLength(5)
-    for (let i = 2; i <= 5; i++) {
+    render(<MemoryRouter><Tips role="OWNER" onClose={onClose} /></MemoryRouter>)
+    expect(screen.getByText('Tip 1 of 6')).toBeInTheDocument()
+    expect(screen.getByTestId('tip-dots').children).toHaveLength(6)
+    // The first tip's one next step is right on it
+    expect(screen.getByRole('link', { name: 'Share my salon' })).toHaveAttribute('href', '/salon/share')
+    for (let i = 2; i <= 6; i++) {
       fireEvent.click(screen.getByRole('button', { name: 'Next' }))
-      expect(screen.getByText(`Tip ${i} of 5`)).toBeInTheDocument()
+      expect(screen.getByText(`Tip ${i} of 6`)).toBeInTheDocument()
     }
     expect(screen.queryByRole('button', { name: 'Skip tips' })).toBeNull()
     expect(screen.getByText('You can see these tips again from Help.')).toBeInTheDocument()
@@ -146,15 +155,17 @@ describe('the first-time tips', () => {
 
   it('Skip tips closes them', () => {
     const onClose = vi.fn()
-    render(<Tips role="BARBER" onClose={onClose} />)
+    render(<MemoryRouter><Tips role="BARBER" onClose={onClose} /></MemoryRouter>)
     fireEvent.click(screen.getByRole('button', { name: 'Skip tips' }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it('a helper starts without walk-ins: his tip says "if the owner lets you", as a barber\'s does; the owner\'s doesn\'t', () => {
-    expect(tipsFor('HELPER')[2].body).toMatch(/^Someone came without booking\? If the owner lets you, tap “\+ Walk-in”/)
-    expect(tipsFor('BARBER')[2].body).toContain('If the owner lets you')
+    expect(tipsFor('HELPER')[2].body).toMatch(/^If the owner lets you: tap “\+ Walk-in”/)
+    expect(tipsFor('BARBER')[3].body).toContain('If the owner lets you')
     expect(tipsFor('OWNER')[2].body).not.toContain('owner')
+    // Everyone busy: a later time can be kept for the customer
+    expect(tipsFor('OWNER')[2].body).toContain('Keep a barber\'s free time for them')
   })
 
   it('in another language, the button names in the tips are that language’s', async () => {

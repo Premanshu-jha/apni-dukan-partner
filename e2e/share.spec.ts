@@ -72,7 +72,7 @@ test('printing gives only the poster, on white', async ({ page, context, api }) 
 
 test('a barber finds it under More and can share his salon with his own customers', async ({ page, context, api }) => {
   await atSalon(page, context, api, 'BARBER')
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'More' }).click()
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'You', exact: true }).click()
   await page.getByRole('link', { name: 'Share your salon' }).click()
   await expect(page.getByRole('link', { name: 'Share on WhatsApp' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Download poster' })).toBeVisible()

@@ -353,7 +353,7 @@ test('the approval bar costs no request: moving between tabs reads the shop no m
     await page.goto('/salon/day')
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     const before = api.calls.length
-    for (const tab of ['Bookings', 'More', 'Today']) {
+    for (const tab of ['Bookings', 'You', 'Today']) {
       await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: tab }).click()
       await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible()
     }
